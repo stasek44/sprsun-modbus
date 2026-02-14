@@ -42,7 +42,7 @@ async def validate_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict
             result = client.read_holding_registers(
                 address=0x0000,
                 count=1,
-                slave=device_address
+                device_id=device_address
             )
             
             if result.isError():
