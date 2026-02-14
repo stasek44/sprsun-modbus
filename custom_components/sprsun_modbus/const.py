@@ -14,7 +14,7 @@ CONF_DEVICE_ADDRESS = "device_address"
 CONF_SCAN_INTERVAL = "scan_interval"
 
 # Platforms
-PLATFORMS = ["sensor", "binary_sensor", "number"]
+PLATFORMS = ["sensor", "binary_sensor", "number", "select"]
 
 # Read-Only Registers (50 parameters) - zgodnie z modbus_reference.md
 REGISTERS_READ_ONLY = {
@@ -55,7 +55,7 @@ REGISTERS_READ_ONLY = {
     0x0029: ("cond_temp", "Condensation Temperature", 0.1, "°C", "temperature"),
     
     # System Measurements
-    0x0017: ("ac_voltage", "AC Voltage", 1, "W", "power"),
+    0x0017: ("ac_voltage", "AC Voltage", 1, "V", "voltage"),
     0x0018: ("pump_flow", "Pump Flow", 1, "m³/h", None),
     0x0019: ("heating_cooling_capacity", "Heating/Cooling Capacity", 1, "W", "power"),
     0x001A: ("ac_current", "AC Current", 1, "A", "current"),
@@ -94,17 +94,38 @@ BINARY_SENSOR_BITS = {
 # Note: Control switches (RW 0x0032-0x0034) require bitfield manipulation
 # These can be added as advanced feature later
 
+# Select entities - Read-Write mode controls
+# Format: address: (key, name, options_dict)
+REGISTERS_SELECT = {
+    0x0036: ("unit_mode", "Unit Mode", {  # P06
+        0: "Hot Water Only",
+        1: "Heating Only",
+        2: "Cooling Only",
+        3: "Heating + Hot Water",
+        4: "Cooling + Hot Water",
+    }),
+    0x0190: ("fan_mode", "Fan Mode", {  # P07
+        0: "Normal",
+        1: "Economic",
+        2: "Night",
+        3: "Test",
+    }),
+    0x019E: ("pump_mode", "Pump Work Mode", {  # G02
+        0: "Interval",
+        1: "Normal",
+        2: "Demand",
+    }),
+}
+
 # Numbers - Read-Write registers (according to modbus_reference.md)
 # Format: address: (key, name, scale, unit, min, max, step, device_class)
 REGISTERS_NUMBER = {
     # Basic Configuration - P parameters
-    0x0036: ("unit_mode", "Unit Mode", 1, None, 0, 4, 1, None),  # P06
     0x00CC: ("heating_setpoint", "Heating Setpoint", 0.5, "°C", 10, 55, 0.5, "temperature"),  # P01
     0x00CB: ("cooling_setpoint", "Cooling Setpoint", 0.5, "°C", 12, 30, 0.5, "temperature"),  # P02
     0x00CA: ("hotwater_setpoint", "Hot Water Setpoint", 0.5, "°C", 10, 55, 0.5, "temperature"),  # P04
-    0x00C6: ("temp_diff_heating_cooling", "Heating/Cooling Temp Diff", 1, "°C", 2, 18, 1, None),  # P03
-    0x00C8: ("temp_diff_hotwater", "Hot Water Temp Diff", 1, "°C", 2, 18, 1, None),  # P05
-    0x0190: ("fan_mode", "Fan Mode", 1, None, 0, 3, 1, None),  # P07: 0=NOR, 1=ECO, 2=Night, 3=Test
+    0x00C6: ("temp_diff_heating_cooling", "Heating/Cooling Temp Diff", 1, "°C", 2, 18, 1, "temperature"),  # P03
+    0x00C8: ("temp_diff_hotwater", "Hot Water Temp Diff", 1, "°C", 2, 18, 1, "temperature"),  # P05
     
     # Economic Mode - Heating (E01-E04, E13-E16)
     0x0169: ("econ_heat_ambi_1", "Economic Heat Ambient 1", 1, "°C", -30, 50, 1, "temperature"),  # E01
@@ -145,8 +166,7 @@ REGISTERS_NUMBER = {
     0x018D: ("dc_pump_temp_diff", "DC Pump Temp Differential", 1, "°C", 5, 30, 1, None),  # G04
     0x0191: ("mode_control_enable", "Mode Control Enable", 1, None, 0, 1, 1, None),  # G09
     0x0192: ("ambient_switch_setpoint", "Ambient Temp Switch Setpoint", 1, "°C", -20, 30, 1, "temperature"),  # G10
-    0x0193: ("ambient_switch_diff", "Ambient Temp Switch Diff", 1, "°C", 1, 10, 1, None),  # G11
-    0x019E: ("pump_work_mode", "Pump Work Mode", 1, None, 0, 2, 1, None),  # G02: 0=Interval, 1=Normal, 2=Demand
+    0x0193: ("ambient_switch_diff", "Ambient Temp Switch Diff", 1, "°C", 1, 10, 1, "temperature"),  # G11
     
     # Antilegionella Configuration
     0x019A: ("antilegionella_temp", "Antilegionella Temperature", 1, "°C", 30, 70, 1, "temperature"),
@@ -155,25 +175,13 @@ REGISTERS_NUMBER = {
     0x019D: ("antilegionella_end_hour", "Antilegionella End Hour", 1, "h", 0, 23, 1, None),
 }
 
-# Unit mode descriptions
-UNIT_MODE_MAP = {
-    0: "Hot Water Only",
-    1: "Heating Only",
-    2: "Cooling Only",
-    3: "Heating + Hot Water",
-    4: "Cooling + Hot Water",
-}
-
-# Fan mode descriptions
-FAN_MODE_MAP = {
-    0: "Auto",
-    1: "Low",
-    2: "High",
-}
-
-# Pump mode descriptions
-PUMP_MODE_MAP = {
-    0: "Auto",
-    1: "Continuous",
-    2: "Intermittent",
+# Weekday mapping for antilegionella
+WEEKDAY_MAP = {
+    0: "Sunday",
+    1: "Monday",
+    2: "Tuesday",
+    3: "Wednesday",
+    4: "Thursday",
+    5: "Friday",
+    6: "Saturday",
 }

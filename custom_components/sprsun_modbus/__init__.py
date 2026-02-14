@@ -17,6 +17,8 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     PLATFORMS,
     REGISTERS_READ_ONLY,
+    REGISTERS_NUMBER,
+    REGISTERS_SELECT,
     BINARY_SENSOR_BITS,
 )
 
@@ -148,6 +150,30 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 
         except Exception as err:
             _LOGGER.warning("Error reading 0x0003: %s", err)
+        
+        # Read R/W registers for number and select entities
+        # Read them individually since they're scattered across the address space
+        rw_addresses = {}
+        rw_addresses.update({addr: (*config, 1) for addr, config in REGISTERS_NUMBER.items()})  # scale is third item
+        rw_addresses.update({addr: (config[0], config[1], 1, None, None) for addr, config in REGISTERS_SELECT.items()})  # add dummy scale
+        
+        for address, config in rw_addresses.items():
+            key = config[0]
+            scale = config[2]
+            
+            try:
+                result = self.client.read_holding_registers(
+                    address=address,
+                    count=1,
+                    device_id=self.device_address
+                )
+                
+                if not result.isError() and len(result.registers) == 1:
+                    raw_value = result.registers[0]
+                    data[key] = raw_value * scale
+                    
+            except Exception as err:
+                _LOGGER.debug("Error reading RW register 0x%04X: %s", address, err)
         
         return data
     

@@ -72,9 +72,11 @@ class SPRSUNSensor(CoordinatorEntity, SensorEntity):
             self._attr_device_class = SensorDeviceClass.CURRENT
         elif device_class == "frequency":
             self._attr_device_class = SensorDeviceClass.FREQUENCY
+        elif device_class == "voltage":
+            self._attr_device_class = SensorDeviceClass.VOLTAGE
         
         # Set state class for statistical sensors
-        if device_class in ["temperature", "pressure", "power", "current", "frequency"]:
+        if device_class in ["temperature", "pressure", "power", "current", "frequency", "voltage"]:
             self._attr_state_class = SensorStateClass.MEASUREMENT
         
         # Device info
