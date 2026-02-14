@@ -128,30 +128,33 @@ REGISTERS_NUMBER = {
     0x00C8: ("temp_diff_hotwater", "Hot Water Temp Diff", 1, "°C", 2, 18, 1, "temperature"),  # P05
     
     # Economic Mode - Heating (E01-E04, E13-E16)
-    0x0169: ("econ_heat_ambi_1", "Economic Heat Ambient 1", 1, "°C", -30, 50, 1, "temperature"),  # E01
-    0x016A: ("econ_heat_ambi_2", "Economic Heat Ambient 2", 1, "°C", -30, 50, 1, "temperature"),  # E02
-    0x016B: ("econ_heat_ambi_3", "Economic Heat Ambient 3", 1, "°C", -30, 50, 1, "temperature"),  # E03
-    0x016C: ("econ_heat_ambi_4", "Economic Heat Ambient 4", 1, "°C", -30, 50, 1, "temperature"),  # E04
+    # NOTE: E01-E04 are SIGNED (can be negative for winter ambient temps)
+    0x0169: ("econ_heat_ambi_1", "Economic Heat Ambient 1", 1, "°C", -30, 50, 1, "temperature"),  # E01 SIGNED
+    0x016A: ("econ_heat_ambi_2", "Economic Heat Ambient 2", 1, "°C", -30, 50, 1, "temperature"),  # E02 SIGNED
+    0x016B: ("econ_heat_ambi_3", "Economic Heat Ambient 3", 1, "°C", -30, 50, 1, "temperature"),  # E03 SIGNED
+    0x016C: ("econ_heat_ambi_4", "Economic Heat Ambient 4", 1, "°C", -30, 50, 1, "temperature"),  # E04 SIGNED
     0x0175: ("econ_heat_temp_1", "Economic Heat Temp 1", 0.5, "°C", 10, 55, 0.5, "temperature"),  # E13
     0x0176: ("econ_heat_temp_2", "Economic Heat Temp 2", 0.5, "°C", 10, 55, 0.5, "temperature"),  # E14
     0x0177: ("econ_heat_temp_3", "Economic Heat Temp 3", 0.5, "°C", 10, 55, 0.5, "temperature"),  # E15
     0x0178: ("econ_heat_temp_4", "Economic Heat Temp 4", 0.5, "°C", 10, 55, 0.5, "temperature"),  # E16
     
     # Economic Mode - Hot Water (E05-E08, E17-E20)
-    0x016D: ("econ_water_ambi_1", "Economic Water Ambient 1", 1, "°C", -30, 50, 1, "temperature"),  # E05
-    0x016E: ("econ_water_ambi_2", "Economic Water Ambient 2", 1, "°C", -30, 50, 1, "temperature"),  # E06
-    0x016F: ("econ_water_ambi_3", "Economic Water Ambient 3", 1, "°C", -30, 50, 1, "temperature"),  # E07
-    0x0170: ("econ_water_ambi_4", "Economic Water Ambient 4", 1, "°C", -30, 50, 1, "temperature"),  # E08
+    # NOTE: E05-E08 are SIGNED (can be negative for winter ambient temps)
+    0x016D: ("econ_water_ambi_1", "Economic Water Ambient 1", 1, "°C", -30, 50, 1, "temperature"),  # E05 SIGNED
+    0x016E: ("econ_water_ambi_2", "Economic Water Ambient 2", 1, "°C", -30, 50, 1, "temperature"),  # E06 SIGNED
+    0x016F: ("econ_water_ambi_3", "Economic Water Ambient 3", 1, "°C", -30, 50, 1, "temperature"),  # E07 SIGNED
+    0x0170: ("econ_water_ambi_4", "Economic Water Ambient 4", 1, "°C", -30, 50, 1, "temperature"),  # E08 SIGNED
     0x0179: ("econ_water_temp_1", "Economic Water Temp 1", 0.5, "°C", 10, 55, 0.5, "temperature"),  # E17
     0x017A: ("econ_water_temp_2", "Economic Water Temp 2", 0.5, "°C", 10, 55, 0.5, "temperature"),  # E18
     0x017B: ("econ_water_temp_3", "Economic Water Temp 3", 0.5, "°C", 10, 55, 0.5, "temperature"),  # E19
     0x017C: ("econ_water_temp_4", "Economic Water Temp 4", 0.5, "°C", 10, 55, 0.5, "temperature"),  # E20
     
     # Economic Mode - Cooling (E09-E12, E21-E24)
-    0x0171: ("econ_cool_ambi_1", "Economic Cool Ambient 1", 1, "°C", -30, 50, 1, "temperature"),  # E09
-    0x0172: ("econ_cool_ambi_2", "Economic Cool Ambient 2", 1, "°C", -30, 50, 1, "temperature"),  # E10
-    0x0173: ("econ_cool_ambi_3", "Economic Cool Ambient 3", 1, "°C", -30, 50, 1, "temperature"),  # E11
-    0x0174: ("econ_cool_ambi_4", "Economic Cool Ambient 4", 1, "°C", -30, 50, 1, "temperature"),  # E12
+    # NOTE: E09-E12 are SIGNED (can be negative for winter ambient temps)
+    0x0171: ("econ_cool_ambi_1", "Economic Cool Ambient 1", 1, "°C", -30, 50, 1, "temperature"),  # E09 SIGNED
+    0x0172: ("econ_cool_ambi_2", "Economic Cool Ambient 2", 1, "°C", -30, 50, 1, "temperature"),  # E10 SIGNED
+    0x0173: ("econ_cool_ambi_3", "Economic Cool Ambient 3", 1, "°C", -30, 50, 1, "temperature"),  # E11 SIGNED
+    0x0174: ("econ_cool_ambi_4", "Economic Cool Ambient 4", 1, "°C", -30, 50, 1, "temperature"),  # E12 SIGNED
     0x017D: ("econ_cool_temp_1", "Economic Cool Temp 1", 0.5, "°C", 12, 30, 0.5, "temperature"),  # E21
     0x017E: ("econ_cool_temp_2", "Economic Cool Temp 2", 0.5, "°C", 12, 30, 0.5, "temperature"),  # E22
     0x017F: ("econ_cool_temp_3", "Economic Cool Temp 3", 0.5, "°C", 12, 30, 0.5, "temperature"),  # E23
@@ -160,12 +163,12 @@ REGISTERS_NUMBER = {
     # General Configuration - G parameters
     0x0181: ("comp_delay_hotwater", "Hot Water Heater Delay", 1, "min", 1, 60, 1, None),  # G08
     0x0182: ("comp_delay_heating", "Heating Heater Delay", 1, "min", 1, 60, 1, None),  # G06
-    0x0183: ("hotwater_heater_ext_temp", "Hot Water Heater Ambient Temp", 1, "°C", -30, 30, 1, "temperature"),  # G07
-    0x0184: ("heating_heater_ext_temp", "Heating Heater Ambient Temp", 1, "°C", -30, 30, 1, "temperature"),  # G05
+    0x0183: ("hotwater_heater_ext_temp", "Hot Water Heater Ambient Temp", 1, "°C", -30, 30, 1, "temperature"),  # G07 SIGNED
+    0x0184: ("heating_heater_ext_temp", "Heating Heater Ambient Temp", 1, "°C", -30, 30, 1, "temperature"),  # G05 SIGNED
     0x0185: ("pump_cycle", "Pump Thermostatic Cycle", 1, "min", 1, 120, 1, None),  # G03
     0x018D: ("dc_pump_temp_diff", "DC Pump Temp Differential", 1, "°C", 5, 30, 1, None),  # G04
     0x0191: ("mode_control_enable", "Mode Control Enable", 1, None, 0, 1, 1, None),  # G09
-    0x0192: ("ambient_switch_setpoint", "Ambient Temp Switch Setpoint", 1, "°C", -20, 30, 1, "temperature"),  # G10
+    0x0192: ("ambient_switch_setpoint", "Ambient Temp Switch Setpoint", 1, "°C", -20, 30, 1, "temperature"),  # G10 SIGNED
     0x0193: ("ambient_switch_diff", "Ambient Temp Switch Diff", 1, "°C", 1, 10, 1, "temperature"),  # G11
     
     # Antilegionella Configuration

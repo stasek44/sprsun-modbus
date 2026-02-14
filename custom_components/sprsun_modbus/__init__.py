@@ -111,13 +111,23 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         
         data = {}
         
-        # Registers that should be interpreted as signed int16
+        # Registers that should be interpreted as signed int16 (can be negative)
+        # Read-Only temperature sensors:
         SIGNED_REGISTERS = {
             0x0011,  # ambient_temp
             0x0015,  # suction_gas_temp
             0x0016,  # coil_temp
             0x0022,  # driving_temp
             0x0028,  # evap_temp
+        }
+        # Read-Write ambient temperature settings:
+        SIGNED_RW_REGISTERS = {
+            0x0169, 0x016A, 0x016B, 0x016C,  # E01-E04: Economic heat ambient
+            0x016D, 0x016E, 0x016F, 0x0170,  # E05-E08: Economic water ambient
+            0x0171, 0x0172, 0x0173, 0x0174,  # E09-E12: Economic cool ambient
+            0x0183,  # G07: Hotwater heater external temp
+            0x0184,  # G05: Heating heater external temp
+            0x0192,  # G10: Ambient temp switch setpoint
         }
         
         # Read all read-only registers in one batch (0x0000-0x0031 = 50 registers)
@@ -185,6 +195,12 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 
                 if not result.isError() and len(result.registers) == 1:
                     raw_value = result.registers[0]
+                    
+                    # Convert to signed int16 if this is an RW temperature register
+                    if address in SIGNED_RW_REGISTERS:
+                        if raw_value > 32767:
+                            raw_value = raw_value - 65536
+                    
                     data[key] = raw_value * scale
                     
             except Exception as err:

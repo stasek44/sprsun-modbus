@@ -14,6 +14,16 @@ from .const import DOMAIN, REGISTERS_NUMBER, CONF_DEVICE_ADDRESS
 
 _LOGGER = logging.getLogger(__name__)
 
+# RW registers that should be interpreted as signed int16 (can be negative)
+SIGNED_RW_REGISTERS = {
+    0x0169, 0x016A, 0x016B, 0x016C,  # E01-E04: Economic heat ambient
+    0x016D, 0x016E, 0x016F, 0x0170,  # E05-E08: Economic water ambient
+    0x0171, 0x0172, 0x0173, 0x0174,  # E09-E12: Economic cool ambient
+    0x0183,  # G07: Hotwater heater external temp
+    0x0184,  # G05: Heating heater external temp
+    0x0192,  # G10: Ambient temp switch setpoint
+}
+
 
 async def async_setup_entry(
     hass: HomeAssistant,
@@ -149,6 +159,12 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
                     raise ValueError(f"Modbus read error: {result}")
                 
                 raw_value = result.registers[0]
+                
+                # Convert to signed int16 if this is a signed register
+                if self._address in SIGNED_RW_REGISTERS:
+                    if raw_value > 32767:
+                        raw_value = raw_value - 65536
+                
                 scaled_value = raw_value * self._scale
                 
                 _LOGGER.debug(
@@ -168,6 +184,10 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
         def _write():
             # Convert scaled value back to raw register value
             raw_value = int(value / self._scale)
+            
+            # Convert negative values to unsigned int16 (two's complement) if this is a signed register
+            if self._address in SIGNED_RW_REGISTERS and raw_value < 0:
+                raw_value = raw_value + 65536
             
             client = ModbusTcpClient(host=self._host, port=self._port, timeout=5)
             try:
