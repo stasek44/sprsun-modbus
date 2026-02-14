@@ -118,5 +118,10 @@ def hass_mock():
     """Mock Home Assistant instance."""
     hass = MagicMock()
     hass.data = {}
-    hass.async_add_executor_job = lambda func, *args: func(*args)
+    
+    async def async_add_executor_job(func, *args):
+        """Mock async executor job - runs function directly."""
+        return func(*args)
+    
+    hass.async_add_executor_job = async_add_executor_job
     return hass

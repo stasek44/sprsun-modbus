@@ -8,6 +8,6 @@
   "documentation": "https://github.com/stasek44/sprsun-modbus",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/stasek44/sprsun-modbus/issues",
-  "requirements": ["pymodbus==3.12.0"],
+  "requirements": ["pymodbus==3.11.2"],
   "integration_type": "device"
 }

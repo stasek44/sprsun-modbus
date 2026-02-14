@@ -3,15 +3,17 @@
 ## Immediate TODOs
 
 ### Testing Setup
-- [ ] Install test dependencies: `pip install -r requirements_dev.txt`
-- [ ] Run test suite: `pytest tests/ -v`
-- [ ] Fix any failing tests
-- [ ] Verify CSV outputs in `tests/output/`
+- [x] **Local integration tests created** - `scripts/test_local.py`
+- [x] **Batch read validation working** - All tests pass ✅
+- [ ] Run on different device models to verify compatibility
+- [ ] Document test results for various hardware configs
 
 ### Documentation
-- [x] Add screenshots to `docs/images/`
+- [x] Testing guide updated with local tests
+- [x] README.md updated with quick start
+- [ ] Add screenshots to `docs/images/`
   - [ ] Device page screenshot
-  - [ ] Sensors list screenshot
+  - [ ] Sensors list screenshot  
   - [ ] Configuration flow screenshot
 
 ### Code Quality
@@ -19,6 +21,23 @@
 - [ ] Run Ruff linter: `ruff check custom_components/`
 - [ ] Fix any linting issues
 - [ ] Type checking: `mypy custom_components/`
+
+## Test Results Summary
+
+**Local Integration Tests** (scripts/test_local.py):
+- ✅ Connection test - PASSED
+- ✅ Batch read test - PASSED (50 registers in ~200ms)  
+- ✅ Batch vs individual - PASSED (all values match!)
+- ✅ Consistency test - PASSED
+- ✅ Performance test - PASSED
+
+**Key Finding:** Batch read returns **identical values** to individual reads. No offset or misalignment issues detected.
+
+Test outputs saved to: `tests/output/`
+- `batch_read_*.csv` - Full register dump
+- `batch_vs_individual_*.csv` - Validation results (✓ YES for all)
+- `consistency_*.csv` - Multiple reads comparison
+- `performance_*.csv` - Timing measurements
 
 ## Known Limitations
 

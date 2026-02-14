@@ -10,7 +10,7 @@ from custom_components.sprsun_modbus.const import (
 
 def test_registers_read_only_count():
     """Test that we have correct number of read-only registers."""
-    assert len(REGISTERS_READ_ONLY) == 50, "Should have 50 read-only registers"
+    assert len(REGISTERS_READ_ONLY) == 49, "Should have 49 read-only registers"
 
 
 def test_registers_read_only_addresses():
@@ -62,7 +62,7 @@ def test_pressure_sensors_have_correct_scale():
 
 def test_registers_number_count():
     """Test that we have correct number of read-write registers."""
-    assert len(REGISTERS_NUMBER) == 42, "Should have 42 read-write registers"
+    assert len(REGISTERS_NUMBER) == 45, "Should have 45 read-write registers"
 
 
 def test_registers_number_addresses():

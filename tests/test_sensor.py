@@ -45,13 +45,11 @@ def test_sensor_creation(mock_coordinator, mock_config_entry):
         config_entry=mock_config_entry,
         key=key,
         name=name,
-        scale=scale,
         unit=unit,
         device_class=device_class,
     )
     
     assert sensor._key == "inlet_temp"
-    assert sensor._scale == 0.1
     assert sensor.name == "Test Heat Pump Inlet Water Temperature"
     assert sensor.unique_id == "test_entry_inlet_temp"
 
@@ -66,7 +64,6 @@ def test_sensor_native_value(mock_coordinator, mock_config_entry):
         config_entry=mock_config_entry,
         key=key,
         name=name,
-        scale=scale,
         unit=unit,
         device_class=device_class,
     )
@@ -84,7 +81,6 @@ def test_sensor_unavailable_when_no_data(mock_coordinator, mock_config_entry):
         config_entry=mock_config_entry,
         key=key,
         name=name,
-        scale=scale,
         unit=unit,
         device_class=device_class,
     )
@@ -102,7 +98,6 @@ def test_sensor_available(mock_coordinator, mock_config_entry):
         config_entry=mock_config_entry,
         key=key,
         name=name,
-        scale=scale,
         unit=unit,
         device_class=device_class,
     )
@@ -123,7 +118,6 @@ def test_sensor_device_class_temperature(mock_coordinator, mock_config_entry):
         config_entry=mock_config_entry,
         key=key,
         name=name,
-        scale=scale,
         unit=unit,
         device_class=device_class,
     )
@@ -142,7 +136,6 @@ def test_sensor_device_class_power(mock_coordinator, mock_config_entry):
         config_entry=mock_config_entry,
         key=key,
         name=name,
-        scale=scale,
         unit=unit,
         device_class=device_class,
     )
@@ -161,7 +154,6 @@ def test_sensor_device_info(mock_coordinator, mock_config_entry):
         config_entry=mock_config_entry,
         key=key,
         name=name,
-        scale=scale,
         unit=unit,
         device_class=device_class,
     )

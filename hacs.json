@@ -1,7 +1,5 @@
 {
   "name": "SPRSUN Heat Pump Modbus",
   "render_readme": true,
-  "domains": ["sensor", "binary_sensor", "number"],
-  "homeassistant": "2024.1.0",
-  "iot_class": "Local Polling"
+  "homeassistant": "2024.1.0"
 }

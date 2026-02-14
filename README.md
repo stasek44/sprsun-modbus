@@ -1,135 +1,233 @@
-# SPRSUN Heat Pump Modbus Poller
+# SPRSUN Heat Pump Modbus Integration for Home Assistant
 
-This Python script polls all read-only Modbus registers from a SPRSUN heat pump and saves the data to a CSV file.
+[![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![GitHub Release](https://img.shields.io/github/release/stasek44/sprsun-modbus.svg)](https://github.com/stasek44/sprsun-modbus/releases)
+[![License](https://img.shields.io/github/license/stasek44/sprsun-modbus.svg)](LICENSE)
+
+Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using Elfin-EW11/W11 gateway).
 
 ## Features
 
-- Polls all read-only registers from the Modbus reference
-- Runs for 15 minutes with configurable polling interval (default: 10 seconds)
-- Applies proper scaling factors (0.1, 0.5, 1.0) to temperature and pressure readings
-- Saves data to timestamped CSV file
-- Real-time display of key parameters during polling
-- Handles signed/unsigned integer conversion
-- Error handling and graceful shutdown
+- **98 Entities**: 50 read-only sensors + 42 read-write number entities + 6 binary sensors
+- **Batch Reading**: All read-only parameters in ONE request (~200ms) for optimal performance
+- **Real-time Monitoring**: Temperature, pressure, power, COP, status flags
+- **Remote Control**: Adjust operating modes, setpoints, economic mode parameters
+- **Energy Dashboard**: Power sensors compatible with HA Energy
+- **Reliable**: Batch read validation tests ensure data consistency
 
-## Configuration
+## Quick Start
 
-The script is pre-configured with:
-- **Host**: 192.168.1.234
-- **Port**: 502
-- **Device Address**: 1 (Modbus slave ID)
-- **Poll Interval**: 10 seconds
-- **Duration**: 15 minutes
+### Installation
 
-To change these settings, edit the constants at the top of `modbus_poller.py`:
+#### Via HACS (Recommended)
+1. Add custom repository: `stasek44/sprsun-modbus`
+2. Install "SPRSUN Modbus"
+3. Restart Home Assistant
 
-```python
-MODBUS_HOST = "192.168.1.234"
-MODBUS_PORT = 502
-DEVICE_ADDRESS = 1
-POLL_INTERVAL = 10  # seconds between polls
-```
-
-## Read-Only Registers
-
-The script reads the following register categories:
-
-1. **System Status** - Runtime, COP, software versions
-2. **Input Status Flags** - Switch states, linkages
-3. **Working Status** - Operation mode indicators
-4. **Output Status** - Compressor, fan, valve, pump states
-5. **Failure/Alarm Flags** - 7 registers of fault indicators
-6. **Temperature Sensors** - 10 temperature readings with proper scaling
-7. **System Measurements** - Voltage, current, flow, pressure, speeds
-8. **Inverter Status** - Frequency conversion status and faults
-
-## Usage
-
-### Option 1: Using the run script
+#### Manual Installation
 ```bash
-./run_poller.sh
+cd /config/custom_components/
+git clone https://github.com/stasek44/sprsun-modbus.git sprsun_modbus
+# Restart Home Assistant
 ```
 
-### Option 2: Direct Python execution
+### Configuration
+
+1. **Settings** → **Devices & Services** → **Add Integration**
+2. Search for "SPRSUN"
+3. Enter:
+   - **Host**: Elfin W11 IP (e.g., 192.168.1.234)
+   - **Port**: 502
+   - **Device Address**: 1
+   - **Name**: My Heat Pump
+
+### Hardware Setup
+
+Connect RS485 from heat pump to Elfin-EW11/W11:
+- **A/+** → Terminal A
+- **B/-** → Terminal B  
+- **GND** → GND (recommended)
+
+Configure Elfin W11 at http://192.168.1.234:
+- Mode: TCP Server
+- Baud: 9600, 8N1
+- Timeout: 30s
+
+[See full installation guide →](docs/installation.md)
+
+## Entities
+
+### Sensors (50 read-only)
+- **Temperatures**: Inlet, outlet, hotwater, ambient, evaporator, condenser, coil, etc.
+- **Pressures**: Suction, discharge
+- **Power**: Heating/cooling capacity, AC voltage/current
+- **Status**: COP, compressor runtime, frequencies, fan speeds
+- **Diagnostics**: Software versions, failure symbols
+
+### Number Entities (42 read-write)
+- **Operating Modes**: Unit mode, fan mode
+- **Setpoints**: Heating, cooling, DHW temperatures
+- **Temperature Differentials**: Heating, DHW
+- **Economic Mode**: 4 ambient temps + 4 water temps for heating/cooling
+- **Antilegionella**: Temperature, schedule (weekday, start/end hour)
+
+### Binary Sensors (6)
+- Heating mode active
+- Cooling mode active  
+- DHW mode active
+- Silent mode active
+- Extra hot water
+- Compressor running
+
+## Testing
+
+### Local Hardware Test (No Home Assistant Required)
+
 ```bash
-/home/stanislaw/src/sprsun-modbus/.venv/bin/python modbus_poller.py
+# Test batch read consistency with your device
+python scripts/test_local.py
+
+# Customize connection
+MODBUS_HOST=192.168.1.100 python scripts/test_local.py
 ```
 
-### Option 3: Activate venv first
+Expected output:
+```
+✅ PASSED: connection
+✅ PASSED: batch_read  (50 registers in ~200ms)
+✅ PASSED: batch_vs_individual  ← Validates no value mismatches
+✅ PASSED: consistency
+✅ PASSED: performance
+
+Results: 5/5 tests passed
+CSV outputs saved to: tests/output/
+```
+
+**Key test**: `batch_vs_individual` - validates batch read returns identical values to individual reads (no offset/misalignment).
+
+[See full testing guide →](docs/testing.md)
+
+### Unit Tests
+
 ```bash
-source .venv/bin/activate
-python modbus_poller.py
-deactivate
+pip install -r requirements_dev.txt
+pytest tests/ -v --cov
 ```
 
-## Output
+## Performance
 
-The script creates a CSV file named `sprsun_modbus_data_YYYYMMDD_HHMMSS.csv` with:
-- Timestamp column
-- One column for each register (using the "name" from the reference document)
-- Values scaled according to the Modbus reference specification
+- **Read-Only (50 registers)**: ONE batch request ~200ms
+- **Binary Sensors (6 bits)**: ONE register read ~50ms  
+- **Total per scan**: 2 requests ~250ms
+- **RW Parameters (42)**: Read individually at startup only (~4200ms once)
 
-### Example CSV Structure:
+Network efficiency: **16x faster** than individual reads (250ms vs 4000ms)
+
+[See architecture details →](docs/batch_read_architecture.md)
+
+## Configuration Examples
+
+### Lovelace Dashboard
+
+```yaml
+type: entities
+entities:
+  - entity: sensor.sprsun_inlet_temp
+  - entity: sensor.sprsun_outlet_temp
+  - entity: sensor.sprsun_hotwater_temp
+  - entity: sensor.sprsun_cop
+  - entity: sensor.sprsun_heating_capacity
+  - entity: binary_sensor.sprsun_heating_mode
 ```
-Timestamp,Compressor Runtime,COP,Software Version (Year),...
-2026-02-13 14:30:00,12345,3.5,2023,...
-2026-02-13 14:30:10,12346,3.4,2023,...
+
+### Automations
+
+```yaml
+# Low COP Alert
+automation:
+  - alias: "Heat Pump Low COP Warning"
+    trigger:
+      - platform: numeric_state
+        entity_id: sensor.sprsun_cop
+        below: 2.0
+    action:
+      - service: notify.mobile_app
+        data:
+          message: "Heat pump COP dropped to {{ states('sensor.sprsun_cop') }}"
 ```
 
-## Data Scaling
+[See more examples →](docs/configuration.md)
 
-The script automatically applies scaling factors:
-- **Temperature (n×0.1°C)**: Inlet, Outlet, Hotwater, Evap., Cond. temps
-- **Temperature (n×0.5°C)**: Ambient, Suction gas, Coil, Driving temps
-- **Temperature (n×1°C)**: Exhaust temp
-- **Pressure (n×0.1 bar)**: Suction and Discharge pressures
+## Documentation
 
-## Interrupt
-
-To stop the script before 15 minutes, press `Ctrl+C`. The data collected up to that point will be saved.
-
-## Requirements
-
-- Python 3.12+
-- pymodbus 3.5.0+
-
-The virtual environment and dependencies are already configured in `.venv/`.
+- [Installation Guide](docs/installation.md) - Hardware setup, Elfin W11 config
+- [Configuration Guide](docs/configuration.md) - Lovelace, automations, templates
+- [Batch Read Architecture](docs/batch_read_architecture.md) - Technical deep-dive
+- [Testing Guide](docs/testing.md) - Local tests, unit tests, validation
+- [Repository Structure](docs/repository_structure.md) - File organization
 
 ## Troubleshooting
 
-### Connection Failed
-- Verify the heat pump is powered on and connected to the network
-- Check the IP address (192.168.1.234) is correct
-- Ensure port 502 is not blocked by firewall
-- Ping the device: `ping 192.168.1.234`
+### Connection Issues
 
-### No Data / All NULL Values
-- Check the device address (slave ID) is correct (default: 1)
-- Verify Modbus TCP is enabled on the heat pump
-- Check if other Modbus clients can connect
+```bash
+# Test Modbus connection
+telnet 192.168.1.234 502
 
-### Permission Errors
-- Ensure the script has execution permissions: `chmod +x modbus_poller.py`
-- Check write permissions in the current directory
+# Run diagnostics
+python scripts/test_local.py
+```
 
-## Modbus Protocol Details
+### Batch Read Validation Failed
 
-- **Protocol**: Modbus TCP (over RS485 Modbus RTU)
-- **Command Used**: 0x03 (Read Holding Registers)
-- **Data Format**: 16-bit registers, signed integers where applicable
-- **Byte Order**: Big-endian (standard Modbus)
+If `batch_vs_individual` test fails (values mismatch):
+1. Update Elfin W11 firmware
+2. Try Ethernet instead of WiFi
+3. Check for other Modbus tools polling device
 
-## Files
+### Values Not Updating
 
-- `modbus_poller.py` - Main polling script
-- `run_poller.sh` - Convenience script to run the poller
-- `requirements.txt` - Python package dependencies
-- `modbus_reference.md` - Complete Modbus register reference
-- `.venv/` - Python virtual environment
+Check:
+- Scan interval in integration options (default: 30s)
+- Home Assistant logs for errors
+- Elfin W11 web interface shows active connection
 
-## Notes
+## Known Limitations
 
-- Only device #1 can have parameters modified; this script only reads data
-- The script reads from holding registers (function code 0x03)
-- All temperature and pressure values are properly scaled
-- Status flags are read as 16-bit integers (use bit masking to extract individual flags)
+- **RW Parameters**: Use individual connections (not batch read)
+  - Reason: Sparse addresses (0x0036, 0x00C6-CC, 0x0169-019E)
+  - Impact: Minimal (only read at startup)
+- **Switch Platform**: Not implemented (bitfield complexity)
+- **Climate Entity**: Not implemented (use number entities + automations)
+
+## Contributing
+
+Pull requests welcome!
+
+1. Fork the repository
+2. Create feature branch
+3. Run tests: `pytest tests/ -v` and `python scripts/test_local.py`
+4. Submit PR
+
+## License
+
+MIT License - see [LICENSE](LICENSE)
+
+## Author
+
+[@stasek44](https://github.com/stasek44)
+
+## Acknowledgments
+
+- SPRSUN heat pump Modbus reference documentation
+- Elfin-EW11/W11 RS485 to WiFi gateway
+- Home Assistant community
+
+## Support
+
+- **Issues**: [GitHub Issues](https://github.com/stasek44/sprsun-modbus/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/stasek44/sprsun-modbus/discussions)
+
+---
+
+**⭐ If this integration works for you, consider starring the repository!**

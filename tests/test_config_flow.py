@@ -31,6 +31,8 @@ async def test_config_flow_user_success(hass_mock, mock_modbus_client):
     
     flow = SPRSUNConfigFlow()
     flow.hass = hass_mock
+    flow.context = {}  # Initialize mutable context
+    flow._abort_if_unique_id_configured = MagicMock()  # Mock to prevent abort
     
     user_input = {
         CONF_NAME: "Test Heat Pump",
@@ -90,7 +92,7 @@ async def test_config_flow_connection_error(hass_mock):
 @pytest.mark.asyncio
 async def test_options_flow(hass_mock):
     """Test options flow for updating scan interval."""
-    from custom_components.sprsun_modbus.config_flow import SPRSUNOptionsFlow
+    from custom_components.sprsun_modbus.config_flow import SPRSUNOptionsFlowHandler
     
     config_entry = MagicMock()
     config_entry.data = {
@@ -101,7 +103,7 @@ async def test_options_flow(hass_mock):
         CONF_SCAN_INTERVAL: 10,
     }
     
-    flow = SPRSUNOptionsFlow(config_entry)
+    flow = SPRSUNOptionsFlowHandler(config_entry)
     flow.hass = hass_mock
     
     result = await flow.async_step_init(user_input=None)
@@ -114,7 +116,7 @@ async def test_options_flow(hass_mock):
 @pytest.mark.asyncio
 async def test_options_flow_update(hass_mock):
     """Test options flow updates configuration."""
-    from custom_components.sprsun_modbus.config_flow import SPRSUNOptionsFlow
+    from custom_components.sprsun_modbus.config_flow import SPRSUNOptionsFlowHandler
     
     config_entry = MagicMock()
     config_entry.entry_id = "test_entry"
@@ -133,7 +135,7 @@ async def test_options_flow_update(hass_mock):
     hass_mock.config_entries = MagicMock()
     hass_mock.config_entries.async_reload = mock_reload
     
-    flow = SPRSUNOptionsFlow(config_entry)
+    flow = SPRSUNOptionsFlowHandler(config_entry)
     flow.hass = hass_mock
     
     user_input = {CONF_SCAN_INTERVAL: 20}
