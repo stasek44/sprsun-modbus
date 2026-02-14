@@ -8,8 +8,6 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from pymodbus.client import ModbusTcpClient
-
 from .const import DOMAIN, REGISTERS_SELECT, CONF_DEVICE_ADDRESS
 
 _LOGGER = logging.getLogger(__name__)
@@ -123,58 +121,43 @@ class SPRSUNSelect(CoordinatorEntity, SelectEntity):
     
     async def _async_read_register(self) -> int:
         """Read from Modbus register."""
+        # Use coordinator's persistent connection to avoid conflicts
         def _read():
-            client = ModbusTcpClient(host=self._host, port=self._port, timeout=5)
-            try:
+            client = self.coordinator.client
+            if client is None or not client.connected:
                 if not client.connect():
                     raise ConnectionError("Cannot connect to Modbus device")
-                
-                result = client.read_holding_registers(
-                    address=self._address,
-                    count=1,
-                    device_id=self._device_address
-                )
-                
-                if result.isError():
-                    raise ValueError(f"Modbus read error: {result}")
-                
-                raw_value = result.registers[0]
-                
-                _LOGGER.debug(
-                    "Read register 0x%04X: raw=%d (%s)",
-                    self._address, raw_value, self._options_dict.get(raw_value, "Unknown")
-                )
-                
-                return raw_value
-                
-            finally:
-                client.close()
+            
+            result = client.read_holding_registers(
+                address=self._address,
+                count=1,
+                device_id=self._device_address
+            )
+            
+            if result.isError():
+                raise ValueError(f"Modbus read error: {result}")
+            
+            raw_value = result.registers[0]
+            
+            _LOGGER.debug(
+                "Read register 0x%04X: raw=%d (%s)",
+                self._address, raw_value, self._options_dict.get(raw_value, "Unknown")
+            )
+            
+            return raw_value
         
         return await self.hass.async_add_executor_job(_read)
     
     async def _async_write_register(self, value: int) -> None:
         """Write to Modbus register."""
-        def _write():
-            client = ModbusTcpClient(host=self._host, port=self._port, timeout=5)
-            try:
-                if not client.connect():
-                    raise ConnectionError("Cannot connect to Modbus device")
-                
-                result = client.write_register(
-                    address=self._address,
-                    value=value,
-                    device_id=self._device_address
-                )
-                
-                if result.isError():
-                    raise ValueError(f"Modbus write error: {result}")
-                
-                _LOGGER.info(
-                    "Wrote to register 0x%04X: value=%d (%s)",
-                    self._address, value, self._options_dict.get(value, "Unknown")
-                )
-                
-            finally:
-                client.close()
+        _LOGGER.info(
+            "Writing to register 0x%04X: value=%d (%s)",
+            self._address, value, self._options_dict.get(value, "Unknown")
+        )
         
-        await self.hass.async_add_executor_job(_write)
+        # Use coordinator's write method to avoid connection conflicts
+        await self.hass.async_add_executor_job(
+            self.coordinator.write_register,
+            self._address,
+            value
+        )

@@ -14,7 +14,7 @@ CONF_DEVICE_ADDRESS = "device_address"
 CONF_SCAN_INTERVAL = "scan_interval"
 
 # Platforms
-PLATFORMS = ["sensor", "binary_sensor", "number", "select"]
+PLATFORMS = ["sensor", "binary_sensor", "number", "select", "switch"]
 
 # Read-Only Registers (50 parameters) - zgodnie z modbus_reference.md
 REGISTERS_READ_ONLY = {
@@ -68,11 +68,12 @@ REGISTERS_READ_ONLY = {
     0x0026: ("dc_fan1_speed", "DC Fan 1 Speed", 1, "rpm", None),
     0x0027: ("dc_fan2_speed", "DC Fan 2 Speed", 1, "rpm", None),
     0x002E: ("dc_pump_speed", "DC Pump Speed", 1, "rpm", None),
-    # Pressure sensors: Values appear to be in 0.1 PSI, need conversion to bar
-    # Scale: 0.1 PSI ÷ 14.5 ≈ 0.0069 bar
-    # NOTE: Registers might be swapped - test and verify which is which!
-    0x002F: ("suction_pressure", "Suction Pressure", 0.0069, "bar", "pressure"),
-    0x0030: ("discharge_pressure", "Discharge Pressure", 0.0069, "bar", "pressure"),
+    # Pressure sensors: Values in 0.1 PSI, converted to bar (0.1 PSI ÷ 14.5 = 0.0069)
+    # REGISTERS ARE SWAPPED IN MANUFACTURER'S DOCUMENTATION!
+    # 0x002F labeled "suction" actually shows discharge values (~31 bar)
+    # 0x0030 labeled "discharge" actually shows suction values (~5 bar)
+    0x002F: ("discharge_pressure", "Discharge Pressure", 0.0069, "bar", "pressure"),  # SWAPPED!
+    0x0030: ("suction_pressure", "Suction Pressure", 0.0069, "bar", "pressure"),      # SWAPPED!
     0x0031: ("dc_fan_target", "DC Fan Target", 1, "rpm", None),
     
     # Inverter Status
@@ -83,19 +84,90 @@ REGISTERS_READ_ONLY = {
     0x002B: ("freq_conversion_fault_low", "Freq. Conversion Fault Low", 1, None, None),
 }
 
-# Binary Sensors - extracted from working status mark bits (R 0x0003)
-# These are READ-ONLY status indicators  
+# Binary Sensors - extracted from bitfield registers
+# These are READ-ONLY status indicators
+
+# Working Status Mark (R 0x0003) - operational status
 BINARY_SENSOR_BITS = {
+    # Working Status Mark (0x0003)
     "hotwater_demand": (0x0003, 0, "Hot Water Demand"),
     "heating_demand": (0x0003, 1, "Heating Demand"),
     "cooling_demand": (0x0003, 5, "Cooling Demand"),
     "antilegionella_active": (0x0003, 4, "Antilegionella Active"),
     "defrost_active": (0x0003, 7, "Defrost Active"),
     "alarm_stop": (0x0003, 6, "Alarm Stop"),
+    
+    # Switching Input Symbol (0x0002) - physical input switches
+    "ac_linkage_switch": (0x0002, 0, "A/C Linkage Switch"),
+    "linkage_switch": (0x0002, 1, "Linkage Switch"),
+    "heating_linkage": (0x0002, 2, "Heating Linkage"),
+    "cooling_linkage": (0x0002, 3, "Cooling Linkage"),
+    "flow_switch": (0x0002, 4, "Flow Switch"),
+    "high_pressure_switch": (0x0002, 5, "High Pressure Switch"),
+    "phase_sequence_ok": (0x0002, 6, "Phase Sequence OK"),
+    
+    # Output Symbol 1 (0x0004) - main outputs
+    "compressor_running": (0x0004, 0, "Compressor"),
+    "fan_running": (0x0004, 5, "Fan"),
+    "valve_4way": (0x0004, 6, "4-Way Valve"),
+    "fan_high_speed": (0x0004, 7, "Fan High Speed"),
+    
+    # Output Symbol 2 (0x0005) - auxiliary outputs
+    "chassis_heater": (0x0005, 0, "Chassis Heater"),
+    "heating_heater": (0x0005, 5, "Heating Heater"),
+    "valve_3way": (0x0005, 6, "3-Way Valve"),
+    "hotwater_heater": (0x0005, 7, "Hot Water Heater"),
+    
+    # Output Symbol 3 (0x0006) - pump outputs
+    "ac_pump": (0x0006, 0, "A/C Pump"),
+    "crank_heater": (0x0006, 1, "Crank Heater"),
+    "assistant_solenoid": (0x0006, 5, "Assistant Solenoid Valve"),
+    "pump_running": (0x0006, 6, "Circulation Pump"),
+    
+    # Failure Symbol 1 (0x0007) - sensor failures
+    "error_hotwater_sensor": (0x0007, 0, "Hot Water Temp Sensor Error"),
+    "error_ambient_sensor": (0x0007, 1, "Ambient Temp Sensor Error"),
+    "error_coil_sensor": (0x0007, 2, "Coil Temp Sensor Error"),
+    "error_outlet_sensor": (0x0007, 4, "Outlet Temp Sensor Error"),
+    "error_high_pressure_sensor": (0x0007, 5, "High Pressure Sensor Error"),
+    "error_phase_sequence": (0x0007, 7, "Phase Sequence Error"),
+    
+    # Failure Symbol 2 (0x0008) - protection errors
+    "error_water_flow": (0x0008, 0, "Water Flow Error"),
+    "error_high_temp_heating": (0x0008, 2, "High Temp Protection (Heating Outlet)"),
+    
+    # Failure Symbol 3 (0x0009)
+    "error_outlet_gas_temp": (0x0009, 6, "Outlet Gas Temp Error"),
+    
+    # Failure Symbol 4 (0x000A)
+    "error_inlet_sensor": (0x000A, 0, "Water Inlet Temp Sensor Error"),
+    "error_exhaust_high": (0x000A, 1, "Exhaust Temperature Too High"),
+    "error_low_temp_cooling": (0x000A, 5, "Low Temp Protection (Cooling Outlet)"),
+    "error_inlet_gas_sensor": (0x000A, 6, "Inlet Gas Temp Sensor Error"),
+    
+    # Failure Symbol 5 (0x000B) - pressure errors
+    "error_low_pressure": (0x000B, 0, "Low Pressure Protection"),
+    "error_high_pressure": (0x000B, 1, "High Pressure Protection"),
+    "error_coil_temp_high": (0x000B, 2, "Coil Temperature Too High"),
+    "error_high_pressure_sensor2": (0x000B, 6, "High Pressure Sensor Failure"),
+    "error_low_pressure_sensor": (0x000B, 7, "Low Pressure Sensor Failure"),
+    
+    # Failure Symbol 6 (0x000C) - antifreeze
+    "error_antifreeze_secondary": (0x000C, 4, "Secondary Antifreeze Protection"),
+    "error_antifreeze_primary": (0x000C, 5, "Primary Antifreeze Protection"),
+    
+    # Failure Symbol 7 (0x000D) - system errors
+    "error_ambient_temp_low": (0x000D, 1, "Ambient Temperature Too Low"),
+    "error_inverter_module": (0x000D, 4, "Frequency Conversion Module Fault"),
+    "error_dc_fan2": (0x000D, 5, "DC Fan 2 Failure"),
+    "error_dc_fan1": (0x000D, 6, "DC Fan 1 Failure"),
 }
 
-# Note: Control switches (RW 0x0032-0x0034) require bitfield manipulation
-# These can be added as advanced feature later
+# Switch entities - Read-Write bitfield controls
+# Format: key: (address, bit, name, coil_address_if_available)
+REGISTERS_SWITCH = {
+    "power_switch": (0x0032, 0, "Power", 0x0320),  # Parameter marker bit 0: ON/OFF (coil 0x0320)
+}
 
 # Select entities - Read-Write mode controls
 # Format: address: (key, name, options_dict)

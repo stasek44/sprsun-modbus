@@ -19,6 +19,7 @@ from .const import (
     REGISTERS_READ_ONLY,
     REGISTERS_NUMBER,
     REGISTERS_SELECT,
+    REGISTERS_SWITCH,
     BINARY_SENSOR_BITS,
 )
 
@@ -160,27 +161,36 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.error("Error reading batch registers: %s", err)
             raise UpdateFailed(f"Batch read failed: {err}") from err
         
-        # Read status register for binary sensors (R 0x0003)
-        try:
-            result = self.client.read_holding_registers(
-                address=0x0003,
-                count=1,
-                device_id=self.device_address
-            )
-            
-            if not result.isError() and len(result.registers) == 1:
-                data["working_status_register"] = result.registers[0]
-            else:
-                _LOGGER.warning("Failed to read working status register 0x0003")
-                
-        except Exception as err:
-            _LOGGER.warning("Error reading 0x0003: %s", err)
+        # Read status registers for binary sensors (R 0x0002-0x000D)
+        # These are all read in the batch, just map them with friendly names
+        status_register_map = {
+            0x0002: "switching_input_symbol",
+            0x0003: "working_status_register",  # Special name for backward compatibility
+            0x0004: "output_symbol_1",
+            0x0005: "output_symbol_2",
+            0x0006: "output_symbol_3",
+            0x0007: "failure_symbol_1",
+            0x0008: "failure_symbol_2",
+            0x0009: "failure_symbol_3",
+            0x000A: "failure_symbol_4",
+            0x000B: "failure_symbol_5",
+            0x000C: "failure_symbol_6",
+            0x000D: "failure_symbol_7",
+        }
+        
+        for address, key in status_register_map.items():
+            index = address - 0x0000
+            if index < len(result.registers):
+                data[key] = result.registers[index]
         
         # Read R/W registers for number and select entities
         # Read them individually since they're scattered across the address space
         rw_addresses = {}
         rw_addresses.update({addr: (*config, 1) for addr, config in REGISTERS_NUMBER.items()})  # scale is third item
         rw_addresses.update({addr: (config[0], config[1], 1, None, None) for addr, config in REGISTERS_SELECT.items()})  # add dummy scale
+        # Add switch registers (need full register value for bit manipulation)
+        rw_addresses.update({addr: (config[0], config[1], 1, None, None) for addr, config in 
+                            {addr: (key, name) for key, (addr, _, name, _) in REGISTERS_SWITCH.items()}.items()})
         
         for address, config in rw_addresses.items():
             key = config[0]

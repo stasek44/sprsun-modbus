@@ -1,7 +1,7 @@
 {
   "domain": "sprsun_modbus",
   "name": "SPRSUN Heat Pump (Modbus)",
-  "version": "1.0.4",
+  "version": "3.4.0",
   "codeowners": ["@stasek44"],
   "config_flow": true,
   "dependencies": [],

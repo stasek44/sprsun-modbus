@@ -32,7 +32,6 @@ async def async_setup_entry(
                 config_entry,
                 key,
                 name,
-                bit,
             )
         )
     
@@ -48,16 +47,14 @@ class SPRSUNBinarySensor(CoordinatorEntity, BinarySensorEntity):
         config_entry: ConfigEntry,
         key: str,
         name: str,
-        bit: int,
     ) -> None:
         """Initialize the binary sensor."""
         super().__init__(coordinator)
         
         self._key = key
-        self._bit = bit
         self._attr_name = f"{config_entry.data[CONF_NAME]} {name}"
         self._attr_unique_id = f"{config_entry.entry_id}_{key}"
-        self._attr_device_class = BinarySensorDeviceClass.RUNNING
+        # No device_class - will show as simple On/Off
         
         # Device info
         self._attr_device_info = {
@@ -70,15 +67,58 @@ class SPRSUNBinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def is_on(self) -> bool:
         """Return true if the binary sensor is on."""
-        # Read from working status register (0x0003)
-        register_value = self.coordinator.data.get("working_status_register", 0)
+        # Get the source address for this sensor
+        source_address, bit, _ = BINARY_SENSOR_BITS[self._key]
+        
+        # Read from the appropriate register
+        # The coordinator stores these as "working_status_register", etc.
+        # Map address to data key
+        address_to_key = {
+            0x0002: "switching_input_symbol",
+            0x0003: "working_status_register",  # Special name for backward compatibility
+            0x0004: "output_symbol_1",
+            0x0005: "output_symbol_2",
+            0x0006: "output_symbol_3",
+            0x0007: "failure_symbol_1",
+            0x0008: "failure_symbol_2",
+            0x0009: "failure_symbol_3",
+            0x000A: "failure_symbol_4",
+            0x000B: "failure_symbol_5",
+            0x000C: "failure_symbol_6",
+            0x000D: "failure_symbol_7",
+        }
+        
+        register_key = address_to_key.get(source_address)
+        if not register_key:
+            return False
+            
+        register_value = self.coordinator.data.get(register_key, 0)
         # Check if bit is set
-        return bool(register_value & (1 << self._bit))
+        return bool(register_value & (1 << bit))
     
     @property
     def available(self) -> bool:
         """Return if entity is available."""
+        # Get source address for availability check
+        source_address, _, _ = BINARY_SENSOR_BITS[self._key]
+        
+        address_to_key = {
+            0x0002: "switching_input_symbol",
+            0x0003: "working_status_register",
+            0x0004: "output_symbol_1",
+            0x0005: "output_symbol_2",
+            0x0006: "output_symbol_3",
+            0x0007: "failure_symbol_1",
+            0x0008: "failure_symbol_2",
+            0x0009: "failure_symbol_3",
+            0x000A: "failure_symbol_4",
+            0x000B: "failure_symbol_5",
+            0x000C: "failure_symbol_6",
+            0x000D: "failure_symbol_7",
+        }
+        
+        register_key = address_to_key.get(source_address)
         return (
             self.coordinator.last_update_success
-            and "working_status_register" in self.coordinator.data
+            and register_key in self.coordinator.data
         )
