@@ -208,6 +208,23 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         
         return data
     
+    def write_register(self, address: int, value: int) -> bool:
+        """Write a single register (synchronous, runs in executor)."""
+        if self.client is None or not self.client.connected:
+            if not self.client.connect():
+                raise ConnectionError("Cannot connect to Modbus device")
+        
+        result = self.client.write_register(
+            address=address,
+            value=value,
+            device_id=self.device_address
+        )
+        
+        if result.isError():
+            raise ValueError(f"Modbus write error: {result}")
+        
+        return True
+    
     async def async_shutdown(self):
         """Shutdown coordinator."""
         if self.client:

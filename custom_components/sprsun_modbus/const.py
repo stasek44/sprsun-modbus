@@ -68,8 +68,11 @@ REGISTERS_READ_ONLY = {
     0x0026: ("dc_fan1_speed", "DC Fan 1 Speed", 1, "rpm", None),
     0x0027: ("dc_fan2_speed", "DC Fan 2 Speed", 1, "rpm", None),
     0x002E: ("dc_pump_speed", "DC Pump Speed", 1, "rpm", None),
-    0x002F: ("suction_pressure", "Suction Pressure", 0.1, "bar", "pressure"),
-    0x0030: ("discharge_pressure", "Discharge Pressure", 0.1, "bar", "pressure"),
+    # Pressure sensors: Values appear to be in 0.1 PSI, need conversion to bar
+    # Scale: 0.1 PSI ÷ 14.5 ≈ 0.0069 bar
+    # NOTE: Registers might be swapped - test and verify which is which!
+    0x002F: ("suction_pressure", "Suction Pressure", 0.0069, "bar", "pressure"),
+    0x0030: ("discharge_pressure", "Discharge Pressure", 0.0069, "bar", "pressure"),
     0x0031: ("dc_fan_target", "DC Fan Target", 1, "rpm", None),
     
     # Inverter Status
