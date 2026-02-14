@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Konfiguracja pompy ciepła SPRSUN",
+        "description": "Skonfiguruj połączenie z pompą ciepła SPRSUN przez Modbus TCP.\n\n**Ważne:** Upewnij się, że timeout w bramce Elfin W11 jest ustawiony na minimum {elfin_timeout} sekund.\n\nZalecany interwał skanowania: {recommended_scan} sekund.",
+        "data": {
+          "name": "Nazwa urządzenia",
+          "host": "Adres IP",
+          "port": "Port",
+          "device_address": "Adres Modbus (1-247)",
+          "scan_interval": "Interwał skanowania (5-300 sekund)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Nie można połączyć się z urządzeniem Modbus. Sprawdź adres IP, port i adres urządzenia.",
+      "unknown": "Wystąpił nieoczekiwany błąd."
+    },
+    "abort": {
+      "already_configured": "Urządzenie jest już skonfigurowane."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Opcje pompy ciepła SPRSUN",
+        "description": "Dostosuj interwał skanowania (aktualnie {current_interval}s). Upewnij się, że timeout Elfin W11 wynosi minimum {elfin_timeout} sekund. Zmiany będą aktywne po przeładowaniu.",
+        "data": {
+          "scan_interval": "Interwał skanowania (5-300 sekund)"
+        }
+      }
+    }
+  }
+}

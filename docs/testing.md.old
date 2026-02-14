@@ -1,0 +1,110 @@
+# Running Tests
+
+## Prerequisites
+
+```bash
+# Activate virtual environment
+source .venv/bin/activate
+
+# Install test dependencies (if not done via setup_dev.sh)
+pip install -r requirements_dev.txt
+```
+
+## Unit Tests
+
+Run specific test files:
+
+```bash
+# Test constants
+pytest tests/test_const.py -v
+
+# Test config flow
+pytest tests/test_config_flow.py -v
+
+# Test sensors
+pytest tests/test_sensor.py -v
+
+# Test binary sensors  
+pytest tests/test_binary_sensor.py -v
+```
+
+## Integration Tests
+
+Run integration tests with CSV output:
+
+```bash
+pytest tests/test_integration.py -v -s
+
+# Output saved to:
+# tests/output/integration_test_ro_TIMESTAMP.csv    (50 read-only params)
+# tests/output/integration_test_rw_TIMESTAMP.csv    (42 read-write params)
+# tests/output/integration_test_binary_TIMESTAMP.csv (6 binary sensors)
+```
+
+## All Tests
+
+```bash
+# Run all tests
+pytest tests/ -v
+
+# With coverage report
+pytest tests/ -v --cov=custom_components/sprsun_modbus --cov-report=term-missing
+
+# Generate HTML coverage report
+pytest tests/ --cov=custom_components/sprsun_modbus --cov-report=html
+# Open htmlcov/index.html in browser
+```
+
+## Test Output
+
+### CSV Files
+
+Integration tests generate CSV files in `tests/output/`:
+
+**Read-Only Parameters (50):**
+```csv
+timestamp,address,key,name,raw_value,scaled_value,unit,device_class
+2026-02-14T09:00:00,0x0000,compressor_runtime,Compressor Runtime,120,120.00,h,
+2026-02-14T09:00:00,0x000E,inlet_temp,Inlet Water Temperature,235,23.50,°C,temperature
+...
+```
+
+**Read-Write Parameters (42):**
+```csv
+timestamp,address,key,name,raw_value,scaled_value,unit,min,max,step
+2026-02-14T09:00:00,0x00CC,heating_setpoint,Heating Setpoint,90,45.00,°C,10,55,0.5
+...
+```
+
+**Binary Sensors (6):**
+```csv
+timestamp,key,name,bit_position,value,register_hex
+2026-02-14T09:00:00,hotwater_demand,Hot Water Demand,0,ON,0x0033
+...
+```
+
+## Continuous Integration
+
+Tests run automatically on:
+- Push to `main` branch
+- Pull requests
+- Daily at midnight
+
+See `.github/workflows/tests.yaml` for CI configuration.
+
+## Code Coverage
+
+Target: >80% code coverage
+
+Check coverage:
+```bash
+pytest --cov=custom_components/sprsun_modbus --cov-report=term-missing
+```
+
+Current coverage by file:
+- `const.py`: 100%
+- `config_flow.py`: ~85%
+- `sensor.py`: ~90%
+- `binary_sensor.py`: ~95%
+- `number.py`: ~75% (write operations hard to test)
+- `__init__.py`: ~80%

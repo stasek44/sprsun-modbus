@@ -1,0 +1,136 @@
+# Example Configuration
+
+This file provides example configuration for using the SPRSUN integration with Home Assistant.
+
+## ⚠️ Important Note
+
+This integration uses **Config Flow** (UI-based setup). You **cannot** configure it via `configuration.yaml`.
+
+Instead, use:
+1. Settings → Devices & Services → Add Integration
+2. Search "SPRSUN"
+3. Fill in the form
+
+## Lovelace Dashboard Examples
+
+### Complete Heat Pump Dashboard
+
+```yaml
+title: SPRSUN Heat Pump
+views:
+  - title: Overview
+    cards:
+      - type: vertical-stack
+        cards:
+          # Status Card
+          - type: entities
+            title: System Status
+            entities:
+              - entity: sensor.sprsun_heat_pump_cop
+                name: COP
+                icon: mdi:gauge
+              - entity: sensor.sprsun_heat_pump_compressor_runtime
+                name: Runtime (hours)
+              - entity: binary_sensor.sprsun_heat_pump_hotwater_demand
+                name: Hot Water Mode
+              - entity: binary_sensor.sprsun_heat_pump_heating_demand
+                name: Heating Mode
+              - entity: binary_sensor.sprsun_heat_pump_alarm_stop
+                name: Alarm Status
+                icon: mdi:alert
+          
+          # Temperatures Card
+          - type: entities
+            title: Temperatures
+            entities:
+              - entity: sensor.sprsun_heat_pump_inlet_water_temperature
+                name: Water In
+              - entity: sensor.sprsun_heat_pump_outlet_water_temperature
+                name: Water Out
+              - entity: sensor.sprsun_heat_pump_hot_water_temperature
+                name: DHW Tank
+              - entity: sensor.sprsun_heat_pump_ambient_temperature
+                name: Outdoor
+          
+          # Control Card
+          - type: entities
+            title: Setpoints
+            entities:
+              - entity: number.sprsun_heat_pump_heating_setpoint
+              - entity: number.sprsun_heat_pump_cooling_setpoint
+              - entity: number.sprsun_heat_pump_hot_water_setpoint
+              - entity: number.sprsun_heat_pump_unit_mode
+
+  - title: Performance
+    cards:
+      - type: history-graph
+        title: Temperature History (24h)
+        hours_to_show: 24
+        entities:
+          - entity: sensor.sprsun_heat_pump_inlet_water_temperature
+            name: Inlet
+          - entity: sensor.sprsun_heat_pump_outlet_water_temperature
+            name: Outlet
+          - entity: sensor.sprsun_heat_pump_ambient_temperature
+            name: Outdoor
+      
+      - type: entities
+        title: System Measurements
+        entities:
+          - sensor.sprsun_heat_pump_ac_voltage
+          - sensor.sprsun_heat_pump_ac_current
+          - sensor.sprsun_heat_pump_heating_cooling_capacity
+          - sensor.sprsun_heat_pump_pump_flow
+          - sensor.sprsun_heat_pump_compressor_frequency
+```
+
+### Automation Examples
+
+See [configuration.md](configuration.md) for detailed automation examples.
+
+## Template Sensors
+
+### Human-Readable COP
+
+```yaml
+template:
+  - sensor:
+      - name: "Heat Pump COP"
+        unit_of_measurement: ""
+        state: >
+          {{ (states('sensor.sprsun_heat_pump_cop') | float / 100) | round(2) }}
+        icon: mdi:gauge
+```
+
+### Water Temperature Delta
+
+```yaml
+template:
+  - sensor:
+      - name: "Water Delta T"
+        unit_of_measurement: "°C"
+        device_class: temperature
+        state: >
+          {{ (states('sensor.sprsun_heat_pump_outlet_water_temperature') | float -
+              states('sensor.sprsun_heat_pump_inlet_water_temperature') | float) | round(1) }}
+```
+
+## Debug Script Example
+
+Use the included debug script to test Modbus communication:
+
+```bash
+cd /path/to/sprsun-modbus
+source .venv/bin/activate
+python scripts/modbus_debug_poller.py
+
+# Output: Console + CSV file (sprsun_debug_data.csv)
+```
+
+## Example Data
+
+Sample CSV data files are available in `examples/data/`:
+- `sprsun_batch_data_YYYYMMDD_HHMMSS.csv` - Batch read examples
+- `sprsun_debug_data.csv` - Debug script output
+
+These show expected data format and values.

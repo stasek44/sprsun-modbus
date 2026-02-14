@@ -1,0 +1,13 @@
+{
+  "domain": "sprsun_modbus",
+  "name": "SPRSUN Heat Pump (Modbus)",
+  "version": "1.0.0",
+  "codeowners": ["@stasek44"],
+  "config_flow": true,
+  "dependencies": [],
+  "documentation": "https://github.com/stasek44/sprsun-modbus",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/stasek44/sprsun-modbus/issues",
+  "requirements": ["pymodbus==3.12.0"],
+  "integration_type": "device"
+}

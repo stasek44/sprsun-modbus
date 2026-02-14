@@ -1,0 +1,35 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Configure SPRSUN Heat Pump",
+        "description": "Configure connection to your SPRSUN heat pump via Modbus TCP.\n\n**Important:** Make sure your Elfin W11 gateway timeout is set to at least {elfin_timeout} seconds.\n\nRecommended scan interval: {recommended_scan} seconds.",
+        "data": {
+          "name": "Device Name",
+          "host": "Host (IP Address)",
+          "port": "Port",
+          "device_address": "Modbus Device Address (1-247)",
+          "scan_interval": "Scan Interval (5-300 seconds)"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect to the Modbus device. Please check the host, port, and device address.",
+      "unknown": "Unexpected error occurred."
+    },
+    "abort": {
+      "already_configured": "Device is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "SPRSUN Heat Pump Options",
+        "description": "Adjust scan interval (currently {current_interval}s). Make sure Elfin W11 timeout is at least {elfin_timeout} seconds. Changes will apply after reload.",
+        "data": {
+          "scan_interval": "Scan Interval (5-300 seconds)"
+        }
+      }
+    }
+  }
+}

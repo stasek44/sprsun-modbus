@@ -1,0 +1,158 @@
+"""SPRSUN Heat Pump Modbus Integration."""
+import logging
+from datetime import timedelta
+
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, Platform
+from homeassistant.core import HomeAssistant
+from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+
+from pymodbus.client import ModbusTcpClient
+from pymodbus.exceptions import ModbusException
+
+from .const import (
+    DOMAIN,
+    CONF_DEVICE_ADDRESS,
+    CONF_SCAN_INTERVAL,
+    DEFAULT_SCAN_INTERVAL,
+    PLATFORMS,
+    REGISTERS_READ_ONLY,
+    BINARY_SENSOR_BITS,
+)
+
+_LOGGER = logging.getLogger(__name__)
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up SPRSUN Heat Pump from a config entry."""
+    host = entry.data[CONF_HOST]
+    port = entry.data[CONF_PORT]
+    device_address = entry.data[CONF_DEVICE_ADDRESS]
+    scan_interval = entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    
+    _LOGGER.info(
+        "Setting up SPRSUN Heat Pump at %s:%s (device %s, scan interval %ss)",
+        host, port, device_address, scan_interval
+    )
+    
+    coordinator = SPRSUNDataUpdateCoordinator(
+        hass, host, port, device_address, scan_interval
+    )
+    
+    # Fetch initial data
+    await coordinator.async_config_entry_first_refresh()
+    
+    hass.data.setdefault(DOMAIN, {})
+    hass.data[DOMAIN][entry.entry_id] = coordinator
+    
+    # Forward setup to platforms
+    await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    
+    return True
+
+
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+    
+    if unload_ok:
+        coordinator = hass.data[DOMAIN].pop(entry.entry_id)
+        await coordinator.async_shutdown()
+    
+    return unload_ok
+
+
+class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
+    """Class to manage fetching SPRSUN data from Modbus."""
+    
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        host: str,
+        port: int,
+        device_address: int,
+        scan_interval: int,
+    ) -> None:
+        """Initialize."""
+        self.host = host
+        self.port = port
+        self.device_address = device_address
+        self.client = None
+        
+        super().__init__(
+            hass,
+            _LOGGER,
+            name=DOMAIN,
+            update_interval=timedelta(seconds=scan_interval),
+        )
+    
+    async def _async_update_data(self):
+        """Fetch data from Modbus."""
+        try:
+            return await self.hass.async_add_executor_job(self._sync_update)
+        except ModbusException as err:
+            raise UpdateFailed(f"Error communicating with Modbus: {err}") from err
+    
+    def _sync_update(self):
+        """Synchronous update (runs in executor)."""
+        if self.client is None:
+            self.client = ModbusTcpClient(
+                host=self.host,
+                port=self.port,
+                timeout=30,  # Long timeout for safety
+            )
+        
+        if not self.client.connected:
+            _LOGGER.debug("Connecting to %s:%s", self.host, self.port)
+            if not self.client.connect():
+                raise UpdateFailed("Failed to connect to Modbus device")
+        
+        data = {}
+        
+        # Read all read-only registers in one batch (0x0000-0x0031 = 50 registers)
+        try:
+            result = self.client.read_holding_registers(
+                address=0x0000,
+                count=50,
+                device_id=self.device_address
+            )
+            
+            if result.isError():
+                raise UpdateFailed(f"Modbus read error: {result}")
+            
+            # Parse read-only registers
+            for address, (key, name, scale, unit, device_class) in REGISTERS_READ_ONLY.items():
+                index = address - 0x0000
+                if index < len(result.registers):
+                    raw_value = result.registers[index]
+                    data[key] = raw_value * scale
+            
+            _LOGGER.debug("Read %d read-only registers successfully", len(data))
+            
+        except Exception as err:
+            _LOGGER.error("Error reading batch registers: %s", err)
+            raise UpdateFailed(f"Batch read failed: {err}") from err
+        
+        # Read status register for binary sensors (R 0x0003)
+        try:
+            result = self.client.read_holding_registers(
+                address=0x0003,
+                count=1,
+                device_id=self.device_address
+            )
+            
+            if not result.isError() and len(result.registers) == 1:
+                data["working_status_register"] = result.registers[0]
+            else:
+                _LOGGER.warning("Failed to read working status register 0x0003")
+                
+        except Exception as err:
+            _LOGGER.warning("Error reading 0x0003: %s", err)
+        
+        return data
+    
+    async def async_shutdown(self):
+        """Shutdown coordinator."""
+        if self.client:
+            await self.hass.async_add_executor_job(self.client.close)
+            self.client = None
