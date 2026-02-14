@@ -111,6 +111,15 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         
         data = {}
         
+        # Registers that should be interpreted as signed int16
+        SIGNED_REGISTERS = {
+            0x0011,  # ambient_temp
+            0x0015,  # suction_gas_temp
+            0x0016,  # coil_temp
+            0x0022,  # driving_temp
+            0x0028,  # evap_temp
+        }
+        
         # Read all read-only registers in one batch (0x0000-0x0031 = 50 registers)
         try:
             result = self.client.read_holding_registers(
@@ -127,6 +136,12 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 index = address - 0x0000
                 if index < len(result.registers):
                     raw_value = result.registers[index]
+                    
+                    # Convert to signed int16 if needed
+                    if address in SIGNED_REGISTERS:
+                        if raw_value > 32767:
+                            raw_value = raw_value - 65536
+                    
                     data[key] = raw_value * scale
             
             _LOGGER.debug("Read %d read-only registers successfully", len(data))

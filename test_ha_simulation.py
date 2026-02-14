@@ -3,6 +3,9 @@
 Simulate Home Assistant data fetching to debug register reading issues.
 Mimics exactly what HA does: batch read 0x0000-0x0031 with proper scaling.
 Dumps results to CSV for analysis.
+
+IMPORTANT: This version properly handles SIGNED int16 for temperature registers
+that can go negative (ambient, suction gas, coil, driving, evaporation temps).
 """
 import time
 import csv
@@ -14,7 +17,7 @@ HOST = "192.168.1.234"
 PORT = 502
 DEVICE_ADDRESS = 1
 SCAN_INTERVAL = 10  # seconds
-TEST_DURATION = 300  # 5 minutes (adjust as needed)
+TEST_DURATION = 3600  # 1 hour (adjust as needed)
 
 # Register definitions - EXACTLY as HA uses them
 REGISTERS_READ_ONLY = {
@@ -42,16 +45,16 @@ REGISTERS_READ_ONLY = {
     0x000C: ("failure_symbol_6", "Failure Symbol 6", 1, None, None),
     0x000D: ("failure_symbol_7", "Failure Symbol 7", 1, None, None),
     
-    # Temperature Sensors
+    # Temperature Sensors (NOTE: Some are SIGNED int16 for negative temps)
     0x000E: ("inlet_temp", "Inlet Water Temperature", 0.1, "°C", "temperature"),
     0x000F: ("hotwater_temp", "Hot Water Temperature", 0.1, "°C", "temperature"),
-    0x0011: ("ambient_temp", "Ambient Temperature", 0.5, "°C", "temperature"),
+    0x0011: ("ambient_temp", "Ambient Temperature", 0.5, "°C", "temperature"),  # SIGNED
     0x0012: ("outlet_temp", "Outlet Water Temperature", 0.1, "°C", "temperature"),
-    0x0015: ("suction_gas_temp", "Suction Gas Temperature", 0.5, "°C", "temperature"),
-    0x0016: ("coil_temp", "Coil Temperature", 0.5, "°C", "temperature"),
+    0x0015: ("suction_gas_temp", "Suction Gas Temperature", 0.5, "°C", "temperature"),  # SIGNED
+    0x0016: ("coil_temp", "Coil Temperature", 0.5, "°C", "temperature"),  # SIGNED
     0x001B: ("exhaust_temp", "Exhaust Temperature", 1, "°C", "temperature"),
-    0x0022: ("driving_temp", "Driving Temperature", 0.5, "°C", "temperature"),
-    0x0028: ("evap_temp", "Evaporation Temperature", 0.1, "°C", "temperature"),
+    0x0022: ("driving_temp", "Driving Temperature", 0.5, "°C", "temperature"),  # SIGNED
+    0x0028: ("evap_temp", "Evaporation Temperature", 0.1, "°C", "temperature"),  # SIGNED
     0x0029: ("cond_temp", "Condensation Temperature", 0.1, "°C", "temperature"),
     
     # System Measurements
@@ -85,6 +88,15 @@ def fetch_data_like_ha(client):
     """Fetch data EXACTLY like Home Assistant does."""
     data = {}
     
+    # Registers that should be interpreted as signed int16 (negative temperatures)
+    SIGNED_REGISTERS = {
+        0x0011,  # ambient_temp
+        0x0015,  # suction_gas_temp
+        0x0016,  # coil_temp
+        0x0022,  # driving_temp
+        0x0028,  # evap_temp
+    }
+    
     # Read all read-only registers in one batch (0x0000-0x0031 = 50 registers)
     # This is EXACTLY what HA's coordinator does
     try:
@@ -103,6 +115,12 @@ def fetch_data_like_ha(client):
             index = address - 0x0000
             if index < len(result.registers):
                 raw_value = result.registers[index]
+                
+                # Convert to signed int16 if needed
+                if address in SIGNED_REGISTERS:
+                    if raw_value > 32767:
+                        raw_value = raw_value - 65536
+                
                 scaled_value = raw_value * scale
                 data[key] = {
                     'name': name,

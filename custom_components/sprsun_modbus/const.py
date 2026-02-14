@@ -45,13 +45,13 @@ REGISTERS_READ_ONLY = {
     # Temperature Sensors
     0x000E: ("inlet_temp", "Inlet Water Temperature", 0.1, "°C", "temperature"),
     0x000F: ("hotwater_temp", "Hot Water Temperature", 0.1, "°C", "temperature"),
-    0x0011: ("ambient_temp", "Ambient Temperature", 0.5, "°C", "temperature"),
+    0x0011: ("ambient_temp", "Ambient Temperature", 0.5, "°C", "temperature"),  # SIGNED
     0x0012: ("outlet_temp", "Outlet Water Temperature", 0.1, "°C", "temperature"),
-    0x0015: ("suction_gas_temp", "Suction Gas Temperature", 0.5, "°C", "temperature"),
-    0x0016: ("coil_temp", "Coil Temperature", 0.5, "°C", "temperature"),
+    0x0015: ("suction_gas_temp", "Suction Gas Temperature", 0.5, "°C", "temperature"),  # SIGNED
+    0x0016: ("coil_temp", "Coil Temperature", 0.5, "°C", "temperature"),  # SIGNED
     0x001B: ("exhaust_temp", "Exhaust Temperature", 1, "°C", "temperature"),
-    0x0022: ("driving_temp", "Driving Temperature", 0.5, "°C", "temperature"),
-    0x0028: ("evap_temp", "Evaporation Temperature", 0.1, "°C", "temperature"),
+    0x0022: ("driving_temp", "Driving Temperature", 0.5, "°C", "temperature"),  # SIGNED
+    0x0028: ("evap_temp", "Evaporation Temperature", 0.1, "°C", "temperature"),  # SIGNED
     0x0029: ("cond_temp", "Condensation Temperature", 0.1, "°C", "temperature"),
     
     # System Measurements
