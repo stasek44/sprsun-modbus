@@ -36,7 +36,7 @@ IP: 192.168.1.234 (twój adres)
 Port: 502
 Timeout: 30s          ← WAŻNE! Min 30s dla scan_interval=10s
 Keep alive: 65s
-Max accept: 2
+Max accept: 1
 ```
 
 **Formuła**: `Elfin Timeout >= Scan Interval + 10s margin`
@@ -47,7 +47,7 @@ Max accept: 2
 2. Wyszukaj **"SPRSUN Heat Pump"**
 3. Wypełnij dane:
    - **Name**: "SPRSUN Heat Pump" (dowolna nazwa)
-   - **Host**: 192.168.1.234 (IP Elfin W11)
+   - **Host**: 192.168.1.x (IP Elfin W11)
    - **Port**: 502 (domyślny Modbus TCP)
    - **Device Address**: 1 (adres Modbus pompy)
    - **Scan Interval**: 10s (zalecane: 10-30s)
