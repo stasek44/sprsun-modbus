@@ -14,7 +14,7 @@ CONF_DEVICE_ADDRESS = "device_address"
 CONF_SCAN_INTERVAL = "scan_interval"
 
 # Platforms
-PLATFORMS = ["sensor", "binary_sensor", "number", "select", "switch"]
+PLATFORMS = ["sensor", "binary_sensor", "number", "select", "switch", "button"]
 
 # Read-Only Registers (50 parameters) - zgodnie z modbus_reference.md
 REGISTERS_READ_ONLY = {
@@ -163,10 +163,18 @@ BINARY_SENSOR_BITS = {
     "error_dc_fan1": (0x000D, 6, "DC Fan 1 Failure"),
 }
 
-# Switch entities - Read-Write bitfield controls
+# Switch entities - Read-Write bitfield controls (persistent state)
 # Format: key: (address, bit, name, coil_address_if_available)
 REGISTERS_SWITCH = {
     "power_switch": (0x0032, 0, "Power", 0x0320),  # Parameter marker bit 0: ON/OFF (coil 0x0320)
+    "antilegionella_enable": (0x0034, 0, "Antilegionella Enable", None),  # Control mark 2 bit 0
+    "two_three_function": (0x0034, 1, "Two/Three Function", None),  # Control mark 2 bit 1 (0=Two, 1=Three)
+}
+
+# Button entities - Read-Write bitfield momentary actions
+# Format: key: (address, bit, name, description)
+REGISTERS_BUTTON = {
+    "failure_reset": (0x0033, 7, "Failure Reset", "Reset all failures after fixing the cause"),  # Control mark 1 bit 7
 }
 
 # Select entities - Read-Write mode controls

@@ -1,0 +1,33 @@
+
+    1、 Communication using RS485 modbus RTU, asynchronous serial signal 1 start bit, 8 data bits, 2 end bits, no parity, baud rate 19200bps.
+
+    2、 In line with the standard MODBUS RTU protocol,16-bit data structure, 16-bit CRC checksum low byte in front of the high byte in the back
+
+    3、 The unit goes from address #l - address #8, as determined by dial codes 2-4.
+
+    4、 The upper computer is the call host and the controller is the slave.
+
+    5、 Three commands are used for master-slave communication:
+
+03H（Read holding registers(4x)）
+TX：[Device address] + [Command number 03H] + [Start register address high 8 bits] + [Low 8 bits] + [Number of registers read high 8 bits] + [Low 8 bits] + [Low 8 bits of CRC check] + [High 8 bits of CRC check]
+RX：[Device address] + [Command number 03H] + [Number of bytes returned] + [Data 1] + [Data 2] +...+ [Data n] + [Low 8 bits of CRC check] + [High 8 bits of CRC check]
+
+06H（Write single register）
+TX：[Device address] + [Command number 06H] + [Register address to be downstaged high 8 bites] + [Low 8 bits] + [Data to be downstaged high 8 bits] + [Low 8 bits] + [Low 8 bits of CRC check] + [High 8 bits of CRC check]
+RX：if successful return the command sent by the computer as it is, otherwise no response
+
+10H（Write multiple register）
+TX：[Device address] + [Command number 10H] + [Start register address high 8 bits] + [Low 8 bits] + [Number of registers read high 8 bits] + [Low 8 bits] + [Number of register bytes] + [Data 1 high 8 bits] + [Low 8 bits] +…. + [Data N high 8 bits] + [Low 8 bits] + [Low 8 bits of CRC check] + [High 8 bits of CRC check]
+RX：[Device address] + [Command number 10H] + [Start register address high 8 bits] + [Low 8 bits] + [Number of registers read high 8 bits] + [Low 8 bits] + [Low 8 bits of CRC check] + [High 8 bits of CRC check] 
+
+01H（Read Coils）
+Send Command：[Device address] + [Command number 01H] + [Query bit address high 8 bits] + [Low 8 bits] + [Number of query bits high 8 bits] + [Low 8 bits] + [Low 8 bits of CRC check] + [High 8 bits of CRC check]
+Device response：[Device address] + [Command number 01H] + [Number of bytes returned] + [Data 1] + [Data 2] +...+ [Data n] + [Low 8 bits of CRC check] + [High 8 bits of CRC check]
+
+05H（Write Single Coil）
+Send Command：[Device address] + [Command number 05H] + [Lower bit address high 8 bits] + [Low 8 bits] + [Lower data high 8 bits] + [Low 8 bits] + [Low 8 bits of CRC check] + [High 8 bits of CRC check]
+Lower data [FF] [00] indicates 1[00] [00] indicates 0
+Device Response: If successful return the command sent by the computer as it is, otherwise no response 
+
+6、Modify parameters in #1 machine, other units can only query.

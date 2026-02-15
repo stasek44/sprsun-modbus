@@ -121,11 +121,10 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
         await self._async_write_register(value)
         
         # Update cached value immediately for responsiveness
-        if self._key not in self.coordinator.data:
-            self.coordinator.data[self._key] = value
+        self.coordinator.data[self._key] = value
         
-        # Request coordinator refresh to read back actual value
-        await self.coordinator.async_request_refresh()
+        # Note: No need to request immediate refresh - Modbus write_register()
+        # returns response confirming write. Next coordinator cycle will verify.
     
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass, read initial value."""

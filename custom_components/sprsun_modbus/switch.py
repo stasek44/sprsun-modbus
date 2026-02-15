@@ -85,12 +85,12 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the switch on."""
         await self._async_write_bit(True)
-        await self.coordinator.async_request_refresh()
+        # Note: Cache updated in _async_write_bit, no immediate refresh needed
     
     async def async_turn_off(self, **kwargs) -> None:
         """Turn the switch off."""
         await self._async_write_bit(False)
-        await self.coordinator.async_request_refresh()
+        # Note: Cache updated in _async_write_bit, no immediate refresh needed
     
     async def _async_write_bit(self, value: bool) -> None:
         """Write bit to Modbus register (safe bit manipulation)."""

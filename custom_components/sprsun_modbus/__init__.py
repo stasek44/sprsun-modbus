@@ -20,6 +20,7 @@ from .const import (
     REGISTERS_NUMBER,
     REGISTERS_SELECT,
     REGISTERS_SWITCH,
+    REGISTERS_BUTTON,
     BINARY_SENSOR_BITS,
 )
 
@@ -191,6 +192,9 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         # Add switch registers (need full register value for bit manipulation)
         rw_addresses.update({addr: (config[0], config[1], 1, None, None) for addr, config in 
                             {addr: (key, name) for key, (addr, _, name, _) in REGISTERS_SWITCH.items()}.items()})
+        # Add button registers (need full register value for bit manipulation)
+        rw_addresses.update({addr: (config[0], config[1], 1, None, None) for addr, config in 
+                            {addr: (key, name) for key, (addr, _, name, _) in REGISTERS_BUTTON.items()}.items()})
         
         for address, config in rw_addresses.items():
             key = config[0]
