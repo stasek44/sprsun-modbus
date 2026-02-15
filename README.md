@@ -6,23 +6,59 @@
 
 Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using Elfin-EW11/W11 gateway).
 
+> ⚠️ **Important:** This integration has been tested on **one heat pump model only - CGK-025V3L-B**, not all parameters have been verified. SPRSUN heat pumps use at least **two different controller types** - this integration currently supports only one. If you have a different model and would like to contribute, please open an issue!
+
 ## Features
 
-- **98 Entities**: 50 read-only sensors + 42 read-write number entities + 6 binary sensors
+- **100+ Entities**: 50 read-only sensors, 43 binary sensors, 45 number entities, 3 select controls, 3 switches, 1 button
+- **Comprehensive Monitoring**: All temperature sensors, pressures, power metrics, COP, status flags, error codes
+- **Full Control**: Operating modes, setpoints, economic mode curves, antilegionella, pump modes
 - **Batch Reading**: All read-only parameters in ONE request (~200ms) for optimal performance
-- **Real-time Monitoring**: Temperature, pressure, power, COP, status flags
-- **Remote Control**: Adjust operating modes, setpoints, economic mode parameters
-- **Energy Dashboard**: Power sensors compatible with HA Energy
-- **Reliable**: Batch read validation tests ensure data consistency
+- **Safe Writes**: Optimized write operations with bit manipulation protection
+- **Documentation**: Comprehensive [parameter guide](docs/PARAMETERS_GUIDE.md) and [Modbus reference](docs/MODBUS_REFERENCE.md)
 
 ## Quick Start
+
+### Hardware Setup
+
+**Requirements:**
+- SPRSUN heat pump with Modbus RTU interface
+- Elfin-EW11 or W11 RS485 to TCP/WiFi gateway
+- Ethernet or WiFi network connection
+
+**Wiring:**
+
+Connect RS485 from heat pump to Elfin gateway:
+- **A/+** (heat pump) → **A** (Elfin terminal)
+- **B/-** (heat pump) → **B** (Elfin terminal)
+- **GND** (heat pump) → **GND** (Elfin terminal, recommended for noise reduction)
+
+**Elfin W11 Configuration:**
+
+1. Connect to Elfin web interface: `http://192.168.1.234` (default IP, check router DHCP if needed)
+2. Configure serial port settings:
+   - **Mode:** TCP Server
+   - **Baud Rate:** 19200
+   - **Data Bits:** 8
+   - **Stop Bits:** 2
+   - **Parity:** None
+   - **Port:** 502 (Modbus TCP standard)
+   - **Timeout:** 30s (recommended)
+   - **Max Accept:** 1 (important - prevents connection conflicts)
+3. Save and reboot gateway
 
 ### Installation
 
 #### Via HACS (Recommended)
-1. Add custom repository: `stasek44/sprsun-modbus`
-2. Install "SPRSUN Modbus"
-3. Restart Home Assistant
+1. Open HACS in Home Assistant
+2. Click "Integrations"
+3. Click the three dots (⋮) in the top right
+4. Select "Custom repositories"
+5. Add repository: `https://github.com/stasek44/sprsun-modbus`
+6. Category: "Integration"
+7. Click "Add"
+8. Find "SPRSUN Modbus" in HACS and click "Download"
+9. Restart Home Assistant
 
 #### Manual Installation
 ```bash
@@ -31,53 +67,100 @@ git clone https://github.com/stasek44/sprsun-modbus.git sprsun_modbus
 # Restart Home Assistant
 ```
 
-### Configuration
+### Add Integration
 
-1. **Settings** → **Devices & Services** → **Add Integration**
+1. Go to **Settings** → **Devices & Services** → **Add Integration**
 2. Search for "SPRSUN"
-3. Enter:
-   - **Host**: Elfin W11 IP (e.g., 192.168.1.234)
-   - **Port**: 502
-   - **Device Address**: 1
-   - **Name**: My Heat Pump
-
-### Hardware Setup
-
-Connect RS485 from heat pump to Elfin-EW11/W11:
-- **A/+** → Terminal A
-- **B/-** → Terminal B  
-- **GND** → GND (recommended)
-
-Configure Elfin W11 at http://192.168.1.234:
-- Mode: TCP Server
-- Baud: 9600, 8N1
-- Timeout: 30s
-
-[See full installation guide →](docs/installation.md)
+3. Enter connection details:
+   - **Host**: Elfin W11 IP address (e.g., `192.168.1.234`)
+   - **Port**: `502` (Modbus TCP standard)
+   - **Device Address**: `1` (only address #1 can write parameters!)
+   - **Name**: Your heat pump name (e.g., "Heat Pump")
+   - **Scan Interval**: `30` seconds (recommended balance between responsiveness and load)
+4. Click "Submit"
+5. Integration will create 100+ entities automatically
 
 ## Entities
 
+The integration provides 100+ entities organized into 6 platforms:
+
 ### Sensors (50 read-only)
-- **Temperatures**: Inlet, outlet, hotwater, ambient, evaporator, condenser, coil, etc.
-- **Pressures**: Suction, discharge
-- **Power**: Heating/cooling capacity, AC voltage/current
-- **Status**: COP, compressor runtime, frequencies, fan speeds
-- **Diagnostics**: Software versions, failure symbols
+- **Temperatures**: Inlet, outlet, hot water, ambient, evaporator, condenser, coil, suction gas, discharge gas, driving temp
+- **Pressures**: Suction (low side), discharge (high side) - note: register labels are swapped in documentation!
+- **Power Metrics**: Heating/cooling capacity (W), AC voltage (V), AC current (A), compressor current (A)
+- **Performance**: COP (Coefficient of Performance), compressor runtime (hours)
+- **Operating State**: Compressor frequency, target frequency, fan speeds, pump flow
+- **Diagnostics**: EEV valve positions, DC bus voltage, software versions
 
-### Number Entities (42 read-write)
-- **Operating Modes**: Unit mode, fan mode
-- **Setpoints**: Heating, cooling, DHW temperatures
-- **Temperature Differentials**: Heating, DHW
-- **Economic Mode**: 4 ambient temps + 4 water temps for heating/cooling
-- **Antilegionella**: Temperature, schedule (weekday, start/end hour)
+### Binary Sensors (43)
+Decoded from 11 bitfield registers:
 
-### Binary Sensors (6)
-- Heating mode active
-- Cooling mode active  
-- DHW mode active
-- Silent mode active
-- Extra hot water
-- Compressor running
+**Switching Inputs (7):**
+- A/C linkage, linkage switch, heating/cooling linkage
+- Flow switch, high pressure switch, phase sequence
+
+**Working Status (6):**
+- Hot water demand, heating demand, cooling demand
+- Defrost active, antilegionella active, alarm stop
+
+**Outputs (12):**
+- Compressor, fans, 4-way valve, 3-way valve
+- Heaters (chassis, heating, hot water, crank)
+- Pumps (A/C, circulation), solenoid valve
+
+**Failures (18):**
+- Temperature sensor failures (6 sensors)
+- Pressure protections (low/high)
+- Flow failure, antifreeze protections
+- Exhaust overheat, coil overheat
+- DC fan failures, inverter faults
+
+### Number Entities (45 read-write)
+
+**Basic Setpoints (P01-P07):**
+- P01: Heating setpoint (10-55°C)
+- P02: Cooling setpoint (12-30°C)
+- P03: Heating/cooling differential (2-18°C)
+- P04: Hot water setpoint (10-55°C)
+- P05: Hot water differential (2-18°C)
+
+**Economic Mode (E01-E24):**
+- E01-E04: Heating curve ambient temps (-30 to 50°C, signed!)
+- E05-E08: DHW curve ambient temps (-30 to 50°C, signed!)
+- E09-E12: Cooling curve ambient temps (-30 to 50°C, signed!)
+- E13-E16: Heating curve target temps (10-55°C)
+- E17-E20: DHW curve target temps (10-55°C)
+- E21-E24: Cooling curve target temps (12-30°C)
+
+**General Settings (G01-G11):**
+- G03: Start interval (1-120 min)
+- G04: Delta temp for DC pump (5-30°C)
+- G05/G07: External heater activation temps (-30 to 30°C, signed!)
+- G06/G08: Compressor delays (1-60 min)
+- G10: Ambient switch setpoint (-20 to 30°C, signed!)
+- G11: Ambient switch differential (1-10°C)
+
+**Antilegionella:**
+- Temperature setpoint (30-70°C)
+- Weekday (0=Sunday to 6=Saturday)
+- Start hour (0-23)
+- End hour (0-23)
+
+### Select Entities (3)
+- **P06 Unit Mode**: DHW / Heating / Cooling / Heating+DHW / Cooling+DHW
+- **P07 Fan Mode**: Normal / Economic / Night / Test
+- **G02 Pump Work Mode**: Interval / Normal / Demand
+- **G09 Mode Control**: NO linkage / YES amb (auto mode switching)
+
+### Switch Entities (3)
+- **Power**: Main ON/OFF switch (register 0x0032 bit 0)
+- **Antilegionella Enable**: Enable/disable Legionella protection (0x0034 bit 0)
+- **Two/Three Function**: Switch between 2-function and 3-function mode (0x0034 bit 1)
+
+### Button Entity (1)
+- **Failure Reset**: Reset all alarms after resolving the cause (register 0x0033 bit 7)
+
+> 📖 **For detailed explanations of what each parameter does, see [PARAMETERS_GUIDE.md](docs/PARAMETERS_GUIDE.md)** (Polish language guide with examples and troubleshooting)
 
 ## Testing
 
@@ -117,13 +200,12 @@ pytest tests/ -v --cov
 ## Performance
 
 - **Read-Only (50 registers)**: ONE batch request ~200ms
-- **Binary Sensors (6 bits)**: ONE register read ~50ms  
-- **Total per scan**: 2 requests ~250ms
-- **RW Parameters (42)**: Read individually at startup only (~4200ms once)
+- **Binary Sensors (43 from 11 bitfields)**: Read in RO batch (no extra requests)
+- **Total per scan**: ~250ms for all monitoring
+- **RW Parameters (45)**: Read individually at startup (~4500ms once)
+- **Write Operations**: No immediate refresh - cache updated locally, verified on next scan
 
-Network efficiency: **16x faster** than individual reads (250ms vs 4000ms)
-
-[See architecture details →](docs/batch_read_architecture.md)
+Network efficiency: **20x faster** than individual reads (250ms vs 5000ms)
 
 ## Configuration Examples
 
@@ -160,11 +242,17 @@ automation:
 
 ## Documentation
 
-- [Installation Guide](docs/installation.md) - Hardware setup, Elfin W11 config
-- [Configuration Guide](docs/configuration.md) - Lovelace, automations, templates
-- [Batch Read Architecture](docs/batch_read_architecture.md) - Technical deep-dive
-- [Testing Guide](docs/testing.md) - Local tests, unit tests, validation
-- [Repository Structure](docs/repository_structure.md) - File organization
+### User Guides
+- 📖 **[PARAMETERS_GUIDE.md](docs/PARAMETERS_GUIDE.md)** - Comprehensive guide (Polish) explaining what each parameter controls, with practical examples and troubleshooting tips
+- 📚 **[MODBUS_REFERENCE.md](docs/MODBUS_REFERENCE.md)** - Complete Modbus protocol reference with all register addresses, data types, scales, and communication details
+
+### Technical Notes
+- **Signed Integers**: 5 RO + 15 RW temperature registers use signed int16 (can be negative for winter outdoor temps)
+- **Pressure Scale**: Values reported in 0.1 PSI, converted to bar (multiply by 0.0069)
+- **Register Swap**: Pressure registers 0x002F/0x0030 labels are swapped in original documentation
+- **Batch Reading**: All 50 RO registers + 11 bitfield status registers read in one request
+- **Write Protection**: Only device address #1 can modify parameters (per Modbus protocol spec)
+- **Connection Management**: Single persistent connection prevents Elfin max_accept=1 conflicts
 
 ## Troubleshooting
 
@@ -178,12 +266,15 @@ telnet 192.168.1.234 502
 python scripts/test_local.py
 ```
 
-### Batch Read Validation Failed
+### Parameter Values Seem Wrong
 
-If `batch_vs_individual` test fails (values mismatch):
-1. Update Elfin W11 firmware
-2. Try Ethernet instead of WiFi
-3. Check for other Modbus tools polling device
+1. Check if register uses signed integers (temperatures can be negative)
+2. Verify pressure scale (values in 0.1 PSI, not bar)
+3. Note: Pressure registers 0x002F/0x0030 are swapped in documentation
+4. Run test script to validate Modbus communication:
+   ```bash
+   python scripts/test_local.py
+   ```
 
 ### Values Not Updating
 
@@ -192,22 +283,44 @@ Check:
 - Home Assistant logs for errors
 - Elfin W11 web interface shows active connection
 
+## To Do
+
+Contributions welcome! Priority development tasks:
+
+### Core Improvements
+- [ ] **Options flow** - Allow changing integration settings (host, port, scan interval) without removing/re-adding
+- [ ] **Verify all registers** - Test on multiple heat pump models to confirm register map accuracy
+- [ ] **Multiple register write optimization** - Use Modbus command 10H (write multiple) for batch parameter updates
+- [ ] **Unit tests** - Evaluate necessity and add test coverage for core functionality
+
+### Documentation
+- [ ] **Analyze pump manual** - Add Elfin settings for reference
+- [ ] **Analyze pump manual** - Cross-reference with PARAMETERS_GUIDE for accuracy
+- [ ] **English parameter guide** - Translate PARAMETERS_GUIDE.md to English
+
+### Publishing & Branding
+- [ ] **Integration logo** - Design and add custom logo
+- [ ] **Publish to HACS** - Submit to HACS default repository
+- [ ] **Add badges** - HACS install button, Buy Me a Coffee button
+- [ ] **GitHub workflows** - Add HACS validation and automated tests
+
+### Known Issues
+- [ ] **RW field momentary revert** - After writing RW parameter in HA, value briefly reverts to old state before updating (cosmetic, resolved on next coordinator poll)
+- [ ] **Batch read RW registers** - Investigate if RW registers can be batch-read (currently read individually due to sparse address space)
+
+### Controller Support
+- [ ] **Additional controller types** - SPRSUN uses at least 2 different controller types. This integration supports one. Looking for contributors with different models!
+
 ## Known Limitations
 
-- **RW Parameters**: Use individual connections (not batch read)
-  - Reason: Sparse addresses (0x0036, 0x00C6-CC, 0x0169-019E)
-  - Impact: Minimal (only read at startup)
-- **Switch Platform**: Not implemented (bitfield complexity)
-- **Climate Entity**: Not implemented (use number entities + automations)
+- **Controller compatibility**: Tested on one controller type only. SPRSUN heat pumps may have different register maps.
+- **Parameter verification**: Not all parameters tested in real-world scenarios.
+- **Climate entity**: Not implemented - use number/select entities with automations instead.
+- **RW batch reading**: RW parameters read individually due to sparse address space (0x0036, 0x00C6-CC, 0x0169-019E).
 
 ## Contributing
 
 Pull requests welcome!
-
-1. Fork the repository
-2. Create feature branch
-3. Run tests: `pytest tests/ -v` and `python scripts/test_local.py`
-4. Submit PR
 
 ## License
 
@@ -229,5 +342,3 @@ MIT License - see [LICENSE](LICENSE)
 - **Discussions**: [GitHub Discussions](https://github.com/stasek44/sprsun-modbus/discussions)
 
 ---
-
-**⭐ If this integration works for you, consider starring the repository!**
