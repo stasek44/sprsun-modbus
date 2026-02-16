@@ -119,30 +119,41 @@ class ChicoController(ControllerBase):
                 rw_config[addr] = (key, scale)
             for addr, (key, name, options) in REGISTERS_SELECT.items():
                 rw_config[addr] = (key, 1)
+            
+            # Add switch registers (control marks)
             for key, (addr, bit, name, icon) in REGISTERS_SWITCH.items():
-                if addr not in rw_config:  # Avoid duplicates (switches share registers)
-                    rw_config[addr] = (f"_reg_{addr:04x}", 1)
+                # Switch entities share registers, create unique key for each register
+                reg_key = f"_control_{addr:04x}"
+                if addr not in rw_config:
+                    rw_config[addr] = (reg_key, 1)
             
             # Define RW register batches (split for safety with 512-byte buffer)
-            # Total: 10 batches instead of 45+ individual reads = ~5x faster
+            # Total: 12 batches instead of 45+ individual reads = ~5x faster
             rw_batches = [
+                # Control marks (switches)
+                (0x0032, 1, "Control Mark 1 (Power)"),      # Power switch and others
+                (0x0034, 1, "Control Mark 2 (Settings)"),   # Antilegionella, Two/Three function
                 # Basic setpoints and differentials
-                (0x00C6, 5, "P03-P07 (Basic Config)"),  # P03 Heating/cooling diff, P06 Unit mode, P07 Fan mode
-                (0x00CB, 2, "P01-P02 (Setpoints)"),     # P01 Cooling, P02 Heating
+                (0x00C6, 5, "P03-P07 (Basic Config)"),     # P03 Heating/cooling diff, P06 Unit mode, P07 Fan mode
+                (0x00CB, 2, "P01-P02 (Setpoints)"),        # P01 Cooling, P02 Heating
                 # Economic mode - Heating ambient temps
-                (0x0169, 4, "E01-E04 (Heat Ambient)"),  # SIGNED
+                (0x0169, 4, "E01-E04 (Heat Ambient)"),     # SIGNED
                 # Economic mode - Heating water temps
                 (0x0175, 4, "E13-E16 (Heat Temps)"),
                 # Economic mode - DHW ambient temps
-                (0x016D, 4, "E05-E08 (DHW Ambient)"),   # SIGNED
+                (0x016D, 4, "E05-E08 (DHW Ambient)"),      # SIGNED
                 # Economic mode - DHW water temps
                 (0x0179, 4, "E17-E20 (DHW Temps)"),
                 # Economic mode - Cooling ambient temps
-                (0x0171, 4, "E09-E12 (Cool Ambient)"),  # SIGNED
+                (0x0171, 4, "E09-E12 (Cool Ambient)"),     # SIGNED
                 # Economic mode - Cooling water temps
                 (0x017D, 4, "E21-E24 (Cool Temps)"),
-                # General settings G01-G11
-                (0x0181, 11, "G01-G11 (General)"),      # G01-G11 (some SIGNED like G10)
+                # General settings G01-G03, G06, G08
+                (0x0181, 11, "G01-G03,G06,G08 (General)"), # 0x0181-0x018B
+                # G04 (separate - not contiguous)
+                (0x018D, 1, "G04 (DC Pump Diff)"),         # dc_pump_temp_diff
+                # G09-G11
+                (0x0191, 3, "G09-G11 (Mode Control)"),     # mode_control_enable, ambient setpoints
                 # Antilegionella settings
                 (0x019A, 4, "Antilegionella Config"),
             ]

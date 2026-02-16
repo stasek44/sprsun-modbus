@@ -69,15 +69,16 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
     @property
     def is_on(self) -> bool:
         """Return true if switch is on."""
-        # Read current register value
-        cache_entry = self.coordinator.data.get(self._key)
+        # Read current register value from cache using register-based key
+        reg_key = f"_control_{self._address:04x}"
+        cache_entry = self.coordinator.data.get(reg_key)
         if cache_entry:
             # Handle new format (dict with value/timestamp)
             if isinstance(cache_entry, dict):
-                value = cache_entry.get("value", 0)
+                value = int(cache_entry.get("value", 0))
             else:
                 # Handle old format
-                value = cache_entry
+                value = int(cache_entry)
         else:
             value = 0
         
@@ -87,11 +88,14 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        # Check if coordinator is working and key exists in cache
+        # Check if coordinator is working
         if not self.coordinator.last_update_success:
             return False
-        # Support both old and new cache format
-        return self._key in self.coordinator.data
+        
+        # For switches, we need to check if the REGISTER (not switch key) exists in cache
+        # Switches read from _control_XXXX keys that map to their register addresses
+        reg_key = f"_control_{self._address:04x}"
+        return reg_key in self.coordinator.data
     
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the switch on."""
@@ -111,9 +115,9 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
             # Use write_client (Connection #2) for writes
             client = self.coordinator.write_client
             
-            if not client.connected:
-                if not client.connect():
-                    raise ConnectionError("Cannot connect to Modbus write device")
+            # Ensure connection with retry
+            if not self.coordinator._ensure_connection(client, "write_client"):
+                raise ConnectionError("Cannot connect to Modbus write device")
             
             # Read current register value
             result = client.read_holding_registers(
@@ -149,8 +153,9 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
                     self._bit, value, self._address, current_value, new_value
                 )
             
-            # Update cached value with timestamp
-            self.coordinator.data[self._key] = {
+            # Update cached value with timestamp using register-based key
+            reg_key = f"_control_{self._address:04x}"
+            self.coordinator.data[reg_key] = {
                 "value": new_value,
                 "updated_at": time.time()
             }

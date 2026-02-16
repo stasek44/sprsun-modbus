@@ -95,8 +95,19 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     @property
     def hvac_mode(self) -> HVACMode:
         """Return current HVAC mode."""
-        # Check power switch (bit 0 of register 0x0032)
-        power_on = self._get_cache_value("power_switch", False)
+        # Check power switch (bit 0 of control register 0x0032)
+        # Switch entities store register value in _control_XXXX key
+        reg_key = "_control_0032"
+        reg_cache = self.coordinator.data.get(reg_key)
+        if reg_cache:
+            if isinstance(reg_cache, dict):
+                reg_value = int(reg_cache.get("value", 0))
+            else:
+                reg_value = int(reg_cache)
+            power_on = bool(reg_value & 1)  # bit 0
+        else:
+            power_on = False
+        
         if not power_on:
             return HVACMode.OFF
         
@@ -119,7 +130,18 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     @property
     def hvac_action(self) -> HVACAction:
         """Return current HVAC action."""
-        power_on = self._get_cache_value("power_switch", False)
+        # Check power first
+        reg_key = "_control_0032"
+        reg_cache = self.coordinator.data.get(reg_key)
+        if reg_cache:
+            if isinstance(reg_cache, dict):
+                reg_value = int(reg_cache.get("value", 0))
+            else:
+                reg_value = int(reg_cache)
+            power_on = bool(reg_value & 1)
+        else:
+            power_on = False
+        
         if not power_on:
             return HVACAction.OFF
         
@@ -139,8 +161,8 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     
     @property
     def current_temperature(self) -> float | None:
-        """Return outlet water temperature (what's being delivered)."""
-        return self._get_cache_value("outlet_temp")
+        """Return inlet water temperature (water returning from heating system)."""
+        return self._get_cache_value("inlet_temp")
     
     @property
     def target_temperature(self) -> float | None:
@@ -300,9 +322,8 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         def _write():
             client = self.coordinator.write_client
             
-            if not client.connected:
-                if not client.connect():
-                    raise ConnectionError("Cannot connect to Modbus write device")
+            # Ensure connection with keep-alive
+            self.coordinator._ensure_connection(client, "write_client")
             
             # Read current register value
             result = client.read_holding_registers(
@@ -335,9 +356,10 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
                 
                 _LOGGER.info("Set power to %s (register 0x0032: 0x%04X -> 0x%04X)", state, current_value, new_value)
             
-            # Update cache with timestamp
-            self.coordinator.data["power_switch"] = {
-                "value": state,
+            # Update cache with timestamp using register-based key
+            reg_key = "_control_0032"
+            self.coordinator.data[reg_key] = {
+                "value": new_value,
                 "updated_at": time.time()
             }
         
@@ -401,7 +423,17 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
     def hvac_mode(self) -> HVACMode:
         """Return current HVAC mode for DHW."""
         # Check power switch
-        power_on = self._get_cache_value("power_switch", False)
+        reg_key = "_control_0032"
+        reg_cache = self.coordinator.data.get(reg_key)
+        if reg_cache:
+            if isinstance(reg_cache, dict):
+                reg_value = int(reg_cache.get("value", 0))
+            else:
+                reg_value = int(reg_cache)
+            power_on = bool(reg_value & 1)
+        else:
+            power_on = False
+        
         if not power_on:
             return HVACMode.OFF
         
@@ -418,8 +450,18 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         if self.hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
         
-        # Check if heating DHW (compressor running + DHW mode)
-        compressor_running = self._get_cache_value("compressor_running", False)
+        # Check if heating DHW (check working status register for DHW heating)
+        # We can infer from unit_mode and compressor status
+        compressor_running_cache = self.coordinator.data.get("working_status_register")
+        if compressor_running_cache:
+            if isinstance(compressor_running_cache, dict):
+                status_reg = int(compressor_running_cache.get("value", 0))
+            else:
+                status_reg = int(compressor_running_cache)
+            compressor_running = bool(status_reg & (1 << 0))  # bit 0 = compressor running
+        else:
+            compressor_running = False
+        
         unit_mode = int(self._get_cache_value("unit_mode", 1))
         
         if compressor_running and unit_mode in [0, 3, 4]:
@@ -505,9 +547,8 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         def _write():
             client = self.coordinator.write_client
             
-            if not client.connected:
-                if not client.connect():
-                    raise ConnectionError("Cannot connect to Modbus write device")
+            # Ensure connection with keep-alive
+            self.coordinator._ensure_connection(client, "write_client")
             
             # Read current register value
             result = client.read_holding_registers(
@@ -540,9 +581,10 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
                 
                 _LOGGER.info("Set DHW power to %s (register 0x0032: 0x%04X -> 0x%04X)", state, current_value, new_value)
             
-            # Update cache with timestamp
-            self.coordinator.data["power_switch"] = {
-                "value": state,
+            # Update cache with timestamp using register-based key
+            reg_key = "_control_0032"
+            self.coordinator.data[reg_key] = {
+                "value": new_value,
                 "updated_at": time.time()
             }
         
