@@ -26,14 +26,27 @@ async def async_setup_entry(
     config_entry: ConfigEntry,
     async_add_entities: AddEntitiesCallback,
 ) -> None:
-    """Set up SPRSUN climate entity."""
+    """Set up SPRSUN climate entities."""
     coordinator = hass.data[DOMAIN][config_entry.entry_id]
     
-    async_add_entities([SPRSUNClimate(coordinator, config_entry)])
+    # Create two climate entities: one for heating/cooling, one for DHW
+    async_add_entities([
+        SPRSUNClimate(coordinator, config_entry),
+        SPRSUNDHWClimate(coordinator, config_entry),
+    ])
 
 
 class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
-    """SPRSUN Heat Pump Climate Entity (Hybrid Interface)."""
+    """SPRSUN Heat Pump Climate Entity for Heating/Cooling Control.
+    
+    HVAC Modes:
+    - OFF: Power off (register 0x0032 bit 0 = 0)
+    - HEAT: Heating mode (P06 = 1 or 3)
+    - COOL: Cooling mode (P06 = 2 or 4)
+    - HEAT_COOL: Automatic mode switching based on ambient temp (G09 = 1)
+    
+    Note: DHW (hot water) control is in separate 'DHW' climate entity.
+    """
     
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
@@ -59,7 +72,7 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         """Initialize the climate entity."""
         super().__init__(coordinator)
         
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Climate"
+        self._attr_name = f"{config_entry.data[CONF_NAME]} Heating/Cooling"
         self._attr_unique_id = f"{config_entry.entry_id}_climate"
         
         # Device info
@@ -286,14 +299,6 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         
         def _write():
             client = self.coordinator.write_client
-            if client is None:
-                from pymodbus.client import ModbusTcpClient
-                client = ModbusTcpClient(
-                    host=self.coordinator.host,
-                    port=self.coordinator.port,
-                    timeout=5
-                )
-                self.coordinator.write_client = client
             
             if not client.connected:
                 if not client.connect():
@@ -329,6 +334,211 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
                     raise ValueError(f"Modbus write error: {result}")
                 
                 _LOGGER.info("Set power to %s (register 0x0032: 0x%04X -> 0x%04X)", state, current_value, new_value)
+            
+            # Update cache with timestamp
+            self.coordinator.data["power_switch"] = {
+                "value": state,
+                "updated_at": time.time()
+            }
+        
+        await self.hass.async_add_executor_job(_write)
+
+
+class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
+    """SPRSUN Heat Pump DHW (Domestic Hot Water) Climate Entity.
+    
+    Controls hot water heating separately from space heating/cooling.
+    
+    HVAC Modes:
+    - OFF: DHW disabled (P06 doesn't include DHW)
+    - HEAT: DHW heating enabled (P06 = 0, 3, or 4)
+    
+    Unit Mode (P06) values:
+    - 0: DHW only
+    - 1: Heating only
+    - 2: Cooling only
+    - 3: Heating + DHW
+    - 4: Cooling + DHW
+    """
+    
+    _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
+    
+    _attr_hvac_modes = [
+        HVACMode.OFF,
+        HVACMode.HEAT,
+    ]
+    
+    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_min_temp = 10
+    _attr_max_temp = 55
+    _attr_target_temperature_step = 0.5
+    
+    def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
+        """Initialize the DHW climate entity."""
+        super().__init__(coordinator)
+        
+        self._attr_name = f"{config_entry.data[CONF_NAME]} DHW"
+        self._attr_unique_id = f"{config_entry.entry_id}_dhw_climate"
+        
+        # Device info
+        self._attr_device_info = {
+            "identifiers": {(DOMAIN, config_entry.entry_id)},
+            "name": config_entry.data[CONF_NAME],
+            "manufacturer": "SPRSUN",
+            "model": "Heat Pump",
+        }
+    
+    def _get_cache_value(self, key: str, default=None):
+        """Helper to extract value from cache (handles both old and new format)."""
+        cache_entry = self.coordinator.data.get(key)
+        if cache_entry:
+            if isinstance(cache_entry, dict):
+                return cache_entry.get("value", default)
+            return cache_entry
+        return default
+    
+    @property
+    def hvac_mode(self) -> HVACMode:
+        """Return current HVAC mode for DHW."""
+        # Check power switch
+        power_on = self._get_cache_value("power_switch", False)
+        if not power_on:
+            return HVACMode.OFF
+        
+        # Check if DHW is enabled in unit mode (P06: 0=DHW, 3=Heat+DHW, 4=Cool+DHW)
+        unit_mode = int(self._get_cache_value("unit_mode", 1))
+        if unit_mode in [0, 3, 4]:  # DHW enabled
+            return HVACMode.HEAT
+        
+        return HVACMode.OFF
+    
+    @property
+    def hvac_action(self) -> HVACAction:
+        """Return current HVAC action for DHW."""
+        if self.hvac_mode == HVACMode.OFF:
+            return HVACAction.OFF
+        
+        # Check if heating DHW (compressor running + DHW mode)
+        compressor_running = self._get_cache_value("compressor_running", False)
+        unit_mode = int(self._get_cache_value("unit_mode", 1))
+        
+        if compressor_running and unit_mode in [0, 3, 4]:
+            return HVACAction.HEATING
+        
+        return HVACAction.IDLE
+    
+    @property
+    def current_temperature(self) -> float | None:
+        """Return hot water temperature."""
+        return self._get_cache_value("hotwater_temp")
+    
+    @property
+    def target_temperature(self) -> float | None:
+        """Return hot water setpoint."""
+        return self._get_cache_value("hotwater_setpoint")
+    
+    async def async_set_hvac_mode(self, hvac_mode: HVACMode) -> None:
+        """Set HVAC mode for DHW."""
+        current_mode = int(self._get_cache_value("unit_mode", 1))
+        
+        if hvac_mode == HVACMode.OFF:
+            # Disable DHW in unit mode
+            if current_mode == 0:  # DHW only
+                # Turn off power
+                await self._write_power(False)
+            elif current_mode == 3:  # Heat+DHW
+                # Switch to heating only
+                await self.coordinator.async_write_register(
+                    address=0x00C6, value=1, key="unit_mode", scale=1
+                )
+            elif current_mode == 4:  # Cool+DHW
+                # Switch to cooling only
+                await self.coordinator.async_write_register(
+                    address=0x00C6, value=2, key="unit_mode", scale=1
+                )
+        
+        elif hvac_mode == HVACMode.HEAT:
+            # Enable DHW in unit mode
+            await self._write_power(True)
+            
+            if current_mode == 1:  # Heating only
+                # Switch to Heat+DHW
+                await self.coordinator.async_write_register(
+                    address=0x00C6, value=3, key="unit_mode", scale=1
+                )
+            elif current_mode == 2:  # Cooling only
+                # Switch to Cool+DHW
+                await self.coordinator.async_write_register(
+                    address=0x00C6, value=4, key="unit_mode", scale=1
+                )
+            elif current_mode in [0, 3, 4]:
+                # DHW already enabled, just ensure power is on
+                pass
+            else:
+                # Default: DHW only
+                await self.coordinator.async_write_register(
+                    address=0x00C6, value=0, key="unit_mode", scale=1
+                )
+        
+        self.async_write_ha_state()
+    
+    async def async_set_temperature(self, **kwargs) -> None:
+        """Set hot water target temperature."""
+        temperature = kwargs.get(ATTR_TEMPERATURE)
+        if temperature is None:
+            return
+        
+        # Write hot water setpoint (P04 at 0x00CA, scale 0.5)
+        await self.coordinator.async_write_register(
+            address=0x00CA,
+            value=temperature,
+            key="hotwater_setpoint",
+            scale=2  # 0.5°C scale means multiply by 2
+        )
+        
+        self.async_write_ha_state()
+    
+    async def _write_power(self, state: bool) -> None:
+        """Write power switch state (bit 0 of register 0x0032)."""
+        import time
+        
+        def _write():
+            client = self.coordinator.write_client
+            
+            if not client.connected:
+                if not client.connect():
+                    raise ConnectionError("Cannot connect to Modbus write device")
+            
+            # Read current register value
+            result = client.read_holding_registers(
+                address=0x0032,
+                count=1,
+                device_id=self.coordinator.device_address
+            )
+            
+            if result.isError():
+                raise ValueError(f"Modbus read error: {result}")
+            
+            current_value = result.registers[0]
+            
+            # Modify bit 0 (power switch)
+            if state:
+                new_value = current_value | 1  # Set bit 0
+            else:
+                new_value = current_value & ~1  # Clear bit 0
+            
+            # Write back if changed
+            if new_value != current_value:
+                result = client.write_register(
+                    address=0x0032,
+                    value=new_value,
+                    device_id=self.coordinator.device_address
+                )
+                
+                if result.isError():
+                    raise ValueError(f"Modbus write error: {result}")
+                
+                _LOGGER.info("Set DHW power to %s (register 0x0032: 0x%04X -> 0x%04X)", state, current_value, new_value)
             
             # Update cache with timestamp
             self.coordinator.data["power_switch"] = {

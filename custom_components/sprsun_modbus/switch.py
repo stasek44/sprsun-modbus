@@ -87,10 +87,11 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return (
-            self.coordinator.last_update_success
-            and self._key in self.coordinator.data
-        )
+        # Check if coordinator is working and key exists in cache
+        if not self.coordinator.last_update_success:
+            return False
+        # Support both old and new cache format
+        return self._key in self.coordinator.data
     
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the switch on."""
@@ -109,15 +110,6 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
         def _write():
             # Use write_client (Connection #2) for writes
             client = self.coordinator.write_client
-            if client is None:
-                # Initialize write client if needed
-                from pymodbus.client import ModbusTcpClient
-                client = ModbusTcpClient(
-                    host=self.coordinator.host,
-                    port=self.coordinator.port,
-                    timeout=5
-                )
-                self.coordinator.write_client = client
             
             if not client.connected:
                 if not client.connect():

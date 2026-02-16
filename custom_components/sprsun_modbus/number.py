@@ -117,7 +117,10 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success
+        if not self.coordinator.last_update_success:
+            return False
+        # Check if value exists in cache
+        return self._key in self.coordinator.data
     
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""

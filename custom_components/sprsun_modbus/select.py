@@ -92,7 +92,10 @@ class SPRSUNSelect(CoordinatorEntity, SelectEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success
+        # Check if coordinator is working and key exists
+        if not self.coordinator.last_update_success:
+            return False
+        return self._key in self.coordinator.data
     
     async def async_select_option(self, option: str) -> None:
         """Change the selected option."""

@@ -90,11 +90,12 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         # Dual connection architecture:
         # Connection #1: Read operations (coordinator polling)
         # Connection #2: Write operations (entity writes)
-        self.read_client = None
-        self.write_client = None
+        # Initialize both clients immediately to avoid connection errors
+        self.read_client = ModbusTcpClient(host=host, port=port, timeout=5)
+        self.write_client = ModbusTcpClient(host=host, port=port, timeout=5)
         
         # Legacy property for backwards compatibility
-        self.client = None
+        self.client = self.read_client
         
         self.controller_type = controller_type
         self.controller = get_controller(controller_type)
@@ -127,16 +128,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         """Synchronous update (runs in executor)."""
         import time
         
-        # Initialize read client (Connection #1)
-        if self.read_client is None:
-            self.read_client = ModbusTcpClient(
-                host=self.host,
-                port=self.port,
-                timeout=5,
-            )
-            # Maintain backwards compatibility
-            self.client = self.read_client
-        
+        # Connect read client if not connected (Connection #1)
         if not self.read_client.connected:
             _LOGGER.debug("Connecting read client to %s:%s", self.host, self.port)
             if not self.read_client.connect():
@@ -213,14 +205,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         """
         import time
         
-        # Initialize write client (Connection #2)
-        if self.write_client is None:
-            self.write_client = ModbusTcpClient(
-                host=self.host,
-                port=self.port,
-                timeout=5,
-            )
-        
+        # Connect write client if not connected (Connection #2)
         if not self.write_client.connected:
             _LOGGER.debug("Connecting write client to %s:%s", self.host, self.port)
             if not self.write_client.connect():
