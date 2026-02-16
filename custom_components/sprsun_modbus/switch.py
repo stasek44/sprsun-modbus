@@ -116,7 +116,7 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
             client = self.coordinator.client
             
             # Ensure connection (auto-reconnect if needed)
-            if not self.coordinator._ensure_connection(client, \"client\"):
+            if not self.coordinator._ensure_connection(client, "client"):
                 raise ConnectionError("Cannot connect to Modbus device")
             
             # Read current register value
