@@ -127,35 +127,28 @@ class ChicoController(ControllerBase):
                 if addr not in rw_config:
                     rw_config[addr] = (reg_key, 1)
             
-            # Define RW register batches (split for safety with 512-byte buffer)
-            # Total: 12 batches instead of 45+ individual reads = ~5x faster
+            # Note: Button register 0x0033 is NOT read - buttons do read-modify-write on-demand
+            #       Reading it in batches is unnecessary (always returns 0 after auto-clear)
+            
+            # Define OPTIMIZED RW register batches (accept small padding to minimize batch count)
+            # Strategy: Read continuous ranges with gaps ≤3 registers
+            # Result: 5 batches instead of 17 = ~70% fewer Modbus queries
             rw_batches = [
-                # Control marks (switches)
-                (0x0032, 1, "Control Mark 1 (Power)"),      # Power switch and others
-                (0x0034, 1, "Control Mark 2 (Settings)"),   # Antilegionella, Two/Three function
-                # Basic setpoints and differentials
-                (0x00C6, 5, "P03-P07 (Basic Config)"),     # P03 Heating/cooling diff, P06 Unit mode, P07 Fan mode
-                (0x00CB, 2, "P01-P02 (Setpoints)"),        # P01 Cooling, P02 Heating
-                # Economic mode - Heating ambient temps
-                (0x0169, 4, "E01-E04 (Heat Ambient)"),     # SIGNED
-                # Economic mode - Heating water temps
-                (0x0175, 4, "E13-E16 (Heat Temps)"),
-                # Economic mode - DHW ambient temps
-                (0x016D, 4, "E05-E08 (DHW Ambient)"),      # SIGNED
-                # Economic mode - DHW water temps
-                (0x0179, 4, "E17-E20 (DHW Temps)"),
-                # Economic mode - Cooling ambient temps
-                (0x0171, 4, "E09-E12 (Cool Ambient)"),     # SIGNED
-                # Economic mode - Cooling water temps
-                (0x017D, 4, "E21-E24 (Cool Temps)"),
-                # General settings G01-G03, G06, G08
-                (0x0181, 11, "G01-G03,G06,G08 (General)"), # 0x0181-0x018B
-                # G04 (separate - not contiguous)
-                (0x018D, 1, "G04 (DC Pump Diff)"),         # dc_pump_temp_diff
-                # G09-G11
-                (0x0191, 3, "G09-G11 (Mode Control)"),     # mode_control_enable, ambient setpoints
-                # Antilegionella settings
-                (0x019A, 4, "Antilegionella Config"),
+                # Batch 1: Control marks + P06 (with padding: 0x0033 button, 0x0035 unused)
+                (0x0032, 5, "Control+P06"),  # 0x0032-0x0036 (3 used, 2 padding = 60% efficiency)
+                
+                # Batch 2: P parameters (with padding: 0x00C7, 0x00C9 unused)
+                (0x00C6, 7, "P03-P02"),  # 0x00C6-0x00CC (5 used, 2 padding = 71% efficiency)
+                
+                # Batch 3: ALL Economic mode parameters (no padding!)
+                (0x0169, 29, "E01-E24+G08-G03"),  # 0x0169-0x0185 (29 used, 0 padding = 100% efficiency)
+                # Contains: E01-E04, E05-E08, E09-E12, E13-E16, E17-E20, E21-E24, G08-G03
+                
+                # Batch 4: G04 + P07 + G09-G11 (with padding: 0x018E, 0x018F unused)
+                (0x018D, 7, "G04+P07+G09-G11"),  # 0x018D-0x0193 (5 used, 2 padding = 71% efficiency)
+                
+                # Batch 5: Antilegionella + G02 (no padding!)
+                (0x019A, 5, "Anti+G02"),  # 0x019A-0x019E (5 used, 0 padding = 100% efficiency)
             ]
             
             total_rw_read = 0

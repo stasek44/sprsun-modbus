@@ -15,7 +15,7 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_CONTROLLER_TYPE = "controller_type"  # "chico" or "carel"
 
 # Platforms
-PLATFORMS = ["sensor", "binary_sensor", "number", "select", "switch", "button", "climate"]
+PLATFORMS = ["sensor", "binary_sensor", "number", "select", "switch", "button"]
 
 # Read-Only Registers (50 parameters) - zgodnie z modbus_reference.md
 REGISTERS_READ_ONLY = {
