@@ -87,15 +87,8 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         self.port = port
         self.device_address = device_address
         
-        # Dual connection architecture:
-        # Connection #1: Read operations (coordinator polling)
-        # Connection #2: Write operations (entity writes)
-        # Initialize both clients with keep-alive and longer timeout
-        self.read_client = self._create_modbus_client(host, port)
-        self.write_client = self._create_modbus_client(host, port)
-        
-        # Legacy property for backwards compatibility
-        self.client = self.read_client
+        # Single persistent connection for both read and write operations
+        self.client = self._create_modbus_client(host, port)
         
         self.controller_type = controller_type
         self.controller = get_controller(controller_type)
@@ -123,10 +116,6 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
             host=host,
             port=port,
             timeout=10,  # Longer timeout to prevent premature disconnects
-            retries=0,    # We handle retries manually
-            retry_on_empty=False,
-            close_comm_on_error=False,  # Keep connection alive on errors
-            strict=False,
         )
     
     def _ensure_connection(self, client: ModbusTcpClient, name: str = "client") -> bool:
@@ -135,15 +124,6 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
             _LOGGER.debug("Reconnecting %s to %s:%s", name, self.host, self.port)
             try:
                 if client.connect():
-                    # Enable TCP keep-alive on the socket
-                    if hasattr(client, 'socket') and client.socket:
-                        import socket
-                        client.socket.setsockopt(socket.SOL_SOCKET, socket.SO_KEEPALIVE, 1)
-                        # Linux-specific keep-alive settings
-                        if hasattr(socket, 'TCP_KEEPIDLE'):
-                            client.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPIDLE, 30)
-                            client.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPINTVL, 10)
-                            client.socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_KEEPCNT, 3)
                     _LOGGER.debug("%s connected successfully", name)
                     return True
                 else:
@@ -153,6 +133,27 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 _LOGGER.error("Exception connecting %s: %s", name, err)
                 return False
         return True
+    
+    def _verify_connection(self, client: ModbusTcpClient, test_address: int = 0x0000) -> bool:
+        """Verify connection is actually working by test read.
+        
+        Returns True if connection works, False if need to reconnect.
+        """
+        try:
+            result = client.read_holding_registers(
+                address=test_address,
+                count=1,
+                device_id=self.device_address
+            )
+            # If we got response (even if error), socket is alive
+            return not result.isError() or "Connection" not in str(result)
+        except Exception as err:
+            # Connection error - need reconnect
+            if "connection" in str(err).lower() or "closed" in str(err).lower():
+                _LOGGER.debug("Connection verification failed: %s", err)
+                return False
+            # Other errors (timeout, etc) - connection might be OK
+            return True
     
     async def _async_update_data(self):
         """Fetch data from Modbus."""
@@ -165,15 +166,15 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         """Synchronous update (runs in executor)."""
         import time
         
-        # Ensure read client is connected (Connection #1)
-        if not self._ensure_connection(self.read_client, "read_client"):
-            raise UpdateFailed("Failed to connect read_client to Modbus device")
+        # Ensure client is connected
+        if not self._ensure_connection(self.client, "client"):
+            raise UpdateFailed("Failed to connect to Modbus device")
         
         # Use controller-specific implementation to read registers
         try:
             # Read all registers (RO + RW)
             fresh_data = self.controller.read_all_registers(
-                self.read_client,
+                self.client,
                 self.device_address,
                 initial_read=True  # Always read RW now
             )
@@ -240,63 +241,59 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         """
         import time
         
-        # Ensure write client is connected (Connection #2)
-        max_retries = 3
-        for attempt in range(max_retries):
-            try:
-                if not self._ensure_connection(self.write_client, "write_client"):
-                    if attempt < max_retries - 1:
-                        _LOGGER.warning("Write client connection failed (attempt %d/%d), retrying...",
-                                       attempt + 1, max_retries)
-                        time.sleep(0.5)  # Wait before retry
-                        continue
-                    raise ConnectionError("Cannot connect to Modbus write device after retries")
+        # Ensure client is connected (check flag)
+        if not self._ensure_connection(self.client, "client"):
+            raise ConnectionError("Cannot connect to Modbus device")
+        
+        # Verify connection is actually working (test read)
+        if not self._verify_connection(self.client, test_address=address):
+            _LOGGER.warning("Connection dead, reconnecting...")
+            self.client.close()
+            if not self._ensure_connection(self.client, "client"):
+                raise ConnectionError("Cannot reconnect to Modbus device")
+        
+        # Write register
+        result = self.client.write_register(
+            address=address,
+            value=value,
+            device_id=self.device_address
+        )
+        
+        if result.isError():
+            # Check if it's a connection error
+            error_str = str(result).lower()
+            if "connection" in error_str or "closed" in error_str:
+                # Connection died during write - try once more after reconnect
+                _LOGGER.warning("Connection error during write, reconnecting and retrying once...")
+                self.client.close()
+                if not self._ensure_connection(self.client, "client"):
+                    raise ConnectionError("Cannot reconnect to Modbus device")
                 
-                # Write via Connection #2
-                result = self.write_client.write_register(
+                # Retry write once
+                result = self.client.write_register(
                     address=address,
                     value=value,
                     device_id=self.device_address
                 )
                 
                 if result.isError():
-                    if attempt < max_retries - 1:
-                        _LOGGER.warning("Write error on attempt %d/%d: %s, retrying...", 
-                                       attempt + 1, max_retries, result)
-                        # Reconnect and retry
-                        self.write_client.close()
-                        time.sleep(0.5)
-                        continue
-                    raise ValueError(f"Modbus write error: {result}")
-                
-                # Success - update cache immediately with timestamp (prevents revert glitch)
-                self.data[key] = {
-                    "value": value / scale if scale != 1 else float(value),
-                    "updated_at": time.time()
-                }
-                
-                _LOGGER.debug(
-                    "Wrote register 0x%04X = %d, cached as %s = %.2f (attempt %d)",
-                    address, value, key, self.data[key]["value"], attempt + 1
-                )
-                
-                return True
-                
-            except Exception as err:
-                if attempt < max_retries - 1:
-                    _LOGGER.warning("Exception on write attempt %d/%d: %s, retrying...", 
-                                   attempt + 1, max_retries, err)
-                    # Close and reconnect
-                    try:
-                        self.write_client.close()
-                    except:
-                        pass
-                    time.sleep(0.5)
-                else:
-                    _LOGGER.error("Failed to write after %d attempts: %s", max_retries, err)
-                    raise
+                    raise ValueError(f"Modbus write error after reconnect: {result}")
+            else:
+                # Modbus protocol error (CRC, illegal address, etc) - fail immediately
+                raise ValueError(f"Modbus write error: {result}")
         
-        raise ConnectionError(f"Failed to write register after {max_retries} attempts")
+        # Success - update cache immediately with timestamp (prevents revert glitch)
+        self.data[key] = {
+            "value": value / scale if scale != 1 else float(value),
+            "updated_at": time.time()
+        }
+        
+        _LOGGER.debug(
+            "Wrote register 0x%04X = %d, cached as %s = %.2f",
+            address, value, key, self.data[key]["value"]
+        )
+        
+        return True
     
     async def async_write_register(self, address: int, value: float, key: str, scale: float = 1) -> None:
         """Async wrapper for write_register_with_cache (Phase 4).
@@ -320,13 +317,6 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
     
     async def async_shutdown(self):
         """Shutdown coordinator."""
-        if self.read_client:
-            await self.hass.async_add_executor_job(self.read_client.close)
-            self.read_client = None
-        
-        if self.write_client:
-            await self.hass.async_add_executor_job(self.write_client.close)
-            self.write_client = None
-        
-        # Clear legacy reference
-        self.client = None
+        if self.client:
+            await self.hass.async_add_executor_job(self.client.close)
+            self.client = None

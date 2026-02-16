@@ -112,12 +112,12 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
         import time
         
         def _write():
-            # Use write_client (Connection #2) for writes
-            client = self.coordinator.write_client
+            # Use coordinator's client for writes
+            client = self.coordinator.client
             
-            # Ensure connection with retry
-            if not self.coordinator._ensure_connection(client, "write_client"):
-                raise ConnectionError("Cannot connect to Modbus write device")
+            # Ensure connection (auto-reconnect if needed)
+            if not self.coordinator._ensure_connection(client, \"client\"):
+                raise ConnectionError("Cannot connect to Modbus device")
             
             # Read current register value
             result = client.read_holding_registers(

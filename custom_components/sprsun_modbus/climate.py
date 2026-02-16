@@ -320,10 +320,10 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         import time
         
         def _write():
-            client = self.coordinator.write_client
+            client = self.coordinator.client
             
-            # Ensure connection with keep-alive
-            self.coordinator._ensure_connection(client, "write_client")
+            # Ensure connection (auto-reconnect if needed)
+            self.coordinator._ensure_connection(client, "client")
             
             # Read current register value
             result = client.read_holding_registers(
@@ -545,10 +545,10 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         import time
         
         def _write():
-            client = self.coordinator.write_client
+            client = self.coordinator.client
             
-            # Ensure connection with keep-alive
-            self.coordinator._ensure_connection(client, "write_client")
+            # Ensure connection (auto-reconnect if needed)
+            self.coordinator._ensure_connection(client, "client")
             
             # Read current register value
             result = client.read_holding_registers(
