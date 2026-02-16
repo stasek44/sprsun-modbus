@@ -146,11 +146,22 @@ Odpowiadające E09-E12 temperatury docelowe wody chłodzącej.
 ### G02 - Pump Work Mode (0x019E)
 **Tryb pracy pompy obiegowej.**
 
-- **0 - Interval:** Pompa pracuje cyklicznie (np. 3 min co 30 min) - zapobiega zatrzymaniu
-- **1 - Normal:** Pompa pracuje ciągle gdy pompa ciepła w trybie ogrzewania/chłodzenia
-- **2 - Demand:** Pompa pracuje tylko gdy jest faktyczne zapotrzebowanie
+- **0 - Interval:** Pompa pracuje cyklicznie (np. 3 min co 30 min) - zapobiega zatrzymaniu i zamarzaniu podczas dłuższych przerw w pracy
+- **1 - Normal:** Pompa pracuje ciągle gdy pompa ciepła w trybie ogrzewania/chłodzenia (Always On)
+- **2 - Demand:** Pompa pracuje tylko gdy jest faktyczne zapotrzebowanie - najbardziej ekonomiczny
 
-**Zalecane:** Normal lub Demand
+**Wybór trybu:**
+- **Interval**: Gdy pompa jest wyłączona przez długi czas (np. tylko CWU latem) - chroni przed zamarzaniem. W tym trybie pompa włącza się okresowo (interwał ustawiany fabrycznie, typowo 30 minut) na krótki czas (typowo 3 minuty) aby zapewnić cyrkulację i zapobiec zamarzaniu.
+- **Normal**: Standardowy tryb - ciągła cyrkulacja zapewnia równomierne ogrzewanie/chłodzenie
+- **Demand**: Oszczędność energii - pompa włącza się tylko gdy potrzeba. Uwaga: może skutkować częstszymi cyklami włącz/wyłącz pompy ciepła
+
+**Informacje o pompie DC/inverter:**
+Jeśli masz pompę DC (ze zmienną prędkością), to:
+- W trybie Normal lub Demand pompa automatycznie reguluje prędkość według G04 (Delta Temp Set)
+- Parametr G04 określa docelową różnicę temperatur między zasilaniem a powrotem
+- Im wyższa różnica temperatur ustawiona, tym wolniej pracuje pompa = oszczędność energii
+
+**Zalecane:** Normal dla instalacji grzewczej, Demand gdy priorytetem jest oszczędność energii
 
 ### G03 - Start Interval (0x0185)
 **Zakres:** 1-120 minut | **Minimalny odstęp między startami sprężarki**
@@ -163,15 +174,27 @@ Odpowiadające E09-E12 temperatury docelowe wody chłodzącej.
 ### G04 - DC Pump Temp Differential (0x018D)
 **Zakres:** 5-30°C | **Różnica temp. dla sterowania pompą DC**
 
-- Przy pompie obiegowej ze sterowaniem prędkości (DC)
+- Przy pompie obiegowej ze sterowaniem prędkości (DC/inverter)
 - Określa różnicę temp. między zasilaniem a powrotem do regulacji prędkości pompy
+- **Zasada działania**: Pompa DC automatycznie dostosowuje prędkość aby utrzymać zadaną różnicę temperatur między wyjściem a powrotem
+- Wyższa wartość (np. 10-15°C) = wolniejsza pompa = większe ∆T = oszczędność energii ale mniejszy komfort
+- Niższa wartość (np. 5-8°C) = szybsza pompa = mniejsze ∆T = lepsze mieszanie i równomierność temperatur
+
+**Uwaga**: Ten parametr działa tylko gdy masz pompę DC/inverter. Przy standardowej pompie stałoprędkościowej parametr jest ignorowany.
 
 ### G05 - Heating Heater External Temp (0x0184)
 **Zakres:** -30 do 30°C | **Temperatura aktywacji dogrzewu dla ogrzewania**
 
-- Poniżej tej temp. zewnętrznej włącza się grzałka elektryczna wspomagająca ogrzewanie
+- Poniżej tej temp. zewnętrznej włącza się grzałka elektryczna wspomagająca ogrzewanie (OUT4)
 - Typowo: -10°C do -5°C (zależy od mocy pompy)
 - Niższa wartość = rzadsze użycie dogrzewu (oszczędność prądu)
+
+**Ważne informacje o dogrzewie:**
+- Grzałka elektryczna pobiera dużo prądu (typowo 3-9 kW)
+- Zaleca się używanie tylko jako wspomaganie w ekstremalnie niskich temperaturach
+- Fabryczne okablowanie łączy grzałkę ogrzewania na wyjściu OUT4
+- Grzałka powinna być typu przepływowego, zamontowana w rurze zasilania instalacji
+- Opóźnienie włączenia grzałki ustawiane jest w G06
 
 ### G06 - Heating Heater Delay (0x0182)
 **Zakres:** 1-60 minut | **Opóźnienie włączenia dogrzewu ogrzewania**
@@ -183,8 +206,13 @@ Odpowiadające E09-E12 temperatury docelowe wody chłodzącej.
 ### G07 - Hot Water Heater External Temp (0x0183)
 **Zakres:** -30 do 30°C | **Temperatura aktywacji dogrzewu dla CWU**
 
-- Jak G05, ale dla podgrzewu CWU
+- Jak G05, ale dla podgrzewu CWU (OUT12)
 - Poniżej tej temp. zewnętrznej używa grzałki do szybszego podgrzewu CWU
+- Fabryczne okablowanie łączy grzałkę CWU na wyjściu OUT12
+- Grzałka powinna być zamontowana w zasobniku CWU lub w rurze przepływowej CWU
+- Opóźnienie włączenia grzałki ustawiane jest w G08
+
+**Uwaga**: Jeśli używasz własnych grzałek (nie z zestawu producenta), upewnij się że są to grzałki przepływowe zainstalowane we właściwej ścieżce przepływu wody zgodnie z dokumentacją instalacyjną.
 
 ### G08 - Hot Water Heater Delay (0x0181)
 **Zakres:** 1-60 minut | **Opóźnienie włączenia dogrzewu CWU**
@@ -194,10 +222,20 @@ Odpowiadające E09-E12 temperatury docelowe wody chłodzącej.
 ### G09 - Mode Control Enable (0x0191)
 **Automatyczne przełączanie trybów w zależności od temp. zewnętrznej.**
 
-- **NO linkage:** Tryb ustawiany ręcznie (P06)
-- **YES amb:** Automatyczne przełączanie heating/cooling w zależności od G10/G11
+- **0 - NO linkage (Manual):** Tryb ustawiany ręcznie przez P06 (Unit Mode) - bez automatyki
+- **1 - YES amb (Automatic):** Automatyczne przełączanie heating/cooling w zależności od temperatury zewnętrznej (G10/G11)
 
-**Przykład:** Latem gdy temp. rośnie > G10, automatycznie przełącza na cooling
+**Jak działa tryb automatyczny:**
+1. Ustaw G10 (punkt przełączania, np. 20°C)
+2. Ustaw G11 (histereza, np. 3°C)
+3. Gdy temp. zewnętrzna > G10 + G11 (np. >23°C) → automatycznie przełącza na cooling lub cooling+DHW
+4. Gdy temp. zewnętrzna < G10 - G11 (np. <17°C) → automatycznie przełącza na heating lub heating+DHW  
+5. Między 17-23°C → utrzymuje aktualny tryb (bez przełączania)
+
+**Przykład użycia:**
+Latem gdy temperatura rośnie powyżej 23°C, pompa automatycznie przełącza się na chłodzenie. Jesienią gdy temperatura spada poniżej 17°C, automatycznie wraca do ogrzewania.
+
+**Uwaga**: CWU pozostaje aktywne w obu trybach (jeśli wybrano tryb z +DHW w P06).
 
 ### G10 - Ambient Switch Setpoint (0x0192)
 **Zakres:** -20 do 30°C | **Punkt przełączenia trybu (temp. zewnętrzna)**
@@ -527,7 +565,26 @@ Pozwala na sterowanie pompą przez operatora sieci (zmniejszenie poboru w szczyc
 ### Control Mark 2 (0x0034)
 
 **Antilegionella Enable (bit 0):** Włącz/wyłącz funkcję antylegionella  
-**Two/Three Function (bit 1):** Tryb pracy - Dwufunkcyjna (heat+cool) vs Trójfunkcyjna (heat+cool+DHW)
+- 0 = Wyłączona (domyślnie)
+- 1 = Włączona
+- Jeśli włączona, pompa będzie okresowo (zgodnie z parametrami 0x019A-0x019D) podgrzewać CWU do wysokiej temperatury (60°C) aby zabić bakterie Legionella
+
+**Two/Three Function (bit 1, G01):** Konfiguracja funkcjonalności pompy  
+- **0 = Two (Dwufunkcyjna):** Pompa obsługuje **2 funkcje**: Ogrzewanie + Chłodzenie (bez CWU)
+  - Nie ma trzeciego wymiennika dla CWU
+  - Pompa może tylko grzać lub chłodzić instalację
+  - Tryby dostępne w P06: Heating Only (1), Cooling Only (2)
+  
+- **1 = Three (Trójfunkcyjna):** Pompa obsługuje **3 funkcje**: Ogrzewanie + Chłodzenie + CWU (standard)
+  - Ma trzeci wymiennik/zawór 3-drogowy dla podgrzewu CWU
+  - Pompa może grzać/chłodzić instalację ORAZ podgrzewać CWU
+  - Tryby dostępne w P06: DHW Only (0), Heating Only (1), Cooling Only (2), Heating+DHW (3), Cooling+DHW (4)
+
+**Kiedy zmienić:**
+- **Two**: Jeśli nie masz zasobnika CWU lub używasz innego źródła do podgrzewu CWU (np. kocioł elektryczny)
+- **Three**: Standardowa konfiguracja - pompa obsługuje wszystko (heating + cooling + DHW)
+
+**Uwaga**: Ten parametr powinien odpowiadać fizycznej konfiguracji instalacji. Nieprawidłowe ustawienie może powodować błędy pracy pompy.
 
 ---
 

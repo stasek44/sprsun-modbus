@@ -104,11 +104,14 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
     @property
     def native_value(self) -> float | None:
         """Return the current value."""
-        # First try to read from coordinator (cached)
-        if self._key in self.coordinator.data:
-            return self.coordinator.data[self._key]
-        
-        # If not in coordinator, read directly (for RW registers)
+        # Read from coordinator cache (new format with timestamp)
+        cache_entry = self.coordinator.data.get(self._key)
+        if cache_entry:
+            # Handle new format (dict with value/timestamp)
+            if isinstance(cache_entry, dict):
+                return cache_entry.get("value")
+            # Handle old format (raw float) for backwards compatibility
+            return cache_entry
         return None
     
     @property
@@ -118,25 +121,23 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
     
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
-        await self._async_write_register(value)
+        # Use coordinator's write helper (handles cache + timestamp automatically)
+        await self.coordinator.async_write_register(
+            address=self._address,
+            value=value,
+            key=self._key,
+            scale=(1 / self._scale)  # Convert scale factor for coordinator
+        )
         
-        # Update cached value immediately for responsiveness
-        self.coordinator.data[self._key] = value
-        
-        # Note: No need to request immediate refresh - Modbus write_register()
-        # returns response confirming write. Next coordinator cycle will verify.
+        # Trigger UI update immediately
+        self.async_write_ha_state()
     
     async def async_added_to_hass(self) -> None:
         """When entity is added to hass, read initial value."""
         await super().async_added_to_hass()
         
-        # Read initial value if not in coordinator
-        if self._key not in self.coordinator.data:
-            try:
-                value = await self._async_read_register()
-                self.coordinator.data[self._key] = value
-            except Exception as err:
-                _LOGGER.warning("Failed to read initial value for %s: %s", self._key, err)
+        # Initial value will be loaded by coordinator on first refresh
+        # No need to read directly anymore
     
     async def _async_read_register(self) -> float:
         """Read from Modbus register."""

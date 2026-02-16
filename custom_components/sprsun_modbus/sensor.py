@@ -90,7 +90,14 @@ class SPRSUNSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return self.coordinator.data.get(self._key)
+        cache_entry = self.coordinator.data.get(self._key)
+        if cache_entry:
+            # Handle new format (dict with value/timestamp)
+            if isinstance(cache_entry, dict):
+                return cache_entry.get("value")
+            # Handle old format (raw value) for backwards compatibility
+            return cache_entry
+        return None
     
     @property
     def available(self) -> bool:

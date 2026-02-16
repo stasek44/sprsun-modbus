@@ -91,8 +91,18 @@ class SPRSUNBinarySensor(CoordinatorEntity, BinarySensorEntity):
         register_key = address_to_key.get(source_address)
         if not register_key:
             return False
-            
-        register_value = self.coordinator.data.get(register_key, 0)
+        
+        cache_entry = self.coordinator.data.get(register_key)
+        if cache_entry:
+            # Handle new format (dict with value/timestamp)
+            if isinstance(cache_entry, dict):
+                register_value = cache_entry.get("value", 0)
+            else:
+                # Handle old format
+                register_value = cache_entry
+        else:
+            register_value = 0
+        
         # Check if bit is set
         return bool(register_value & (1 << bit))
     

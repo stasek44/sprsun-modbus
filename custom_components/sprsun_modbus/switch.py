@@ -70,7 +70,17 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
     def is_on(self) -> bool:
         """Return true if switch is on."""
         # Read current register value
-        value = self.coordinator.data.get(self._key, 0)
+        cache_entry = self.coordinator.data.get(self._key)
+        if cache_entry:
+            # Handle new format (dict with value/timestamp)
+            if isinstance(cache_entry, dict):
+                value = cache_entry.get("value", 0)
+            else:
+                # Handle old format
+                value = cache_entry
+        else:
+            value = 0
+        
         # Check if our bit is set
         return bool(value & (1 << self._bit))
     
@@ -85,20 +95,33 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the switch on."""
         await self._async_write_bit(True)
-        # Note: Cache updated in _async_write_bit, no immediate refresh needed
+        self.async_write_ha_state()
     
     async def async_turn_off(self, **kwargs) -> None:
         """Turn the switch off."""
         await self._async_write_bit(False)
-        # Note: Cache updated in _async_write_bit, no immediate refresh needed
+        self.async_write_ha_state()
     
     async def _async_write_bit(self, value: bool) -> None:
         """Write bit to Modbus register (safe bit manipulation)."""
+        import time
+        
         def _write():
-            client = self.coordinator.client
-            if client is None or not client.connected:
+            # Use write_client (Connection #2) for writes
+            client = self.coordinator.write_client
+            if client is None:
+                # Initialize write client if needed
+                from pymodbus.client import ModbusTcpClient
+                client = ModbusTcpClient(
+                    host=self.coordinator.host,
+                    port=self.coordinator.port,
+                    timeout=5
+                )
+                self.coordinator.write_client = client
+            
+            if not client.connected:
                 if not client.connect():
-                    raise ConnectionError("Cannot connect to Modbus device")
+                    raise ConnectionError("Cannot connect to Modbus write device")
             
             # Read current register value
             result = client.read_holding_registers(
@@ -134,7 +157,10 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
                     self._bit, value, self._address, current_value, new_value
                 )
             
-            # Update cached value
-            self.coordinator.data[self._key] = new_value
+            # Update cached value with timestamp
+            self.coordinator.data[self._key] = {
+                "value": new_value,
+                "updated_at": time.time()
+            }
         
         await self.hass.async_add_executor_job(_write)

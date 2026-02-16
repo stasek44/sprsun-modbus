@@ -14,6 +14,7 @@ from .const import (
     DOMAIN,
     CONF_DEVICE_ADDRESS,
     CONF_SCAN_INTERVAL,
+    CONF_CONTROLLER_TYPE,
     DEFAULT_SCAN_INTERVAL,
     PLATFORMS,
     REGISTERS_READ_ONLY,
@@ -33,14 +34,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     port = entry.data[CONF_PORT]
     device_address = entry.data[CONF_DEVICE_ADDRESS]
     scan_interval = entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+    controller_type = entry.data.get(CONF_CONTROLLER_TYPE, "chico")  # Default to CHICO for backwards compatibility
     
     _LOGGER.info(
-        "Setting up SPRSUN Heat Pump at %s:%s (device %s, scan interval %ss)",
-        host, port, device_address, scan_interval
+        "Setting up SPRSUN Heat Pump (%s controller) at %s:%s (device %s, scan interval %ss)",
+        controller_type.upper(), host, port, device_address, scan_interval
     )
     
     coordinator = SPRSUNDataUpdateCoordinator(
-        hass, host, port, device_address, scan_interval
+        hass, host, port, device_address, scan_interval, controller_type
     )
     
     # Fetch initial data
@@ -76,12 +78,36 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         port: int,
         device_address: int,
         scan_interval: int,
+        controller_type: str,
     ) -> None:
         """Initialize."""
+        from .controllers import get_controller
+        
         self.host = host
         self.port = port
         self.device_address = device_address
+        
+        # Dual connection architecture:
+        # Connection #1: Read operations (coordinator polling)
+        # Connection #2: Write operations (entity writes)
+        self.read_client = None
+        self.write_client = None
+        
+        # Legacy property for backwards compatibility
         self.client = None
+        
+        self.controller_type = controller_type
+        self.controller = get_controller(controller_type)
+        
+        # Cache staleness window: Skip re-reading recently written registers
+        # Set to 2x scan_interval to prevent revert glitches
+        self.cache_staleness_seconds = scan_interval * 2
+        
+        _LOGGER.info(
+            "Using %s controller (cache staleness: %ds)",
+            self.controller.name,
+            self.cache_staleness_seconds
+        )
         
         super().__init__(
             hass,
@@ -99,131 +125,65 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
     
     def _sync_update(self):
         """Synchronous update (runs in executor)."""
-        if self.client is None:
-            self.client = ModbusTcpClient(
+        import time
+        
+        # Initialize read client (Connection #1)
+        if self.read_client is None:
+            self.read_client = ModbusTcpClient(
                 host=self.host,
                 port=self.port,
-                timeout=30,  # Long timeout for safety
+                timeout=5,
             )
+            # Maintain backwards compatibility
+            self.client = self.read_client
         
-        if not self.client.connected:
-            _LOGGER.debug("Connecting to %s:%s", self.host, self.port)
-            if not self.client.connect():
+        if not self.read_client.connected:
+            _LOGGER.debug("Connecting read client to %s:%s", self.host, self.port)
+            if not self.read_client.connect():
                 raise UpdateFailed("Failed to connect to Modbus device")
         
-        data = {}
-        
-        # Registers that should be interpreted as signed int16 (can be negative)
-        # Read-Only temperature sensors:
-        SIGNED_REGISTERS = {
-            0x0011,  # ambient_temp
-            0x0015,  # suction_gas_temp
-            0x0016,  # coil_temp
-            0x0022,  # driving_temp
-            0x0028,  # evap_temp
-        }
-        # Read-Write ambient temperature settings:
-        SIGNED_RW_REGISTERS = {
-            0x0169, 0x016A, 0x016B, 0x016C,  # E01-E04: Economic heat ambient
-            0x016D, 0x016E, 0x016F, 0x0170,  # E05-E08: Economic water ambient
-            0x0171, 0x0172, 0x0173, 0x0174,  # E09-E12: Economic cool ambient
-            0x0183,  # G07: Hotwater heater external temp
-            0x0184,  # G05: Heating heater external temp
-            0x0192,  # G10: Ambient temp switch setpoint
-        }
-        
-        # Read all read-only registers in one batch (0x0000-0x0031 = 50 registers)
+        # Use controller-specific implementation to read registers
         try:
-            result = self.client.read_holding_registers(
-                address=0x0000,
-                count=50,
-                device_id=self.device_address
+            # Read all registers (RO + RW)
+            fresh_data = self.controller.read_all_registers(
+                self.read_client,
+                self.device_address,
+                initial_read=True  # Always read RW now
             )
             
-            if result.isError():
-                raise UpdateFailed(f"Modbus read error: {result}")
+            # Phase 2: Migrate to timestamp-based cache
+            # Merge fresh data with cache, respecting timestamps
+            now = time.time()
+            updated_data = {}
             
-            # Parse read-only registers
-            for address, (key, name, scale, unit, device_class) in REGISTERS_READ_ONLY.items():
-                index = address - 0x0000
-                if index < len(result.registers):
-                    raw_value = result.registers[index]
-                    
-                    # Convert to signed int16 if needed
-                    if address in SIGNED_REGISTERS:
-                        if raw_value > 32767:
-                            raw_value = raw_value - 65536
-                    
-                    data[key] = raw_value * scale
+            for key, value in fresh_data.items():
+                # Check if we have a cached entry
+                cached = self.data.get(key) if isinstance(self.data, dict) else None
+                
+                # Handle both old format (float) and new format (dict with timestamp)
+                if isinstance(cached, dict) and "updated_at" in cached:
+                    # New format: respect timestamp
+                    if (now - cached["updated_at"]) < self.cache_staleness_seconds:
+                        # Cache is fresh (recently written), preserve it
+                        updated_data[key] = cached
+                    else:
+                        # Cache is stale, use fresh value from device
+                        updated_data[key] = {"value": value, "updated_at": now}
+                else:
+                    # Old format or no cache: use fresh value
+                    updated_data[key] = {"value": value, "updated_at": now}
             
-            _LOGGER.debug("Read %d read-only registers successfully", len(data))
+            return updated_data
             
         except Exception as err:
-            _LOGGER.error("Error reading batch registers: %s", err)
-            raise UpdateFailed(f"Batch read failed: {err}") from err
-        
-        # Read status registers for binary sensors (R 0x0002-0x000D)
-        # These are all read in the batch, just map them with friendly names
-        status_register_map = {
-            0x0002: "switching_input_symbol",
-            0x0003: "working_status_register",  # Special name for backward compatibility
-            0x0004: "output_symbol_1",
-            0x0005: "output_symbol_2",
-            0x0006: "output_symbol_3",
-            0x0007: "failure_symbol_1",
-            0x0008: "failure_symbol_2",
-            0x0009: "failure_symbol_3",
-            0x000A: "failure_symbol_4",
-            0x000B: "failure_symbol_5",
-            0x000C: "failure_symbol_6",
-            0x000D: "failure_symbol_7",
-        }
-        
-        for address, key in status_register_map.items():
-            index = address - 0x0000
-            if index < len(result.registers):
-                data[key] = result.registers[index]
-        
-        # Read R/W registers for number and select entities
-        # Read them individually since they're scattered across the address space
-        rw_addresses = {}
-        rw_addresses.update({addr: (*config, 1) for addr, config in REGISTERS_NUMBER.items()})  # scale is third item
-        rw_addresses.update({addr: (config[0], config[1], 1, None, None) for addr, config in REGISTERS_SELECT.items()})  # add dummy scale
-        # Add switch registers (need full register value for bit manipulation)
-        rw_addresses.update({addr: (config[0], config[1], 1, None, None) for addr, config in 
-                            {addr: (key, name) for key, (addr, _, name, _) in REGISTERS_SWITCH.items()}.items()})
-        # Add button registers (need full register value for bit manipulation)
-        rw_addresses.update({addr: (config[0], config[1], 1, None, None) for addr, config in 
-                            {addr: (key, name) for key, (addr, _, name, _) in REGISTERS_BUTTON.items()}.items()})
-        
-        for address, config in rw_addresses.items():
-            key = config[0]
-            scale = config[2]
-            
-            try:
-                result = self.client.read_holding_registers(
-                    address=address,
-                    count=1,
-                    device_id=self.device_address
-                )
-                
-                if not result.isError() and len(result.registers) == 1:
-                    raw_value = result.registers[0]
-                    
-                    # Convert to signed int16 if this is an RW temperature register
-                    if address in SIGNED_RW_REGISTERS:
-                        if raw_value > 32767:
-                            raw_value = raw_value - 65536
-                    
-                    data[key] = raw_value * scale
-                    
-            except Exception as err:
-                _LOGGER.debug("Error reading RW register 0x%04X: %s", address, err)
-        
-        return data
+            _LOGGER.error("Error reading %s registers: %s", self.controller.name, err)
+            raise UpdateFailed(f"Register read failed: {err}") from err
     
     def write_register(self, address: int, value: int) -> bool:
-        """Write a single register (synchronous, runs in executor)."""
+        """Write a single register (synchronous, runs in executor) - LEGACY.
+        
+        Note: Use write_register_with_cache() for new code.
+        """
         if self.client is None or not self.client.connected:
             if not self.client.connect():
                 raise ConnectionError("Cannot connect to Modbus device")
@@ -239,8 +199,85 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         
         return True
     
+    def write_register_with_cache(self, address: int, value: int, key: str, scale: float = 1) -> bool:
+        """Write register via dedicated write connection and update cache (Phase 4).
+        
+        Args:
+            address: Modbus register address
+            value: Raw integer value to write (already scaled)
+            key: Cache key to update
+            scale: Scale factor to convert back to float for cache
+        
+        Returns:
+            True if write succeeded
+        """
+        import time
+        
+        # Initialize write client (Connection #2)
+        if self.write_client is None:
+            self.write_client = ModbusTcpClient(
+                host=self.host,
+                port=self.port,
+                timeout=5,
+            )
+        
+        if not self.write_client.connected:
+            _LOGGER.debug("Connecting write client to %s:%s", self.host, self.port)
+            if not self.write_client.connect():
+                raise ConnectionError("Cannot connect to Modbus write device")
+        
+        # Write via Connection #2
+        result = self.write_client.write_register(
+            address=address,
+            value=value,
+            device_id=self.device_address
+        )
+        
+        if result.isError():
+            raise ValueError(f"Modbus write error: {result}")
+        
+        # Update cache immediately with timestamp (prevents revert glitch)
+        self.data[key] = {
+            "value": value / scale if scale != 1 else float(value),
+            "updated_at": time.time()
+        }
+        
+        _LOGGER.debug(
+            "Wrote register 0x%04X = %d, cached as %s = %.2f",
+            address, value, key, self.data[key]["value"]
+        )
+        
+        return True
+    
+    async def async_write_register(self, address: int, value: float, key: str, scale: float = 1) -> None:
+        """Async wrapper for write_register_with_cache (Phase 4).
+        
+        Args:
+            address: Modbus register address
+            value: Float value to write (will be scaled)
+            key: Cache key to update
+            scale: Scale factor (value will be multiplied by this)
+        """
+        # Convert float to scaled integer
+        int_value = int(value * scale)
+        
+        await self.hass.async_add_executor_job(
+            self.write_register_with_cache,
+            address,
+            int_value,
+            key,
+            scale
+        )
+    
     async def async_shutdown(self):
         """Shutdown coordinator."""
-        if self.client:
-            await self.hass.async_add_executor_job(self.client.close)
-            self.client = None
+        if self.read_client:
+            await self.hass.async_add_executor_job(self.read_client.close)
+            self.read_client = None
+        
+        if self.write_client:
+            await self.hass.async_add_executor_job(self.write_client.close)
+            self.write_client = None
+        
+        # Clear legacy reference
+        self.client = None

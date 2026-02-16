@@ -12,9 +12,10 @@ DEFAULT_TIMEOUT = 30  # seconds - Elfin W11 timeout (must be >= scan_interval + 
 # Configuration keys
 CONF_DEVICE_ADDRESS = "device_address"
 CONF_SCAN_INTERVAL = "scan_interval"
+CONF_CONTROLLER_TYPE = "controller_type"  # "chico" or "carel"
 
 # Platforms
-PLATFORMS = ["sensor", "binary_sensor", "number", "select", "switch", "button"]
+PLATFORMS = ["sensor", "binary_sensor", "number", "select", "switch", "button", "climate"]
 
 # Read-Only Registers (50 parameters) - zgodnie z modbus_reference.md
 REGISTERS_READ_ONLY = {

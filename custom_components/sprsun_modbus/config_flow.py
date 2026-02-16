@@ -20,6 +20,7 @@ from .const import (
     DEFAULT_TIMEOUT,
     CONF_DEVICE_ADDRESS,
     CONF_SCAN_INTERVAL,
+    CONF_CONTROLLER_TYPE,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -31,8 +32,10 @@ async def validate_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict
     port = data[CONF_PORT]
     device_address = data[CONF_DEVICE_ADDRESS]
     
-    def _test_connection():
-        """Test connection in executor."""
+    def _test_connection_and_detect():
+        """Test connection and detect controller type in executor."""
+        from .controllers import detect_controller_type
+        
         client = ModbusTcpClient(host=host, port=port, timeout=5)
         try:
             if not client.connect():
@@ -48,18 +51,30 @@ async def validate_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict
             if result.isError():
                 raise ConnectionError(f"Modbus read error: {result}")
             
-            return True
+            # Auto-detect controller type
+            controller_type = detect_controller_type(client, device_address)
+            
+            if controller_type is None:
+                _LOGGER.warning(
+                    "Could not auto-detect controller type, defaulting to CHICO"
+                )
+                controller_type = "chico"
+            
+            return controller_type
             
         finally:
             client.close()
     
     try:
-        await hass.async_add_executor_job(_test_connection)
+        controller_type = await hass.async_add_executor_job(_test_connection_and_detect)
     except Exception as err:
         _LOGGER.error("Connection test failed: %s", err)
         raise ConnectionError(f"Cannot connect: {err}") from err
     
-    return {"title": data[CONF_NAME]}
+    return {
+        "title": data[CONF_NAME],
+        "controller_type": controller_type,
+    }
 
 
 class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
@@ -82,6 +97,16 @@ class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     f"{user_input[CONF_HOST]}:{user_input[CONF_PORT]}"
                 )
                 self._abort_if_unique_id_configured()
+                
+                # Add controller type to user input
+                user_input[CONF_CONTROLLER_TYPE] = info["controller_type"]
+                
+                _LOGGER.info(
+                    "Detected %s controller at %s:%s",
+                    info["controller_type"].upper(),
+                    user_input[CONF_HOST],
+                    user_input[CONF_PORT]
+                )
                 
                 return self.async_create_entry(title=info["title"], data=user_input)
                 
