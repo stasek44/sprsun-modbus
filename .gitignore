@@ -39,6 +39,7 @@ env/
 .pytest_cache/
 .coverage
 htmlcov/
+coverage.xml
 .tox/
 
 # CSV data files (from debug scripts)

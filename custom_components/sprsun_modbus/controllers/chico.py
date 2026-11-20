@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+import time
 from typing import TYPE_CHECKING
 
 from . import ControllerBase
@@ -127,33 +128,44 @@ class ChicoController(ControllerBase):
                 if addr not in rw_config:
                     rw_config[addr] = (reg_key, 1)
             
-            # Note: Button register 0x0033 is NOT read - buttons do read-modify-write on-demand
-            #       Reading it in batches is unnecessary (always returns 0 after auto-clear)
-            
-            # Define OPTIMIZED RW register batches (accept small padding to minimize batch count)
-            # Strategy: Read continuous ranges with gaps ≤3 registers
-            # Result: 5 batches instead of 17 = ~70% fewer Modbus queries
+            # Note: Button register 0x0033 is part of Batch 1 (0x0032-0x0034)
+            # Define clean, valid RW register batches without invalid padding
+            # Each batch covers only contiguous registers that physically exist in the Chico controller
             rw_batches = [
-                # Batch 1: Control marks + P06 (with padding: 0x0033 button, 0x0035 unused)
-                (0x0032, 5, "Control+P06"),  # 0x0032-0x0036 (3 used, 2 padding = 60% efficiency)
+                # Batch 1: Control marks (0x0032-0x0034) - Power switch, Reset, Antilegionella/G01
+                (0x0032, 3, "Control Marks (0x0032-0x0034)"),
                 
-                # Batch 2: P parameters (with padding: 0x00C7, 0x00C9 unused)
-                (0x00C6, 7, "P03-P02"),  # 0x00C6-0x00CC (5 used, 2 padding = 71% efficiency)
+                # Batch 2: P06 Unit mode (0x0036) - 0x0035 does not exist
+                (0x0036, 1, "P06 Unit Mode (0x0036)"),
                 
-                # Batch 3: ALL Economic mode parameters (no padding!)
-                (0x0169, 29, "E01-E24+G08-G03"),  # 0x0169-0x0185 (29 used, 0 padding = 100% efficiency)
-                # Contains: E01-E04, E05-E08, E09-E12, E13-E16, E17-E20, E21-E24, G08-G03
+                # Batch 3: P parameters (0x00C6=P03, 0x00C8=P05, 0x00CA-0x00CC=P04/P02/P01)
+                (0x00C6, 1, "P03 Temp Diff Heat/Cool (0x00C6)"),
+                (0x00C8, 1, "P05 Temp Diff CWU (0x00C8)"),
+                (0x00CA, 3, "P04, P02, P01 Setpoints (0x00CA-0x00CC)"),
                 
-                # Batch 4: G04 + P07 + G09-G11 (with padding: 0x018E, 0x018F unused)
-                (0x018D, 7, "G04+P07+G09-G11"),  # 0x018D-0x0193 (5 used, 2 padding = 71% efficiency)
+                # Batch 4: Economic curves - Ambient temperatures (E01-E12: 0x0169-0x0174)
+                (0x0169, 12, "E01-E12 Heat/Water/Cool Ambient (0x0169-0x0174)"),
                 
-                # Batch 5: Antilegionella + G02 (no padding!)
-                (0x019A, 5, "Anti+G02"),  # 0x019A-0x019E (5 used, 0 padding = 100% efficiency)
+                # Batch 5: Economic curves - Target water temperatures (E13-E24: 0x0175-0x0180)
+                (0x0175, 12, "E13-E24 Heat/Water/Cool Temps (0x0175-0x0180)"),
+                
+                # Batch 6: General settings G08, G06, G07, G05, G03 (0x0181-0x0185)
+                (0x0181, 5, "G08, G06, G07, G05, G03 General Settings (0x0181-0x0185)"),
+                
+                # Batch 7: G04 DC Pump differential (0x018D) - 0x018E, 0x018F do not exist
+                (0x018D, 1, "G04 DC Pump Temp Diff (0x018D)"),
+                
+                # Batch 8: P07 Fan mode & G09-G11 Mode control (0x0190-0x0193)
+                (0x0190, 4, "P07 Fan Mode + G09-G11 Mode Control (0x0190-0x0193)"),
+                
+                # Batch 9: Antilegionella config & G02 Pump work mode (0x019A-0x019E)
+                (0x019A, 5, "Antilegionella + G02 Pump Mode (0x019A-0x019E)"),
             ]
             
             total_rw_read = 0
             for start_addr, count, description in rw_batches:
                 try:
+                    time.sleep(0.10)  # Safe turnaround time on half-duplex RS485 (Elfin gap time is 50ms)
                     result = client.read_holding_registers(
                         address=start_addr,
                         count=count,
@@ -220,7 +232,7 @@ class ChicoController(ControllerBase):
     
     def get_platforms(self) -> list[str]:
         """Return supported platforms for CHICO."""
-        return ["sensor", "binary_sensor", "number", "select", "switch", "button"]
+        return ["sensor", "binary_sensor", "number", "select", "switch", "button", "climate"]
     
     def get_device_info(self, entry_id: str) -> dict:
         """Return device info for CHICO controller."""

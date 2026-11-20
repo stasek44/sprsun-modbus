@@ -99,65 +99,14 @@ class SPRSUNSwitch(CoordinatorEntity, SwitchEntity):
     
     async def async_turn_on(self, **kwargs) -> None:
         """Turn the switch on."""
-        await self._async_write_bit(True)
+        await self.coordinator.async_write_bit(
+            self._address, self._bit, True, reg_key=f"_control_{self._address:04x}"
+        )
         self.async_write_ha_state()
     
     async def async_turn_off(self, **kwargs) -> None:
         """Turn the switch off."""
-        await self._async_write_bit(False)
+        await self.coordinator.async_write_bit(
+            self._address, self._bit, False, reg_key=f"_control_{self._address:04x}"
+        )
         self.async_write_ha_state()
-    
-    async def _async_write_bit(self, value: bool) -> None:
-        """Write bit to Modbus register (safe bit manipulation)."""
-        import time
-        
-        def _write():
-            # Use coordinator's client for writes
-            client = self.coordinator.client
-            
-            # Ensure connection (auto-reconnect if needed)
-            if not self.coordinator._ensure_connection(client, "client"):
-                raise ConnectionError("Cannot connect to Modbus device")
-            
-            # Read current register value
-            result = client.read_holding_registers(
-                address=self._address,
-                count=1,
-                device_id=self.coordinator.device_address
-            )
-            
-            if result.isError():
-                raise ValueError(f"Modbus read error: {result}")
-            
-            current_value = result.registers[0]
-            
-            # Modify only our bit
-            if value:
-                new_value = current_value | (1 << self._bit)  # Set bit
-            else:
-                new_value = current_value & ~(1 << self._bit)  # Clear bit
-            
-            # Write back if changed
-            if new_value != current_value:
-                result = client.write_register(
-                    address=self._address,
-                    value=new_value,
-                    device_id=self.coordinator.device_address
-                )
-                
-                if result.isError():
-                    raise ValueError(f"Modbus write error: {result}")
-                
-                _LOGGER.info(
-                    "Wrote bit %d=%s to register 0x%04X (was 0x%04X, now 0x%04X)",
-                    self._bit, value, self._address, current_value, new_value
-                )
-            
-            # Update cached value with timestamp using register-based key
-            reg_key = f"_control_{self._address:04x}"
-            self.coordinator.data[reg_key] = {
-                "value": new_value,
-                "updated_at": time.time()
-            }
-        
-        await self.hass.async_add_executor_job(_write)
