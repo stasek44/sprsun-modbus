@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="https://raw.githubusercontent.com/stasek44/sprsun-modbus/main/images/banner.png" alt="SPRSUN Heat Pump Modbus Integration" width="100%">
+</div>
+
 # SPRSUN Heat Pump Modbus Integration for Home Assistant
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
@@ -15,7 +19,8 @@ Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using Elfin-EW1
 - **Full Control**: Operating modes, setpoints, economic mode curves, antilegionella, pump modes
 - **Batch Reading**: All read-only parameters in ONE request (~200ms) for optimal performance
 - **Safe Writes**: Optimized write operations with bit manipulation protection
-- **Documentation**: Comprehensive [parameter guide](docs/PARAMETERS_GUIDE.md) and [Modbus reference](docs/MODBUS_REFERENCE.md)
+- **Interactive Dashboards**: 100% native Home Assistant management cards and views with interactive `+`/`-` buttons for temperatures and hysteresis ([Dashboard Guide](docs/DASHBOARD.md))
+- **Documentation**: Comprehensive [parameter guide](docs/CHICO_PARAMETERS_GUIDE.md) and [Modbus reference](docs/CHICO_MODBUS_REFERENCE.md)
 
 ## Quick Start
 
@@ -79,6 +84,13 @@ git clone https://github.com/stasek44/sprsun-modbus.git sprsun_modbus
    - **Scan Interval**: `30` seconds (recommended balance between responsiveness and load)
 4. Click "Submit"
 5. Integration will create 100+ entities automatically
+
+### Management Dashboard (100% Native HA)
+
+Instead of manually searching for entities and typing setpoint numbers:
+- Use our ready-to-copy **[SPRSUN Control Card](dashboards/sprsun_control_card.yaml)** with interactive `[ - ]` and `[ + ]` stepper buttons for Heating (P01), DHW (P04), and Hysteresis (P03/P05).
+- Or import the **[Full Management Dashboard View](dashboards/sprsun_full_dashboard.yaml)** as a dedicated view with live temperatures, COP, electrical metrics, and alarm diagnostics.
+- See the **[Dashboard & Quick Controls Guide](docs/DASHBOARD.md)** for step-by-step instructions.
 
 ## Entities
 
@@ -283,15 +295,32 @@ Check:
 - Home Assistant logs for errors
 - Elfin W11 web interface shows active connection
 
+## Development & Testing
+
+Unit tests run in isolation using mocks for Modbus and Home Assistant:
+
+```bash
+# Run unit tests locally (no external dependencies required)
+python3 -m unittest discover tests
+
+# Or run with pytest and coverage
+pip install -r requirements_dev.txt
+pytest tests/ -v --cov=custom_components/sprsun_modbus --cov-report=term-missing
+```
+
+Automated CI/CD pipelines in `.github/workflows/` validate every change:
+- **`test.yaml`**: Runs the 100-test suite on Python 3.12 and 3.13, measuring code coverage.
+- **`validate.yaml`**: Runs Hassfest (Home Assistant manifest/strings validation), HACS action, and Ruff code linter.
+
 ## To Do
 
 Contributions welcome! Priority development tasks:
 
 ### Core Improvements
-- [ ] **Options flow** - Allow changing integration settings (host, port, scan interval) without removing/re-adding
+- [x] **Options flow** - Allow changing integration settings (host, port, scan interval) without removing/re-adding
 - [ ] **Verify all registers** - Test on multiple heat pump models to confirm register map accuracy
 - [ ] **Multiple register write optimization** - Use Modbus command 10H (write multiple) for batch parameter updates
-- [ ] **Unit tests** - Evaluate necessity and add test coverage for core functionality
+- [x] **Unit tests** - Comprehensive 100-test suite covering controllers, coordinator, config flow, entities, and platforms
 
 ### Documentation
 - [ ] **Analyze pump manual** - Add Elfin settings for reference
@@ -299,14 +328,14 @@ Contributions welcome! Priority development tasks:
 - [ ] **English parameter guide** - Translate PARAMETERS_GUIDE.md to English
 
 ### Publishing & Branding
-- [ ] **Integration logo** - Design and add custom logo
+- [x] **Integration logo** - Custom brand icon, logo, and hero banner added
 - [ ] **Publish to HACS** - Submit to HACS default repository
 - [ ] **Add badges** - HACS install button, Buy Me a Coffee button
-- [ ] **GitHub workflows** - Add HACS validation and automated tests
+- [x] **GitHub workflows** - Automated pytest CI with matrix (Python 3.12, 3.13), coverage, Hassfest, HACS validation and Ruff linter
 
 ### Known Issues
-- [ ] **RW field momentary revert** - After writing RW parameter in HA, value briefly reverts to old state before updating (cosmetic, resolved on next coordinator poll)
-- [ ] **Batch read RW registers** - Investigate if RW registers can be batch-read (currently read individually due to sparse address space)
+- [x] **RW field momentary revert** - Fixed in v5.1.0 with atomic coordinator write cache and immediate state dispatch
+- [x] **Batch read RW registers** - Implemented with 9 contiguous register batches and smart periodic polling
 
 ### Controller Support
 - [ ] **Additional controller types** - SPRSUN uses at least 2 different controller types. This integration supports one. Looking for contributors with different models!

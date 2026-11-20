@@ -145,8 +145,17 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         if not power_on:
             return HVACAction.OFF
         
-        # Check if compressor is running
-        compressor_running = self._get_cache_value("compressor_running", False)
+        # Check if compressor is running (bit 0 of output_symbol_1 / 0x0004)
+        out1_cache = self.coordinator.data.get("output_symbol_1")
+        if out1_cache:
+            if isinstance(out1_cache, dict):
+                out1_val = int(out1_cache.get("value", 0))
+            else:
+                out1_val = int(out1_cache)
+            compressor_running = bool(out1_val & 1)
+        else:
+            compressor_running = False
+
         if not compressor_running:
             return HVACAction.IDLE
         
@@ -218,7 +227,7 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
             current_mode = int(self._get_cache_value("unit_mode", 1))
             new_mode = 3 if current_mode in [3, 4] else 1  # Keep +DHW if present
             await self.coordinator.async_write_register(
-                address=0x00C6, value=new_mode, key="unit_mode", scale=1
+                address=0x0036, value=new_mode, key="unit_mode", scale=1
             )
         
         elif hvac_mode == HVACMode.COOL:
@@ -232,7 +241,7 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
             current_mode = int(self._get_cache_value("unit_mode", 1))
             new_mode = 4 if current_mode in [3, 4] else 2  # Keep +DHW if present
             await self.coordinator.async_write_register(
-                address=0x00C6, value=new_mode, key="unit_mode", scale=1
+                address=0x0036, value=new_mode, key="unit_mode", scale=1
             )
         
         elif hvac_mode == HVACMode.HEAT_COOL:
@@ -284,7 +293,7 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         value = fan_mode_map.get(fan_mode)
         if value is not None:
             await self.coordinator.async_write_register(
-                address=0x018B,  # P07 Fan Mode
+                address=0x0190,  # P07 Fan Mode
                 value=value,
                 key="fan_mode",
                 scale=1
@@ -317,53 +326,7 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     
     async def _write_power(self, state: bool) -> None:
         """Write power switch state (bit 0 of register 0x0032)."""
-        import time
-        
-        def _write():
-            client = self.coordinator.client
-            
-            # Ensure connection (auto-reconnect if needed)
-            self.coordinator._ensure_connection(client, "client")
-            
-            # Read current register value
-            result = client.read_holding_registers(
-                address=0x0032,
-                count=1,
-                device_id=self.coordinator.device_address
-            )
-            
-            if result.isError():
-                raise ValueError(f"Modbus read error: {result}")
-            
-            current_value = result.registers[0]
-            
-            # Modify bit 0 (power switch)
-            if state:
-                new_value = current_value | 1  # Set bit 0
-            else:
-                new_value = current_value & ~1  # Clear bit 0
-            
-            # Write back if changed
-            if new_value != current_value:
-                result = client.write_register(
-                    address=0x0032,
-                    value=new_value,
-                    device_id=self.coordinator.device_address
-                )
-                
-                if result.isError():
-                    raise ValueError(f"Modbus write error: {result}")
-                
-                _LOGGER.info("Set power to %s (register 0x0032: 0x%04X -> 0x%04X)", state, current_value, new_value)
-            
-            # Update cache with timestamp using register-based key
-            reg_key = "_control_0032"
-            self.coordinator.data[reg_key] = {
-                "value": new_value,
-                "updated_at": time.time()
-            }
-        
-        await self.hass.async_add_executor_job(_write)
+        await self.coordinator.async_write_bit(0x0032, 0, state, reg_key="_control_0032")
 
 
 class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
@@ -450,21 +413,30 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         if self.hvac_mode == HVACMode.OFF:
             return HVACAction.OFF
         
-        # Check if heating DHW (check working status register for DHW heating)
-        # We can infer from unit_mode and compressor status
-        compressor_running_cache = self.coordinator.data.get("working_status_register")
-        if compressor_running_cache:
-            if isinstance(compressor_running_cache, dict):
-                status_reg = int(compressor_running_cache.get("value", 0))
+        # Check if compressor is running (bit 0 of output_symbol_1 / 0x0004)
+        out1_cache = self.coordinator.data.get("output_symbol_1")
+        if out1_cache:
+            if isinstance(out1_cache, dict):
+                out1_val = int(out1_cache.get("value", 0))
             else:
-                status_reg = int(compressor_running_cache)
-            compressor_running = bool(status_reg & (1 << 0))  # bit 0 = compressor running
+                out1_val = int(out1_cache)
+            compressor_running = bool(out1_val & 1)
         else:
             compressor_running = False
         
+        status_cache = self.coordinator.data.get("working_status_register")
+        if status_cache:
+            if isinstance(status_cache, dict):
+                status_val = int(status_cache.get("value", 0))
+            else:
+                status_val = int(status_cache)
+            hw_demand = bool(status_val & (1 << 0))
+        else:
+            hw_demand = False
+        
         unit_mode = int(self._get_cache_value("unit_mode", 1))
         
-        if compressor_running and unit_mode in [0, 3, 4]:
+        if compressor_running and (unit_mode == 0 or (unit_mode in [3, 4] and hw_demand)):
             return HVACAction.HEATING
         
         return HVACAction.IDLE
@@ -491,12 +463,12 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
             elif current_mode == 3:  # Heat+DHW
                 # Switch to heating only
                 await self.coordinator.async_write_register(
-                    address=0x00C6, value=1, key="unit_mode", scale=1
+                    address=0x0036, value=1, key="unit_mode", scale=1
                 )
             elif current_mode == 4:  # Cool+DHW
                 # Switch to cooling only
                 await self.coordinator.async_write_register(
-                    address=0x00C6, value=2, key="unit_mode", scale=1
+                    address=0x0036, value=2, key="unit_mode", scale=1
                 )
         
         elif hvac_mode == HVACMode.HEAT:
@@ -506,12 +478,12 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
             if current_mode == 1:  # Heating only
                 # Switch to Heat+DHW
                 await self.coordinator.async_write_register(
-                    address=0x00C6, value=3, key="unit_mode", scale=1
+                    address=0x0036, value=3, key="unit_mode", scale=1
                 )
             elif current_mode == 2:  # Cooling only
                 # Switch to Cool+DHW
                 await self.coordinator.async_write_register(
-                    address=0x00C6, value=4, key="unit_mode", scale=1
+                    address=0x0036, value=4, key="unit_mode", scale=1
                 )
             elif current_mode in [0, 3, 4]:
                 # DHW already enabled, just ensure power is on
@@ -519,7 +491,7 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
             else:
                 # Default: DHW only
                 await self.coordinator.async_write_register(
-                    address=0x00C6, value=0, key="unit_mode", scale=1
+                    address=0x0036, value=0, key="unit_mode", scale=1
                 )
         
         self.async_write_ha_state()
@@ -542,50 +514,4 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
     
     async def _write_power(self, state: bool) -> None:
         """Write power switch state (bit 0 of register 0x0032)."""
-        import time
-        
-        def _write():
-            client = self.coordinator.client
-            
-            # Ensure connection (auto-reconnect if needed)
-            self.coordinator._ensure_connection(client, "client")
-            
-            # Read current register value
-            result = client.read_holding_registers(
-                address=0x0032,
-                count=1,
-                device_id=self.coordinator.device_address
-            )
-            
-            if result.isError():
-                raise ValueError(f"Modbus read error: {result}")
-            
-            current_value = result.registers[0]
-            
-            # Modify bit 0 (power switch)
-            if state:
-                new_value = current_value | 1  # Set bit 0
-            else:
-                new_value = current_value & ~1  # Clear bit 0
-            
-            # Write back if changed
-            if new_value != current_value:
-                result = client.write_register(
-                    address=0x0032,
-                    value=new_value,
-                    device_id=self.coordinator.device_address
-                )
-                
-                if result.isError():
-                    raise ValueError(f"Modbus write error: {result}")
-                
-                _LOGGER.info("Set DHW power to %s (register 0x0032: 0x%04X -> 0x%04X)", state, current_value, new_value)
-            
-            # Update cache with timestamp using register-based key
-            reg_key = "_control_0032"
-            self.coordinator.data[reg_key] = {
-                "value": new_value,
-                "updated_at": time.time()
-            }
-        
-        await self.hass.async_add_executor_job(_write)
+        await self.coordinator.async_write_bit(0x0032, 0, state, reg_key="_control_0032")

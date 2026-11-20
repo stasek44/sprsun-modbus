@@ -122,51 +122,5 @@ class SPRSUNSelect(CoordinatorEntity, SelectEntity):
         self.async_write_ha_state()
     
     async def async_added_to_hass(self) -> None:
-        """When entity is added to hass, read initial value."""
+        """When entity is added to hass, initial value is loaded by coordinator."""
         await super().async_added_to_hass()
-        
-        # Initial value will be loaded by coordinator on first refresh
-        # No need to read directly anymore
-    
-    async def _async_read_register(self) -> int:
-        """Read from Modbus register."""
-        # Use coordinator's persistent connection to avoid conflicts
-        def _read():
-            client = self.coordinator.client
-            if client is None or not client.connected:
-                if not client.connect():
-                    raise ConnectionError("Cannot connect to Modbus device")
-            
-            result = client.read_holding_registers(
-                address=self._address,
-                count=1,
-                device_id=self._device_address
-            )
-            
-            if result.isError():
-                raise ValueError(f"Modbus read error: {result}")
-            
-            raw_value = result.registers[0]
-            
-            _LOGGER.debug(
-                "Read register 0x%04X: raw=%d (%s)",
-                self._address, raw_value, self._options_dict.get(raw_value, "Unknown")
-            )
-            
-            return raw_value
-        
-        return await self.hass.async_add_executor_job(_read)
-    
-    async def _async_write_register(self, value: int) -> None:
-        """Write to Modbus register."""
-        _LOGGER.info(
-            "Writing to register 0x%04X: value=%d (%s)",
-            self._address, value, self._options_dict.get(value, "Unknown")
-        )
-        
-        # Use coordinator's write method to avoid connection conflicts
-        await self.hass.async_add_executor_job(
-            self.coordinator.write_register,
-            self._address,
-            value
-        )
