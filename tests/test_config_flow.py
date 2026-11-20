@@ -180,18 +180,17 @@ class TestConfigFlow(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result["step_id"], "init")
 
     async def test_options_flow_update(self):
-        """Test options flow updates entry data and reloads."""
+        """Test options flow returns create_entry with user options."""
         entry = MagicMock()
         entry.entry_id = "test_entry_id"
         entry.data = {
             CONF_NAME: "Pump",
             CONF_SCAN_INTERVAL: 10,
         }
+        entry.options = {}
 
         flow = SPRSUNOptionsFlowHandler(entry)
         flow.hass = MagicMock()
-        flow.hass.config_entries.async_reload = AsyncMock()
-        flow.hass.config_entries.async_update_entry = MagicMock()
 
         user_input = {
             CONF_SCAN_INTERVAL: 20,
@@ -199,10 +198,7 @@ class TestConfigFlow(unittest.IsolatedAsyncioTestCase):
 
         result = await flow.async_step_init(user_input=user_input)
         self.assertEqual(result["type"], "create_entry")
-        flow.hass.config_entries.async_update_entry.assert_called_once_with(
-            entry, data={"name": "Pump", "scan_interval": 20}
-        )
-        flow.hass.config_entries.async_reload.assert_called_once_with("test_entry_id")
+        self.assertEqual(result["data"], user_input)
 
 
 if __name__ == "__main__":

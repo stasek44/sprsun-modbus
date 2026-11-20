@@ -67,8 +67,10 @@ Connect RS485 from heat pump to Elfin gateway:
 
 #### Manual Installation
 ```bash
-cd /config/custom_components/
-git clone https://github.com/stasek44/sprsun-modbus.git sprsun_modbus
+# Clone the repository
+git clone https://github.com/stasek44/sprsun-modbus.git
+# Copy integration folder to Home Assistant custom_components directory
+cp -r sprsun-modbus/custom_components/sprsun_modbus /config/custom_components/
 # Restart Home Assistant
 ```
 

@@ -1,4 +1,5 @@
 """Constants for the SPRSUN Heat Pump Modbus integration."""
+from homeassistant.const import Platform
 
 DOMAIN = "sprsun_modbus"
 
@@ -15,7 +16,15 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_CONTROLLER_TYPE = "controller_type"  # "chico" or "carel"
 
 # Platforms
-PLATFORMS = ["sensor", "binary_sensor", "number", "select", "switch", "button", "climate"]
+PLATFORMS: list[Platform] = [
+    Platform.SENSOR,
+    Platform.BINARY_SENSOR,
+    Platform.NUMBER,
+    Platform.SELECT,
+    Platform.SWITCH,
+    Platform.BUTTON,
+    Platform.CLIMATE,
+]
 
 # Read-Only Registers (50 parameters) - zgodnie z modbus_reference.md
 REGISTERS_READ_ONLY = {

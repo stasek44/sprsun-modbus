@@ -57,7 +57,8 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
             device_class,
         )
 
-        self.assertEqual(sensor.name, "SPRSUN Heat Pump Inlet Water Temperature")
+        self.assertEqual(sensor.name, name)
+        self.assertTrue(sensor.has_entity_name)
         self.assertEqual(sensor.unique_id, "test_entry_456_inlet_temp")
         self.assertEqual(sensor.native_unit_of_measurement, "°C")
         self.assertEqual(str(sensor.device_class), "temperature")

@@ -76,7 +76,7 @@ class TestIntegrationLifecycle(unittest.IsolatedAsyncioTestCase):
             self.entry, PLATFORMS
         )
         coordinator.async_shutdown.assert_called_once()
-        self.assertNotIn(self.entry.entry_id, self.hass.data[DOMAIN])
+        self.assertNotIn(self.entry.entry_id, self.hass.data.get(DOMAIN, {}))
 
 
 if __name__ == "__main__":

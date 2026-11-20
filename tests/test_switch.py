@@ -62,7 +62,8 @@ class TestSPRSUNSwitch(unittest.IsolatedAsyncioTestCase):
             0x0032,
             0,
         )
-        self.assertEqual(switch.name, "SPRSUN Heat Pump Power")
+        self.assertEqual(switch.name, "Power")
+        self.assertTrue(switch.has_entity_name)
         self.assertEqual(switch.unique_id, "test_entry_switch_power_switch")
         self.assertEqual(switch.device_info["identifiers"], {(DOMAIN, "test_entry_switch")})
 

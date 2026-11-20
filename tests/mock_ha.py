@@ -109,9 +109,35 @@ def setup_mocks():
                 SWITCH = "switch"
                 BUTTON = "button"
 
+            class EntityCategory(StrEnum):
+                CONFIG = "config"
+                DIAGNOSTIC = "diagnostic"
+
             class UnitOfTemperature(StrEnum):
                 CELSIUS = "°C"
                 FAHRENHEIT = "°F"
+
+            class UnitOfPressure(StrEnum):
+                BAR = "bar"
+                PSI = "psi"
+
+            class UnitOfElectricPotential(StrEnum):
+                VOLT = "V"
+
+            class UnitOfElectricCurrent(StrEnum):
+                AMPERE = "A"
+
+            class UnitOfFrequency(StrEnum):
+                HERTZ = "Hz"
+
+            class UnitOfPower(StrEnum):
+                WATT = "W"
+                KILOWATT = "kW"
+
+            class UnitOfTime(StrEnum):
+                HOURS = "h"
+                MINUTES = "min"
+                SECONDS = "s"
 
             ha_const = MagicMock()
             ha_const.CONF_HOST = "host"
@@ -119,22 +145,45 @@ def setup_mocks():
             ha_const.CONF_NAME = "name"
             ha_const.ATTR_TEMPERATURE = "temperature"
             ha_const.Platform = Platform
+            ha_const.EntityCategory = EntityCategory
             ha_const.UnitOfTemperature = UnitOfTemperature
+            ha_const.UnitOfPressure = UnitOfPressure
+            ha_const.UnitOfElectricPotential = UnitOfElectricPotential
+            ha_const.UnitOfElectricCurrent = UnitOfElectricCurrent
+            ha_const.UnitOfFrequency = UnitOfFrequency
+            ha_const.UnitOfPower = UnitOfPower
+            ha_const.UnitOfTime = UnitOfTime
             sys.modules["homeassistant.const"] = ha_const
 
             # Base Entity & Coordinator
             class MockEntity:
                 def __init__(self, *args, **kwargs):
-                    self._attr_name = None
-                    self._attr_unique_id = None
-                    self._attr_device_info = None
-                    self._attr_native_unit_of_measurement = None
-                    self._attr_device_class = None
-                    self._attr_state_class = None
+                    if not hasattr(self, "_attr_name"):
+                        self._attr_name = None
+                    if not hasattr(self, "_attr_has_entity_name"):
+                        self._attr_has_entity_name = False
+                    if not hasattr(self, "_attr_unique_id"):
+                        self._attr_unique_id = None
+                    if not hasattr(self, "_attr_device_info"):
+                        self._attr_device_info = None
+                    if not hasattr(self, "_attr_native_unit_of_measurement"):
+                        self._attr_native_unit_of_measurement = None
+                    if not hasattr(self, "_attr_device_class"):
+                        self._attr_device_class = None
+                    if not hasattr(self, "_attr_state_class"):
+                        self._attr_state_class = None
+                    if not hasattr(self, "_attr_entity_category"):
+                        self._attr_entity_category = None
+                    if not hasattr(self, "_attr_entity_description"):
+                        self._attr_entity_description = None
 
                 @property
                 def name(self):
                     return getattr(self, "_attr_name", None)
+
+                @property
+                def has_entity_name(self):
+                    return getattr(self, "_attr_has_entity_name", False)
 
                 @property
                 def unique_id(self):
@@ -143,6 +192,18 @@ def setup_mocks():
                 @property
                 def device_info(self):
                     return getattr(self, "_attr_device_info", None)
+
+                @property
+                def entity_category(self):
+                    return getattr(self, "_attr_entity_category", None)
+
+                @property
+                def entity_description(self):
+                    return getattr(self, "_attr_entity_description", None) or getattr(self, "_entity_description", None)
+
+                @entity_description.setter
+                def entity_description(self, value):
+                    self._entity_description = value
 
                 @property
                 def native_unit_of_measurement(self):
@@ -195,6 +256,17 @@ def setup_mocks():
             update_coord.DataUpdateCoordinator = MockDataUpdateCoordinator
             update_coord.UpdateFailed = UpdateFailed
             helpers.update_coordinator = update_coord
+
+            class DeviceInfo(dict):
+                def __init__(self, **kwargs):
+                    super().__init__(**kwargs)
+                    self.__dict__ = self
+
+            dev_reg = MagicMock()
+            dev_reg.DeviceInfo = DeviceInfo
+            helpers.device_registry = dev_reg
+            sys.modules["homeassistant.helpers.device_registry"] = dev_reg
+
             sys.modules["homeassistant.helpers"] = helpers
             sys.modules["homeassistant.helpers.update_coordinator"] = update_coord
             sys.modules["homeassistant.helpers.entity_platform"] = MagicMock()
@@ -236,6 +308,7 @@ def setup_mocks():
             cfg.ConfigEntry = MagicMock
             cfg.ConfigFlow = MockConfigFlow
             cfg.OptionsFlow = MockOptionsFlow
+            cfg.ConfigFlowResult = dict
             sys.modules["homeassistant.config_entries"] = cfg
 
             # Data entry flow
@@ -326,8 +399,17 @@ def setup_mocks():
             sys.modules["homeassistant.components.switch"] = switch_mod
 
             # Button
+            class ButtonEntityDescription:
+                def __init__(self, key, name=None, translation_key=None, **kwargs):
+                    self.key = key
+                    self.name = name
+                    self.translation_key = translation_key
+                    for k, v in kwargs.items():
+                        setattr(self, k, v)
+
             button_mod = MagicMock()
             button_mod.ButtonEntity = MockEntity
+            button_mod.ButtonEntityDescription = ButtonEntityDescription
             sys.modules["homeassistant.components.button"] = button_mod
 
             # Attach submodules to parent package so "from homeassistant import config_entries" works
