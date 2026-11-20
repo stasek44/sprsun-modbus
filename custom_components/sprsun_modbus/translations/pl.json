@@ -25,8 +25,11 @@
     "step": {
       "init": {
         "title": "Opcje pompy ciepła SPRSUN",
-        "description": "Dostosuj interwał skanowania (aktualnie {current_interval}s). Upewnij się, że timeout Elfin W11 wynosi minimum {elfin_timeout} sekund. Zmiany będą aktywne po przeładowaniu.",
+        "description": "Dostosuj opcje konfiguracji. Upewnij się, że timeout Elfin W11 wynosi minimum {elfin_timeout} sekund. Zmiany będą aktywne po przeładowaniu.",
         "data": {
+          "host": "Adres IP",
+          "port": "Port",
+          "device_address": "Adres Modbus (1-247)",
           "scan_interval": "Interwał skanowania (5-300 sekund)"
         }
       }

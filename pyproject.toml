@@ -1,0 +1,24 @@
+[tool.ruff]
+target-version = "py312"
+line-length = 120
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "W",
+]
+ignore = [
+    "E501",   # line too long
+    "W291",   # trailing whitespace
+    "W292",   # no newline at end of file
+    "W293",   # blank line contains whitespace
+    "BLE001", # blind exception catching
+    "SIM102", # nested if statements
+    "RUF012", # mutable class attributes
+    "S112",   # try-except-continue
+    "PERF102",# dict.items() vs dict.values()
+]
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["E402", "F401"]

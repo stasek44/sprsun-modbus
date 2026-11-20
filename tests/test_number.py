@@ -67,7 +67,8 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
             device_class,
         )
 
-        self.assertEqual(number.name, "SPRSUN Heat Pump Heating Setpoint")
+        self.assertEqual(number.name, name)
+        self.assertTrue(number.has_entity_name)
         self.assertEqual(number.unique_id, "test_entry_num_heating_setpoint")
         self.assertEqual(number._attr_native_min_value, 10)
         self.assertEqual(number._attr_native_max_value, 55)

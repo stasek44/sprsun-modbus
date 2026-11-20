@@ -41,8 +41,11 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
     def test_create_and_close_modbus_client(self):
         """Test creating and safely closing modbus client."""
         client = self.coordinator._create_modbus_client()
-        self.assertEqual(client.host, "192.168.1.100")
-        self.assertEqual(client.port, 502)
+        comm_params = getattr(client, "comm_params", None)
+        host = getattr(client, "host", None) or (getattr(comm_params, "host", None) if comm_params else None)
+        port = getattr(client, "port", None) or (getattr(comm_params, "port", None) if comm_params else None)
+        self.assertEqual(host, "192.168.1.100")
+        self.assertEqual(port, 502)
 
         self.coordinator.client = client
         self.coordinator._close_client()

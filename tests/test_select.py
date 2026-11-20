@@ -61,7 +61,8 @@ class TestSPRSUNSelect(unittest.IsolatedAsyncioTestCase):
             options,
         )
 
-        self.assertEqual(select.name, "SPRSUN Heat Pump Unit Mode")
+        self.assertEqual(select.name, name)
+        self.assertTrue(select.has_entity_name)
         self.assertEqual(select.unique_id, "test_entry_select_unit_mode")
         self.assertEqual(len(select.options), 5)
         self.assertIn("Heating + Hot Water", select.options)

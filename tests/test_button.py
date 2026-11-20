@@ -53,9 +53,10 @@ class TestSPRSUNButton(unittest.IsolatedAsyncioTestCase):
             desc,
         )
 
-        self.assertEqual(button.name, "SPRSUN Heat Pump Failure Reset")
+        self.assertEqual(button.name, name)
+        self.assertTrue(button.has_entity_name)
         self.assertEqual(button.unique_id, "test_entry_btn_failure_reset")
-        self.assertEqual(button._attr_entity_description, desc)
+        self.assertEqual(button.entity_description.key, "failure_reset")
         self.assertEqual(button.device_info["identifiers"], {(DOMAIN, "test_entry_btn")})
         self.assertTrue(button.available)
 

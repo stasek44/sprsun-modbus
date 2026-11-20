@@ -7,7 +7,7 @@ import time
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME, Platform
+from homeassistant.const import CONF_HOST, CONF_PORT
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
@@ -21,15 +21,11 @@ from .const import (
     CONF_CONTROLLER_TYPE,
     DEFAULT_SCAN_INTERVAL,
     PLATFORMS,
-    REGISTERS_READ_ONLY,
-    REGISTERS_NUMBER,
-    REGISTERS_SELECT,
-    REGISTERS_SWITCH,
-    REGISTERS_BUTTON,
-    BINARY_SENSOR_BITS,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+type SPRSUNConfigEntry = ConfigEntry[SPRSUNDataUpdateCoordinator]
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -53,6 +49,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Fetch initial data
     await coordinator.async_config_entry_first_refresh()
     
+    entry.runtime_data = coordinator
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
     
@@ -75,8 +72,12 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
     if unload_ok:
-        coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
-        if coordinator:
+        coordinator = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
+        if coordinator is None and hasattr(entry, "runtime_data"):
+            coordinator = entry.runtime_data
+        if DOMAIN in hass.data and not hass.data[DOMAIN]:
+            hass.data.pop(DOMAIN, None)
+        if coordinator and hasattr(coordinator, "async_shutdown"):
             await coordinator.async_shutdown()
     
     return unload_ok
@@ -182,13 +183,11 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         async with self._lock:
             try:
                 return await self.hass.async_add_executor_job(self._sync_update)
-            except ModbusException as err:
+            except (ModbusException, ConnectionError, TimeoutError, OSError) as err:
                 raise UpdateFailed(f"Error communicating with Modbus: {err}") from err
     
     def _sync_update(self):
         """Synchronous update (runs in executor)."""
-        import time
-        
         # Determine whether we need to read RW registers in this cycle
         read_rw = (not self._rw_loaded) or (self._poll_count % self._rw_refresh_interval == 0)
         
@@ -251,8 +250,6 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
     
     def _sync_write_register(self, address: int, value: int, key: str, scale: float = 1) -> bool:
         """Write single register synchronously with auto-reconnect."""
-        import time
-        
         if not self._ensure_connection():
             self._close_client()
             raise ConnectionError(f"Cannot connect to Modbus device at {self.host}:{self.port}")
@@ -292,8 +289,6 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
 
     def _sync_write_bit(self, address: int, bit: int, value: bool, reg_key: str | None = None) -> bool:
         """Read-modify-write a bitfield register synchronously."""
-        import time
-        
         if not self._ensure_connection():
             self._close_client()
             raise ConnectionError(f"Cannot connect to Modbus device at {self.host}:{self.port}")
@@ -384,15 +379,6 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 reg_key
             )
         self.async_set_updated_data(self.data)
-
-    # Legacy compatibility methods
-    def write_register(self, address: int, value: int) -> bool:
-        """Legacy synchronous write."""
-        return self._sync_write_register(address, value, f"reg_{address:04x}", 1)
-
-    def write_register_with_cache(self, address: int, value: int, key: str, scale: float = 1) -> bool:
-        """Legacy cached write."""
-        return self._sync_write_register(address, value, key, scale)
 
     async def async_shutdown(self):
         """Shutdown coordinator."""

@@ -1,16 +1,15 @@
 """Button platform for SPRSUN Heat Pump."""
-import logging
+from __future__ import annotations
 
-from homeassistant.components.button import ButtonEntity
+from homeassistant.components.button import ButtonEntity, ButtonEntityDescription
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, REGISTERS_BUTTON
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -19,7 +18,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SPRSUN buttons."""
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator = getattr(config_entry, "runtime_data", None) or hass.data[DOMAIN][config_entry.entry_id]
     
     entities = []
     for key, (address, bit, name, description) in REGISTERS_BUTTON.items():
@@ -41,6 +40,9 @@ async def async_setup_entry(
 class SPRSUNButton(CoordinatorEntity, ButtonEntity):
     """Representation of a SPRSUN button."""
     
+    _attr_has_entity_name = True
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    
     def __init__(
         self,
         coordinator,
@@ -57,22 +59,25 @@ class SPRSUNButton(CoordinatorEntity, ButtonEntity):
         self._key = key
         self._address = address
         self._bit = bit
-        self._attr_name = f"{config_entry.data[CONF_NAME]} {name}"
+        self._attr_name = name
         self._attr_unique_id = f"{config_entry.entry_id}_{key}"
-        self._attr_entity_description = description
+        self.entity_description = ButtonEntityDescription(
+            key=key,
+            translation_key=key,
+        )
         
         # Device info
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, config_entry.entry_id)},
-            "name": config_entry.data[CONF_NAME],
-            "manufacturer": "SPRSUN",
-            "model": "Heat Pump",
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)},
+            name=config_entry.data[CONF_NAME],
+            manufacturer="SPRSUN",
+            model="Heat Pump",
+        )
     
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        return self.coordinator.last_update_success
+        return bool(self.coordinator.last_update_success and self.coordinator.data is not None)
     
     async def async_press(self) -> None:
         """Handle the button press."""

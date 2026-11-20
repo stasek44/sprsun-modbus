@@ -61,7 +61,8 @@ class TestSPRSUNBinarySensor(unittest.IsolatedAsyncioTestCase):
             "hotwater_demand",
             "Hot Water Demand",
         )
-        self.assertEqual(sensor.name, "SPRSUN Heat Pump Hot Water Demand")
+        self.assertEqual(sensor.name, "Hot Water Demand")
+        self.assertTrue(sensor.has_entity_name)
         self.assertEqual(sensor.unique_id, "entry_bin_123_hotwater_demand")
         self.assertEqual(sensor.device_info["identifiers"], {(DOMAIN, "entry_bin_123")})
 

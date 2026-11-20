@@ -1,19 +1,30 @@
 """Binary sensor platform for SPRSUN Heat Pump."""
-import logging
+from __future__ import annotations
 
-from homeassistant.components.binary_sensor import (
-    BinarySensorEntity,
-    BinarySensorDeviceClass,
-)
+from homeassistant.components.binary_sensor import BinarySensorEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, EntityCategory
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, BINARY_SENSOR_BITS
 
-_LOGGER = logging.getLogger(__name__)
+ADDRESS_TO_KEY = {
+    0x0002: "switching_input_symbol",
+    0x0003: "working_status_register",  # Special name for backward compatibility
+    0x0004: "output_symbol_1",
+    0x0005: "output_symbol_2",
+    0x0006: "output_symbol_3",
+    0x0007: "failure_symbol_1",
+    0x0008: "failure_symbol_2",
+    0x0009: "failure_symbol_3",
+    0x000A: "failure_symbol_4",
+    0x000B: "failure_symbol_5",
+    0x000C: "failure_symbol_6",
+    0x000D: "failure_symbol_7",
+}
 
 
 async def async_setup_entry(
@@ -22,7 +33,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SPRSUN binary sensors."""
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator = getattr(config_entry, "runtime_data", None) or hass.data[DOMAIN][config_entry.entry_id]
     
     entities = []
     for key, (address, bit, name) in BINARY_SENSOR_BITS.items():
@@ -41,6 +52,8 @@ async def async_setup_entry(
 class SPRSUNBinarySensor(CoordinatorEntity, BinarySensorEntity):
     """Representation of a SPRSUN binary sensor (bit field)."""
     
+    _attr_has_entity_name = True
+    
     def __init__(
         self,
         coordinator,
@@ -52,48 +65,35 @@ class SPRSUNBinarySensor(CoordinatorEntity, BinarySensorEntity):
         super().__init__(coordinator)
         
         self._key = key
-        self._attr_name = f"{config_entry.data[CONF_NAME]} {name}"
+        self._attr_name = name
         self._attr_unique_id = f"{config_entry.entry_id}_{key}"
-        # No device_class - will show as simple On/Off
+        
+        if key.startswith("error_") or key == "alarm_stop":
+            self._attr_entity_category = EntityCategory.DIAGNOSTIC
         
         # Device info
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, config_entry.entry_id)},
-            "name": config_entry.data[CONF_NAME],
-            "manufacturer": "SPRSUN",
-            "model": "Heat Pump",
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)},
+            name=config_entry.data[CONF_NAME],
+            manufacturer="SPRSUN",
+            model="Heat Pump",
+        )
     
     @property
     def is_on(self) -> bool:
         """Return true if the binary sensor is on."""
+        if not self.coordinator.data:
+            return False
+            
         # Get the source address for this sensor
         source_address, bit, _ = BINARY_SENSOR_BITS[self._key]
         
-        # Read from the appropriate register
-        # The coordinator stores these as "working_status_register", etc.
-        # Map address to data key
-        address_to_key = {
-            0x0002: "switching_input_symbol",
-            0x0003: "working_status_register",  # Special name for backward compatibility
-            0x0004: "output_symbol_1",
-            0x0005: "output_symbol_2",
-            0x0006: "output_symbol_3",
-            0x0007: "failure_symbol_1",
-            0x0008: "failure_symbol_2",
-            0x0009: "failure_symbol_3",
-            0x000A: "failure_symbol_4",
-            0x000B: "failure_symbol_5",
-            0x000C: "failure_symbol_6",
-            0x000D: "failure_symbol_7",
-        }
-        
-        register_key = address_to_key.get(source_address)
+        register_key = ADDRESS_TO_KEY.get(source_address)
         if not register_key:
             return False
         
         cache_entry = self.coordinator.data.get(register_key)
-        if cache_entry:
+        if cache_entry is not None:
             # Handle new format (dict with value/timestamp)
             if isinstance(cache_entry, dict):
                 register_value = cache_entry.get("value", 0)
@@ -109,26 +109,10 @@ class SPRSUNBinarySensor(CoordinatorEntity, BinarySensorEntity):
     @property
     def available(self) -> bool:
         """Return if entity is available."""
-        # Get source address for availability check
         source_address, _, _ = BINARY_SENSOR_BITS[self._key]
-        
-        address_to_key = {
-            0x0002: "switching_input_symbol",
-            0x0003: "working_status_register",
-            0x0004: "output_symbol_1",
-            0x0005: "output_symbol_2",
-            0x0006: "output_symbol_3",
-            0x0007: "failure_symbol_1",
-            0x0008: "failure_symbol_2",
-            0x0009: "failure_symbol_3",
-            0x000A: "failure_symbol_4",
-            0x000B: "failure_symbol_5",
-            0x000C: "failure_symbol_6",
-            0x000D: "failure_symbol_7",
-        }
-        
-        register_key = address_to_key.get(source_address)
-        return (
+        register_key = ADDRESS_TO_KEY.get(source_address)
+        return bool(
             self.coordinator.last_update_success
+            and self.coordinator.data is not None
             and register_key in self.coordinator.data
         )

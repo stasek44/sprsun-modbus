@@ -25,8 +25,11 @@
     "step": {
       "init": {
         "title": "SPRSUN Heat Pump Options",
-        "description": "Adjust scan interval (currently {current_interval}s). Make sure Elfin W11 timeout is at least {elfin_timeout} seconds. Changes will apply after reload.",
+        "description": "Adjust configuration options. Make sure Elfin W11 timeout is at least {elfin_timeout} seconds. Changes will apply after reload.",
         "data": {
+          "host": "Host (IP Address)",
+          "port": "Port",
+          "device_address": "Modbus Device Address (1-247)",
           "scan_interval": "Scan Interval (5-300 seconds)"
         }
       }

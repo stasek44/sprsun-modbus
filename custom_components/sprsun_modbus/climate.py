@@ -1,5 +1,5 @@
 """Climate platform for SPRSUN Heat Pump."""
-import logging
+from __future__ import annotations
 
 from homeassistant.components.climate import (
     ClimateEntity,
@@ -13,12 +13,11 @@ from homeassistant.components.climate import (
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_NAME, UnitOfTemperature, ATTR_TEMPERATURE
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN
-
-_LOGGER = logging.getLogger(__name__)
 
 
 async def async_setup_entry(
@@ -27,7 +26,7 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SPRSUN climate entities."""
-    coordinator = hass.data[DOMAIN][config_entry.entry_id]
+    coordinator = getattr(config_entry, "runtime_data", None) or hass.data[DOMAIN][config_entry.entry_id]
     
     # Create two climate entities: one for heating/cooling, one for DHW
     async_add_entities([
@@ -48,6 +47,8 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     Note: DHW (hot water) control is in separate 'DHW' climate entity.
     """
     
+    _attr_has_entity_name = True
+    
     _attr_supported_features = (
         ClimateEntityFeature.TARGET_TEMPERATURE
         | ClimateEntityFeature.FAN_MODE
@@ -64,29 +65,48 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     _attr_fan_modes = ["normal", "eco", "night", "test"]
     _attr_preset_modes = [PRESET_NONE, PRESET_ECO, PRESET_BOOST]
     _attr_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_min_temp = 10
-    _attr_max_temp = 55
     _attr_target_temperature_step = 0.5
     
     def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
         """Initialize the climate entity."""
         super().__init__(coordinator)
         
-        self._attr_name = f"{config_entry.data[CONF_NAME]} Heating/Cooling"
+        self._attr_name = "Heating/Cooling"
         self._attr_unique_id = f"{config_entry.entry_id}_climate"
         
         # Device info
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, config_entry.entry_id)},
-            "name": config_entry.data[CONF_NAME],
-            "manufacturer": "SPRSUN",
-            "model": "Heat Pump",
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)},
+            name=config_entry.data[CONF_NAME],
+            manufacturer="SPRSUN",
+            model="Heat Pump",
+        )
     
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return bool(self.coordinator.last_update_success and self.coordinator.data is not None)
+    
+    @property
+    def min_temp(self) -> float:
+        """Return dynamic minimum temperature based on mode."""
+        if self.hvac_mode == HVACMode.COOL:
+            return 12.0
+        return 10.0
+
+    @property
+    def max_temp(self) -> float:
+        """Return dynamic maximum temperature based on mode."""
+        if self.hvac_mode == HVACMode.COOL:
+            return 30.0
+        return 55.0
+
     def _get_cache_value(self, key: str, default=None):
         """Helper to extract value from cache (handles both old and new format)."""
+        if not self.coordinator.data:
+            return default
         cache_entry = self.coordinator.data.get(key)
-        if cache_entry:
+        if cache_entry is not None:
             if isinstance(cache_entry, dict):
                 return cache_entry.get("value", default)
             return cache_entry
@@ -346,6 +366,7 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
     - 4: Cooling + DHW
     """
     
+    _attr_has_entity_name = True
     _attr_supported_features = ClimateEntityFeature.TARGET_TEMPERATURE
     
     _attr_hvac_modes = [
@@ -362,21 +383,28 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         """Initialize the DHW climate entity."""
         super().__init__(coordinator)
         
-        self._attr_name = f"{config_entry.data[CONF_NAME]} DHW"
+        self._attr_name = "DHW"
         self._attr_unique_id = f"{config_entry.entry_id}_dhw_climate"
         
         # Device info
-        self._attr_device_info = {
-            "identifiers": {(DOMAIN, config_entry.entry_id)},
-            "name": config_entry.data[CONF_NAME],
-            "manufacturer": "SPRSUN",
-            "model": "Heat Pump",
-        }
+        self._attr_device_info = DeviceInfo(
+            identifiers={(DOMAIN, config_entry.entry_id)},
+            name=config_entry.data[CONF_NAME],
+            manufacturer="SPRSUN",
+            model="Heat Pump",
+        )
     
+    @property
+    def available(self) -> bool:
+        """Return if entity is available."""
+        return bool(self.coordinator.last_update_success and self.coordinator.data is not None)
+
     def _get_cache_value(self, key: str, default=None):
         """Helper to extract value from cache (handles both old and new format)."""
+        if not self.coordinator.data:
+            return default
         cache_entry = self.coordinator.data.get(key)
-        if cache_entry:
+        if cache_entry is not None:
             if isinstance(cache_entry, dict):
                 return cache_entry.get("value", default)
             return cache_entry

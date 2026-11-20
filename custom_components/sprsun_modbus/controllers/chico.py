@@ -38,7 +38,6 @@ class ChicoController(ControllerBase):
             REGISTERS_NUMBER,
             REGISTERS_SELECT,
             REGISTERS_SWITCH,
-            REGISTERS_BUTTON,
         )
         
         data = {}
@@ -203,7 +202,7 @@ class ChicoController(ControllerBase):
                 except Exception as err:
                     _LOGGER.error("CHICO: Exception reading batch %s: %s", description, err)
             
-            _LOGGER.info("CHICO: Batch RW read completed (%d registers in %d batches)", total_rw_read, len(rw_batches))
+            _LOGGER.debug("CHICO: Batch RW read completed (%d registers in %d batches)", total_rw_read, len(rw_batches))
         
         return data
     
