@@ -283,15 +283,32 @@ Check:
 - Home Assistant logs for errors
 - Elfin W11 web interface shows active connection
 
+## Development & Testing
+
+Unit tests run in isolation using mocks for Modbus and Home Assistant:
+
+```bash
+# Run unit tests locally (no external dependencies required)
+python3 -m unittest discover tests
+
+# Or run with pytest and coverage
+pip install -r requirements_dev.txt
+pytest tests/ -v --cov=custom_components/sprsun_modbus --cov-report=term-missing
+```
+
+Automated CI/CD pipelines in `.github/workflows/` validate every change:
+- **`test.yaml`**: Runs the 100-test suite on Python 3.12 and 3.13, measuring code coverage.
+- **`validate.yaml`**: Runs Hassfest (Home Assistant manifest/strings validation), HACS action, and Ruff code linter.
+
 ## To Do
 
 Contributions welcome! Priority development tasks:
 
 ### Core Improvements
-- [ ] **Options flow** - Allow changing integration settings (host, port, scan interval) without removing/re-adding
+- [x] **Options flow** - Allow changing integration settings (host, port, scan interval) without removing/re-adding
 - [ ] **Verify all registers** - Test on multiple heat pump models to confirm register map accuracy
 - [ ] **Multiple register write optimization** - Use Modbus command 10H (write multiple) for batch parameter updates
-- [ ] **Unit tests** - Evaluate necessity and add test coverage for core functionality
+- [x] **Unit tests** - Comprehensive 100-test suite covering controllers, coordinator, config flow, entities, and platforms
 
 ### Documentation
 - [ ] **Analyze pump manual** - Add Elfin settings for reference
@@ -302,11 +319,11 @@ Contributions welcome! Priority development tasks:
 - [ ] **Integration logo** - Design and add custom logo
 - [ ] **Publish to HACS** - Submit to HACS default repository
 - [ ] **Add badges** - HACS install button, Buy Me a Coffee button
-- [ ] **GitHub workflows** - Add HACS validation and automated tests
+- [x] **GitHub workflows** - Automated pytest CI with matrix (Python 3.12, 3.13), coverage, Hassfest, HACS validation and Ruff linter
 
 ### Known Issues
-- [ ] **RW field momentary revert** - After writing RW parameter in HA, value briefly reverts to old state before updating (cosmetic, resolved on next coordinator poll)
-- [ ] **Batch read RW registers** - Investigate if RW registers can be batch-read (currently read individually due to sparse address space)
+- [x] **RW field momentary revert** - Fixed in v5.1.0 with atomic coordinator write cache and immediate state dispatch
+- [x] **Batch read RW registers** - Implemented with 9 contiguous register batches and smart periodic polling
 
 ### Controller Support
 - [ ] **Additional controller types** - SPRSUN uses at least 2 different controller types. This integration supports one. Looking for contributors with different models!

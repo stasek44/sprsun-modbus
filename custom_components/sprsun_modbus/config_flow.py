@@ -170,7 +170,21 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
         
         data_schema = vol.Schema(
             {
-                vol.Optional(
+                vol.Required(
+                    CONF_HOST,
+                    default=self.config_entry.data.get(CONF_HOST, ""),
+                ): str,
+                vol.Required(
+                    CONF_PORT,
+                    default=self.config_entry.data.get(CONF_PORT, DEFAULT_PORT),
+                ): cv.port,
+                vol.Required(
+                    CONF_DEVICE_ADDRESS,
+                    default=self.config_entry.data.get(
+                        CONF_DEVICE_ADDRESS, DEFAULT_DEVICE_ADDRESS
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=247)),
+                vol.Required(
                     CONF_SCAN_INTERVAL,
                     default=self.config_entry.data.get(
                         CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL

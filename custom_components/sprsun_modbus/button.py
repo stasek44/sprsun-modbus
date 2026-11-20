@@ -76,47 +76,4 @@ class SPRSUNButton(CoordinatorEntity, ButtonEntity):
     
     async def async_press(self) -> None:
         """Handle the button press."""
-        await self._async_trigger_bit()
-    
-    async def _async_trigger_bit(self) -> None:
-        """Trigger momentary bit action (read-modify-write, then clear)."""
-        def _trigger():
-            client = self.coordinator.client
-            if client is None or not client.connected:
-                if not client.connect():
-                    raise ConnectionError("Cannot connect to Modbus device")
-            
-            # Read current register value
-            result = client.read_holding_registers(
-                address=self._address,
-                count=1,
-                device_id=self.coordinator.device_address
-            )
-            
-            if result.isError():
-                raise ValueError(f"Modbus read error: {result}")
-            
-            current_value = result.registers[0]
-            
-            # Set the bit (trigger action)
-            trigger_value = current_value | (1 << self._bit)
-            
-            # Write trigger value
-            result = client.write_register(
-                address=self._address,
-                value=trigger_value,
-                device_id=self.coordinator.device_address
-            )
-            
-            if result.isError():
-                raise ValueError(f"Modbus write error: {result}")
-            
-            _LOGGER.info(
-                "Triggered bit %d on register 0x%04X (was 0x%04X, triggered 0x%04X)",
-                self._bit, self._address, current_value, trigger_value
-            )
-            
-            # Note: Bit automatically clears after device processes action
-            # No need to manually clear or update cache
-        
-        await self.hass.async_add_executor_job(_trigger)
+        await self.coordinator.async_write_bit(self._address, self._bit, True)

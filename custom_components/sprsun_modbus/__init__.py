@@ -1,5 +1,9 @@
 """SPRSUN Heat Pump Modbus Integration."""
+from __future__ import annotations
+
+import asyncio
 import logging
+import time
 from datetime import timedelta
 
 from homeassistant.config_entries import ConfigEntry
@@ -30,11 +34,12 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SPRSUN Heat Pump from a config entry."""
-    host = entry.data[CONF_HOST]
-    port = entry.data[CONF_PORT]
-    device_address = entry.data[CONF_DEVICE_ADDRESS]
-    scan_interval = entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
-    controller_type = entry.data.get(CONF_CONTROLLER_TYPE, "chico")  # Default to CHICO for backwards compatibility
+    # Allow reading overrides from options if user modified them via options flow
+    host = entry.options.get(CONF_HOST, entry.data.get(CONF_HOST))
+    port = entry.options.get(CONF_PORT, entry.data.get(CONF_PORT))
+    device_address = entry.options.get(CONF_DEVICE_ADDRESS, entry.data.get(CONF_DEVICE_ADDRESS))
+    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
+    controller_type = entry.options.get(CONF_CONTROLLER_TYPE, entry.data.get(CONF_CONTROLLER_TYPE, "chico"))
     
     _LOGGER.info(
         "Setting up SPRSUN Heat Pump (%s controller) at %s:%s (device %s, scan interval %ss)",
@@ -54,7 +59,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Forward setup to platforms
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     
+    # Register update listener to reload config entry when options change
+    entry.async_on_unload(entry.add_update_listener(async_reload_entry))
+    
     return True
+
+
+async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
+    """Reload config entry when options change."""
+    await hass.config_entries.async_reload(entry.entry_id)
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -62,8 +75,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     unload_ok = await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
     
     if unload_ok:
-        coordinator = hass.data[DOMAIN].pop(entry.entry_id)
-        await coordinator.async_shutdown()
+        coordinator = hass.data[DOMAIN].pop(entry.entry_id, None)
+        if coordinator:
+            await coordinator.async_shutdown()
     
     return unload_ok
 
@@ -87,19 +101,29 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         self.port = port
         self.device_address = device_address
         
-        # Single persistent connection for both read and write operations
-        self.client = self._create_modbus_client(host, port)
+        # Async lock to guarantee atomic, thread-safe access to Modbus connection
+        self._lock = asyncio.Lock()
+        
+        # Modbus client instance (created on demand, closed cleanly on error)
+        self.client: ModbusTcpClient | None = None
         
         self.controller_type = controller_type
         self.controller = get_controller(controller_type)
         
         # Cache staleness window: Skip re-reading recently written registers
-        # Set to 2x scan_interval to prevent revert glitches
         self.cache_staleness_seconds = scan_interval * 2
         
+        # Polling state:
+        # - RW registers are read on initial refresh and refreshed every 20 cycles (~5-10 min)
+        # - RO registers (sensors) are read every scan_interval (~150ms batch)
+        self._rw_loaded = False
+        self._poll_count = 0
+        self._rw_refresh_interval = 20
+        
         _LOGGER.info(
-            "Using %s controller (cache staleness: %ds)",
+            "SPRSUN coordinator initialized (%s controller, scan: %ds, cache staleness: %ds)",
             self.controller.name,
+            scan_interval,
             self.cache_staleness_seconds
         )
         
@@ -109,214 +133,268 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
             name=DOMAIN,
             update_interval=timedelta(seconds=scan_interval),
         )
+        
+        # Initialize data dictionary
+        self.data = {}
     
-    def _create_modbus_client(self, host: str, port: int) -> ModbusTcpClient:
+    def _create_modbus_client(self) -> ModbusTcpClient:
         """Create Modbus TCP client with optimal settings."""
         return ModbusTcpClient(
-            host=host,
-            port=port,
-            timeout=10,  # Longer timeout to prevent premature disconnects
+            host=self.host,
+            port=self.port,
+            timeout=5.0,  # 5 seconds is plenty for Modbus TCP over LAN
+            retries=0,    # We handle retries and reconnects cleanly at coordinator level
         )
     
-    def _ensure_connection(self, client: ModbusTcpClient, name: str = "client") -> bool:
-        """Ensure client is connected, reconnect if needed."""
-        if not client.connected:
-            _LOGGER.debug("Reconnecting %s to %s:%s", name, self.host, self.port)
+    def _close_client(self) -> None:
+        """Safely close and clean up Modbus client."""
+        if self.client is not None:
             try:
-                if client.connect():
-                    _LOGGER.debug("%s connected successfully", name)
+                self.client.close()
+            except Exception as err:
+                _LOGGER.debug("Error closing Modbus client: %s", err)
+            finally:
+                self.client = None
+    
+    def _ensure_connection(self) -> bool:
+        """Ensure client is connected, creating fresh connection if needed."""
+        if self.client is None:
+            self.client = self._create_modbus_client()
+            
+        if not self.client.connected:
+            _LOGGER.debug("Connecting Modbus client to %s:%s", self.host, self.port)
+            try:
+                if self.client.connect():
+                    _LOGGER.debug("Modbus client connected successfully to %s:%s", self.host, self.port)
                     return True
                 else:
-                    _LOGGER.warning("%s connection failed", name)
+                    _LOGGER.warning("Modbus connection to %s:%s failed", self.host, self.port)
+                    self._close_client()
                     return False
             except Exception as err:
-                _LOGGER.error("Exception connecting %s: %s", name, err)
+                _LOGGER.error("Exception connecting to %s:%s: %s", self.host, self.port, err)
+                self._close_client()
                 return False
         return True
     
-    def _verify_connection(self, client: ModbusTcpClient, test_address: int = 0x0000) -> bool:
-        """Verify connection is actually working by test read.
-        
-        Returns True if connection works, False if need to reconnect.
-        """
-        try:
-            result = client.read_holding_registers(
-                address=test_address,
-                count=1,
-                device_id=self.device_address
-            )
-            # If we got response (even if error), socket is alive
-            return not result.isError() or "Connection" not in str(result)
-        except Exception as err:
-            # Connection error - need reconnect
-            if "connection" in str(err).lower() or "closed" in str(err).lower():
-                _LOGGER.debug("Connection verification failed: %s", err)
-                return False
-            # Other errors (timeout, etc) - connection might be OK
-            return True
-    
     async def _async_update_data(self):
-        """Fetch data from Modbus."""
-        try:
-            return await self.hass.async_add_executor_job(self._sync_update)
-        except ModbusException as err:
-            raise UpdateFailed(f"Error communicating with Modbus: {err}") from err
+        """Fetch data from Modbus under mutex lock."""
+        async with self._lock:
+            try:
+                return await self.hass.async_add_executor_job(self._sync_update)
+            except ModbusException as err:
+                raise UpdateFailed(f"Error communicating with Modbus: {err}") from err
     
     def _sync_update(self):
         """Synchronous update (runs in executor)."""
         import time
         
-        # Ensure client is connected
-        if not self._ensure_connection(self.client, "client"):
-            raise UpdateFailed("Failed to connect to Modbus device")
+        # Determine whether we need to read RW registers in this cycle
+        read_rw = (not self._rw_loaded) or (self._poll_count % self._rw_refresh_interval == 0)
         
-        # Use controller-specific implementation to read registers
-        try:
-            # Read all registers (RO + RW)
-            fresh_data = self.controller.read_all_registers(
-                self.client,
-                self.device_address,
-                initial_read=True  # Always read RW now
-            )
+        fresh_data = None
+        # Attempt 1: Using current/ensured connection
+        if self._ensure_connection():
+            try:
+                fresh_data = self.controller.read_all_registers(
+                    self.client,
+                    self.device_address,
+                    initial_read=read_rw
+                )
+            except Exception as err:
+                _LOGGER.warning("Modbus read error: %s. Resetting connection and retrying...", err)
+                self._close_client()
+        else:
+            _LOGGER.warning("Failed to ensure connection to %s:%s. Resetting client...", self.host, self.port)
+            self._close_client()
+        
+        # Attempt 2: If attempt 1 failed, wait 0.5s for gateway, reconnect and retry once
+        if fresh_data is None:
+            time.sleep(0.5)
+            if not self._ensure_connection():
+                self._close_client()
+                raise UpdateFailed(f"Failed to connect to Modbus device at {self.host}:{self.port}")
+            try:
+                fresh_data = self.controller.read_all_registers(
+                    self.client,
+                    self.device_address,
+                    initial_read=read_rw
+                )
+            except Exception as err:
+                self._close_client()
+                raise UpdateFailed(f"Modbus read failed after reconnect: {err}") from err
+        
+        if not fresh_data:
+            raise UpdateFailed("No data returned from Modbus read")
+        
+        # If we read RW registers and got setpoints, mark RW as successfully loaded
+        if read_rw and "heating_setpoint" in fresh_data:
+            self._rw_loaded = True
+            _LOGGER.debug("RW parameters successfully loaded and cached")
+        
+        now = time.time()
+        if not isinstance(self.data, dict):
+            self.data = {}
             
-            # Phase 2: Migrate to timestamp-based cache
-            # Merge fresh data with cache, respecting timestamps
-            now = time.time()
-            updated_data = {}
-            
-            for key, value in fresh_data.items():
-                # Check if we have a cached entry
-                cached = self.data.get(key) if isinstance(self.data, dict) else None
-                
-                # Handle both old format (float) and new format (dict with timestamp)
-                if isinstance(cached, dict) and "updated_at" in cached:
-                    # New format: respect timestamp
-                    if (now - cached["updated_at"]) < self.cache_staleness_seconds:
-                        # Cache is fresh (recently written), preserve it
-                        updated_data[key] = cached
-                    else:
-                        # Cache is stale, use fresh value from device
-                        updated_data[key] = {"value": value, "updated_at": now}
-                else:
-                    # Old format or no cache: use fresh value
-                    updated_data[key] = {"value": value, "updated_at": now}
-            
-            return updated_data
-            
-        except Exception as err:
-            _LOGGER.error("Error reading %s registers: %s", self.controller.name, err)
-            raise UpdateFailed(f"Register read failed: {err}") from err
+        updated_data = dict(self.data)
+        
+        for key, value in fresh_data.items():
+            cached = updated_data.get(key)
+            if isinstance(cached, dict) and "updated_at" in cached:
+                if (now - cached["updated_at"]) < self.cache_staleness_seconds:
+                    # Recently written by user, preserve local setpoint
+                    continue
+            updated_data[key] = {"value": value, "updated_at": now}
+        
+        self._poll_count += 1
+        return updated_data
     
-    def write_register(self, address: int, value: int) -> bool:
-        """Write a single register (synchronous, runs in executor) - LEGACY.
-        
-        Note: Use write_register_with_cache() for new code.
-        """
-        if self.client is None or not self.client.connected:
-            if not self.client.connect():
-                raise ConnectionError("Cannot connect to Modbus device")
-        
-        result = self.client.write_register(
-            address=address,
-            value=value,
-            device_id=self.device_address
-        )
-        
-        if result.isError():
-            raise ValueError(f"Modbus write error: {result}")
-        
-        return True
-    
-    def write_register_with_cache(self, address: int, value: int, key: str, scale: float = 1) -> bool:
-        """Write register via dedicated write connection and update cache (Phase 4).
-        
-        Args:
-            address: Modbus register address
-            value: Raw integer value to write (already scaled)
-            key: Cache key to update
-            scale: Scale factor to convert back to float for cache
-        
-        Returns:
-            True if write succeeded
-        """
+    def _sync_write_register(self, address: int, value: int, key: str, scale: float = 1) -> bool:
+        """Write single register synchronously with auto-reconnect."""
         import time
         
-        # Ensure client is connected (check flag)
-        if not self._ensure_connection(self.client, "client"):
-            raise ConnectionError("Cannot connect to Modbus device")
+        if not self._ensure_connection():
+            self._close_client()
+            raise ConnectionError(f"Cannot connect to Modbus device at {self.host}:{self.port}")
         
-        # Verify connection is actually working (test read)
-        if not self._verify_connection(self.client, test_address=address):
-            _LOGGER.warning("Connection dead, reconnecting...")
-            self.client.close()
-            if not self._ensure_connection(self.client, "client"):
-                raise ConnectionError("Cannot reconnect to Modbus device")
+        # Ensure unsigned 16-bit int for Modbus protocol (handles negative signed values like -5°C)
+        val_to_write = value & 0xFFFF
         
-        # Write register
         result = self.client.write_register(
             address=address,
-            value=value,
+            value=val_to_write,
             device_id=self.device_address
         )
         
         if result.isError():
-            # Check if it's a connection error
-            error_str = str(result).lower()
-            if "connection" in error_str or "closed" in error_str:
-                # Connection died during write - try once more after reconnect
-                _LOGGER.warning("Connection error during write, reconnecting and retrying once...")
-                self.client.close()
-                if not self._ensure_connection(self.client, "client"):
-                    raise ConnectionError("Cannot reconnect to Modbus device")
-                
-                # Retry write once
-                result = self.client.write_register(
-                    address=address,
-                    value=value,
-                    device_id=self.device_address
-                )
-                
-                if result.isError():
-                    raise ValueError(f"Modbus write error after reconnect: {result}")
-            else:
-                # Modbus protocol error (CRC, illegal address, etc) - fail immediately
-                raise ValueError(f"Modbus write error: {result}")
+            _LOGGER.warning("Write error on 0x%04X: %s. Reconnecting and retrying once...", address, result)
+            self._close_client()
+            time.sleep(0.5)
+            if not self._ensure_connection():
+                self._close_client()
+                raise ConnectionError(f"Reconnection failed during write to 0x{address:04X}")
+            
+            result = self.client.write_register(
+                address=address,
+                value=val_to_write,
+                device_id=self.device_address
+            )
+            if result.isError():
+                self._close_client()
+                raise ValueError(f"Modbus write error on 0x{address:04X}: {result}")
         
-        # Success - update cache immediately with timestamp (prevents revert glitch)
-        self.data[key] = {
-            "value": value / scale if scale != 1 else float(value),
-            "updated_at": time.time()
-        }
+        # Update cache immediately with timestamp
+        now = time.time()
+        float_val = value / scale if scale != 1 else float(value)
+        self.data[key] = {"value": float_val, "updated_at": now}
+        _LOGGER.info("Wrote register 0x%04X = %d, cached as %s = %.2f", address, val_to_write, key, float_val)
+        return True
+
+    def _sync_write_bit(self, address: int, bit: int, value: bool, reg_key: str | None = None) -> bool:
+        """Read-modify-write a bitfield register synchronously."""
+        import time
         
-        _LOGGER.debug(
-            "Wrote register 0x%04X = %d, cached as %s = %.2f",
-            address, value, key, self.data[key]["value"]
+        if not self._ensure_connection():
+            self._close_client()
+            raise ConnectionError(f"Cannot connect to Modbus device at {self.host}:{self.port}")
+        
+        # Read current register value
+        result = self.client.read_holding_registers(
+            address=address,
+            count=1,
+            device_id=self.device_address
         )
         
+        if result.isError():
+            _LOGGER.warning("Read error before bit-write on 0x%04X: %s. Retrying after reconnect...", address, result)
+            self._close_client()
+            time.sleep(0.5)
+            if not self._ensure_connection():
+                self._close_client()
+                raise ConnectionError(f"Reconnection failed before bit-write on 0x{address:04X}")
+            result = self.client.read_holding_registers(
+                address=address,
+                count=1,
+                device_id=self.device_address
+            )
+            if result.isError():
+                self._close_client()
+                raise ValueError(f"Modbus read error on 0x{address:04X}: {result}")
+        
+        current_val = result.registers[0]
+        if value:
+            new_val = current_val | (1 << bit)
+        else:
+            new_val = current_val & ~(1 << bit)
+        
+        if new_val != current_val:
+            w_res = self.client.write_register(
+                address=address,
+                value=new_val,
+                device_id=self.device_address
+            )
+            if w_res.isError():
+                _LOGGER.warning("Bit-write error on 0x%04X: %s. Retrying...", address, w_res)
+                self._close_client()
+                time.sleep(0.5)
+                if not self._ensure_connection():
+                    self._close_client()
+                    raise ConnectionError(f"Reconnection failed on bit-write to 0x{address:04X}")
+                w_res = self.client.write_register(
+                    address=address,
+                    value=new_val,
+                    device_id=self.device_address
+                )
+                if w_res.isError():
+                    self._close_client()
+                    raise ValueError(f"Modbus bit-write error on 0x{address:04X}: {w_res}")
+        
+        # Update cache immediately
+        now = time.time()
+        if reg_key is None:
+            reg_key = f"_control_{address:04x}"
+        self.data[reg_key] = {"value": new_val, "updated_at": now}
+        _LOGGER.info(
+            "Bit %d on register 0x%04X set to %s (was 0x%04X, now 0x%04X)",
+            bit, address, value, current_val, new_val
+        )
         return True
     
     async def async_write_register(self, address: int, value: float, key: str, scale: float = 1) -> None:
-        """Async wrapper for write_register_with_cache (Phase 4).
-        
-        Args:
-            address: Modbus register address
-            value: Float value to write (will be scaled)
-            key: Cache key to update
-            scale: Scale factor (value will be multiplied by this)
-        """
-        # Convert float to scaled integer
+        """Async thread-safe wrapper for register write."""
         int_value = int(value * scale)
-        
-        await self.hass.async_add_executor_job(
-            self.write_register_with_cache,
-            address,
-            int_value,
-            key,
-            scale
-        )
-    
+        async with self._lock:
+            await self.hass.async_add_executor_job(
+                self._sync_write_register,
+                address,
+                int_value,
+                key,
+                scale
+            )
+        self.async_set_updated_data(self.data)
+
+    async def async_write_bit(self, address: int, bit: int, value: bool, reg_key: str | None = None) -> None:
+        """Async thread-safe wrapper for bit write."""
+        async with self._lock:
+            await self.hass.async_add_executor_job(
+                self._sync_write_bit,
+                address,
+                bit,
+                value,
+                reg_key
+            )
+        self.async_set_updated_data(self.data)
+
+    # Legacy compatibility methods
+    def write_register(self, address: int, value: int) -> bool:
+        """Legacy synchronous write."""
+        return self._sync_write_register(address, value, f"reg_{address:04x}", 1)
+
+    def write_register_with_cache(self, address: int, value: int, key: str, scale: float = 1) -> bool:
+        """Legacy cached write."""
+        return self._sync_write_register(address, value, key, scale)
+
     async def async_shutdown(self):
         """Shutdown coordinator."""
-        if self.client:
-            await self.hass.async_add_executor_job(self.client.close)
-            self.client = None
+        async with self._lock:
+            await self.hass.async_add_executor_job(self._close_client)
