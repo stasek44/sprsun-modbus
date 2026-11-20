@@ -19,7 +19,8 @@ Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using Elfin-EW1
 - **Full Control**: Operating modes, setpoints, economic mode curves, antilegionella, pump modes
 - **Batch Reading**: All read-only parameters in ONE request (~200ms) for optimal performance
 - **Safe Writes**: Optimized write operations with bit manipulation protection
-- **Documentation**: Comprehensive [parameter guide](docs/PARAMETERS_GUIDE.md) and [Modbus reference](docs/MODBUS_REFERENCE.md)
+- **Interactive Dashboards**: 100% native Home Assistant management cards and views with interactive `+`/`-` buttons for temperatures and hysteresis ([Dashboard Guide](docs/DASHBOARD.md))
+- **Documentation**: Comprehensive [parameter guide](docs/CHICO_PARAMETERS_GUIDE.md) and [Modbus reference](docs/CHICO_MODBUS_REFERENCE.md)
 
 ## Quick Start
 
@@ -83,6 +84,13 @@ git clone https://github.com/stasek44/sprsun-modbus.git sprsun_modbus
    - **Scan Interval**: `30` seconds (recommended balance between responsiveness and load)
 4. Click "Submit"
 5. Integration will create 100+ entities automatically
+
+### Management Dashboard (100% Native HA)
+
+Instead of manually searching for entities and typing setpoint numbers:
+- Use our ready-to-copy **[SPRSUN Control Card](dashboards/sprsun_control_card.yaml)** with interactive `[ - ]` and `[ + ]` stepper buttons for Heating (P01), DHW (P04), and Hysteresis (P03/P05).
+- Or import the **[Full Management Dashboard View](dashboards/sprsun_full_dashboard.yaml)** as a dedicated view with live temperatures, COP, electrical metrics, and alarm diagnostics.
+- See the **[Dashboard & Quick Controls Guide](docs/DASHBOARD.md)** for step-by-step instructions.
 
 ## Entities
 
