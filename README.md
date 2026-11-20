@@ -1,3 +1,7 @@
+<div align="center">
+  <img src="https://raw.githubusercontent.com/stasek44/sprsun-modbus/main/images/banner.png" alt="SPRSUN Heat Pump Modbus Integration" width="100%">
+</div>
+
 # SPRSUN Heat Pump Modbus Integration for Home Assistant
 
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
@@ -299,7 +303,7 @@ Contributions welcome! Priority development tasks:
 - [ ] **English parameter guide** - Translate PARAMETERS_GUIDE.md to English
 
 ### Publishing & Branding
-- [ ] **Integration logo** - Design and add custom logo
+- [x] **Integration logo** - Custom brand icon, logo, and hero banner added
 - [ ] **Publish to HACS** - Submit to HACS default repository
 - [ ] **Add badges** - HACS install button, Buy Me a Coffee button
 - [ ] **GitHub workflows** - Add HACS validation and automated tests
