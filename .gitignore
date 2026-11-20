@@ -21,11 +21,12 @@ wheels/
 *.egg
 MANIFEST
 
-# Virtual Environment
+# Virtual Environment & Package Managers
 venv/
 .venv/
 ENV/
 env/
+uv.lock
 
 # IDE
 .vscode/
