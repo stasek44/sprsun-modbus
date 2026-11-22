@@ -1,4 +1,5 @@
 """Unit tests for SPRSUNDataUpdateCoordinator."""
+import socket
 import time
 import unittest
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -86,6 +87,73 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         self.coordinator.client = client
         self.assertFalse(self.coordinator._ensure_connection())
         self.assertIsNone(self.coordinator.client)
+
+    def test_is_socket_alive_real_sockets(self):
+        """Test _is_socket_alive correctly identifies open vs closed TCP sockets."""
+        # 1. No client
+        self.coordinator.client = None
+        self.assertFalse(self.coordinator._is_socket_alive())
+
+        # 2. Client not connected
+        mock_client = MagicMock()
+        mock_client.connected = False
+        self.coordinator.client = mock_client
+        self.assertFalse(self.coordinator._is_socket_alive())
+
+        # 3. Real socketpair connected
+        s1, s2 = socket.socketpair()
+        try:
+            mock_client.connected = True
+            mock_client.socket = s1
+            self.coordinator.client = mock_client
+            self.assertTrue(self.coordinator._is_socket_alive())
+
+            # 4. Peer closed
+            s2.close()
+            self.assertFalse(self.coordinator._is_socket_alive())
+        finally:
+            s1.close()
+
+    def test_ensure_connection_dead_socket_reconnects(self):
+        """Test _ensure_connection resets dead socket and reconnects fresh client."""
+        stale_client = MagicMock()
+        stale_client.connected = True
+        self.coordinator.client = stale_client
+        self.coordinator._is_socket_alive = MagicMock(return_value=False)
+
+        fresh_client = MagicMock()
+        fresh_client.connected = False
+        fresh_client.connect.return_value = True
+        self.coordinator._create_modbus_client = MagicMock(return_value=fresh_client)
+
+        self.assertTrue(self.coordinator._ensure_connection())
+        stale_client.close.assert_called_once()
+        fresh_client.connect.assert_called_once()
+        self.assertEqual(self.coordinator.client, fresh_client)
+
+    def test_sync_update_retry_attempt_1_failure_succeeds_on_attempt_2(self):
+        """Test _sync_update recovers cleanly when attempt 1 fails and attempt 2 succeeds."""
+        client = MagicMock()
+        client.connected = True
+        self.coordinator.client = client
+
+        fresh_data = {
+            "inlet_temp": 28.5,
+            "unit_mode": 3,
+        }
+        self.coordinator.controller.read_all_registers = MagicMock(
+            side_effect=[ConnectionError("Connection unexpectedly closed"), fresh_data]
+        )
+
+        retry_client = MagicMock()
+        retry_client.connected = True
+        self.coordinator._create_modbus_client = MagicMock(return_value=retry_client)
+
+        with patch("time.sleep"):
+            data = self.coordinator._sync_update()
+
+        self.assertIn("inlet_temp", data)
+        self.assertEqual(data["inlet_temp"]["value"], 28.5)
 
     def test_sync_update_success_and_caching(self):
         """Test _sync_update populates cache with timestamps."""

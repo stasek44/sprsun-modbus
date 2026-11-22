@@ -113,7 +113,7 @@ class ChicoController(ControllerBase):
             _LOGGER.debug("CHICO: Read %d read-only registers", len(data))
             
         except Exception as err:
-            _LOGGER.error("CHICO: Error reading RO registers: %s", err)
+            _LOGGER.debug("CHICO: Error reading RO registers: %s", err)
             raise
         
         # Read status registers for binary sensors
@@ -186,7 +186,7 @@ class ChicoController(ControllerBase):
                     )
                     
                     if result.isError():
-                        _LOGGER.warning("CHICO: Error reading batch %s (0x%04X): %s", description, start_addr, result)
+                        _LOGGER.debug("CHICO: Error reading batch %s (0x%04X): %s", description, start_addr, result)
                         continue
                     
                     if len(result.registers) != count:
@@ -219,7 +219,7 @@ class ChicoController(ControllerBase):
                     _LOGGER.debug("CHICO: Read batch %s (%d registers)", description, count)
                     
                 except Exception as err:
-                    _LOGGER.error("CHICO: Exception reading batch %s: %s", description, err)
+                    _LOGGER.debug("CHICO: Exception reading batch %s: %s", description, err)
             
             _LOGGER.debug("CHICO: Batch RW read completed (%d registers in %d batches)", total_rw_read, len(rw_batches))
         

@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import select as sys_select
+import socket
 import time
 from datetime import timedelta
 
@@ -158,8 +160,42 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
             finally:
                 self.client = None
     
+    def _is_socket_alive(self) -> bool:
+        """Check if client socket is truly open and not closed by remote host."""
+        if self.client is None or not getattr(self.client, "connected", False):
+            return False
+        sock = getattr(self.client, "socket", None)
+        if sock is None:
+            return True
+        try:
+            fileno = getattr(sock, "fileno", None)
+            if not callable(fileno):
+                return True
+            fn = fileno()
+            if not isinstance(fn, int) or fn < 0:
+                return True
+            readable, _, exceptional = sys_select.select([sock], [], [sock], 0.0)
+            if exceptional:
+                return False
+            if readable:
+                # If readable when idle, check if it's EOF (remote closed connection)
+                peek = sock.recv(1, socket.MSG_PEEK | socket.MSG_DONTWAIT)
+                if not peek:
+                    return False
+        except (OSError, socket.error):
+            return False
+        except Exception:
+            return True
+        return True
+
     def _ensure_connection(self) -> bool:
         """Ensure client is connected, creating fresh connection if needed."""
+        # If client claims to be connected, verify if remote host silently closed socket
+        if self.client is not None and getattr(self.client, "connected", False):
+            if not self._is_socket_alive():
+                _LOGGER.debug("Modbus socket was closed remotely, resetting client")
+                self._close_client()
+
         if self.client is None:
             self.client = self._create_modbus_client()
             
@@ -178,7 +214,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 self._close_client()
                 return False
         return True
-    
+
     async def _async_update_data(self):
         """Fetch data from Modbus under mutex lock."""
         async with self._lock:
@@ -186,7 +222,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 return await self.hass.async_add_executor_job(self._sync_update)
             except (ModbusException, ConnectionError, TimeoutError, OSError, ValueError) as err:
                 raise UpdateFailed(f"Error communicating with Modbus: {err}") from err
-    
+
     def _sync_update(self):
         """Synchronous update (runs in executor)."""
         # Determine whether we need to read RW registers in this cycle
@@ -202,10 +238,10 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                     initial_read=read_rw
                 )
             except Exception as err:
-                _LOGGER.warning("Modbus read error: %s. Resetting connection and retrying...", err)
+                _LOGGER.debug("Modbus read attempt 1 failed: %s. Resetting connection and retrying...", err)
                 self._close_client()
         else:
-            _LOGGER.warning("Failed to ensure connection to %s:%s. Resetting client...", self.host, self.port)
+            _LOGGER.debug("Failed to ensure connection to %s:%s on attempt 1. Resetting client...", self.host, self.port)
             self._close_client()
         
         # Attempt 2: If attempt 1 failed, wait 0.5s for gateway, reconnect and retry once
@@ -222,6 +258,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 )
             except Exception as err:
                 self._close_client()
+                _LOGGER.error("Modbus read failed after reconnect: %s", err)
                 raise UpdateFailed(f"Modbus read failed after reconnect: {err}") from err
         
         if not fresh_data:
