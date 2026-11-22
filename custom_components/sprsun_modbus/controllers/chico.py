@@ -47,7 +47,9 @@ class ChicoController(ControllerBase):
             0x0011,  # ambient_temp
             0x0015,  # suction_gas_temp
             0x0016,  # coil_temp
+            0x001A,  # ac_current (0xFFFF = -1A ADC noise around 0)
             0x0022,  # driving_temp
+            0x0023,  # compressor_current (ADC noise around 0)
             0x0028,  # evap_temp
         }
         SIGNED_RW_REGISTERS = {
@@ -68,6 +70,29 @@ class ChicoController(ControllerBase):
             if result.isError():
                 raise ValueError(f"Modbus read error: {result}")
             
+            if not result.registers or len(result.registers) < 50:
+                raise ValueError(
+                    f"Modbus read error: expected 50 registers, got {len(result.registers) if result.registers else 0}"
+                )
+            
+            # Sanity check: detect corrupt zero-filled frames from RS485 gateway
+            # In a live heat pump, controller_version (0x002C, index 44) is non-zero (e.g. 590),
+            # and water temperatures (inlet, hotwater, outlet) are never simultaneously zero.
+            is_all_zeros = not any(result.registers)
+            controller_ver = result.registers[0x002C] if len(result.registers) > 0x002C else 0
+            water_temps_zero = (
+                result.registers[0x000E] == 0  # inlet_temp
+                and result.registers[0x000F] == 0  # hotwater_temp
+                and result.registers[0x0012] == 0  # outlet_temp
+            )
+            
+            if is_all_zeros or (controller_ver == 0 and water_temps_zero):
+                raise ValueError(
+                    f"Corrupt Modbus frame detected: all registers zero or key parameters invalid "
+                    f"(all_zeros={is_all_zeros}, controller_version={controller_ver}, "
+                    f"inlet={result.registers[0x000E]}, hotwater={result.registers[0x000F]}). Discarding."
+                )
+            
             # Parse read-only registers
             for address, (key, name, scale, unit, device_class) in REGISTERS_READ_ONLY.items():
                 index = address - 0x0000
@@ -78,6 +103,10 @@ class ChicoController(ControllerBase):
                     if address in SIGNED_REGISTERS:
                         if raw_value > 32767:
                             raw_value = raw_value - 65536
+                    
+                    # For current sensors, clamp small negative noise values to 0
+                    if key in ("ac_current", "compressor_current") and raw_value < 0:
+                        raw_value = 0
                     
                     data[key] = raw_value * scale
             
@@ -164,7 +193,7 @@ class ChicoController(ControllerBase):
             total_rw_read = 0
             for start_addr, count, description in rw_batches:
                 try:
-                    time.sleep(0.10)  # Safe turnaround time on half-duplex RS485 (Elfin gap time is 50ms)
+                    time.sleep(0.15)  # Safe turnaround time on half-duplex RS485 (Elfin gap time is 50ms)
                     result = client.read_holding_registers(
                         address=start_addr,
                         count=count,
@@ -177,10 +206,15 @@ class ChicoController(ControllerBase):
                     
                     if len(result.registers) != count:
                         _LOGGER.error(
-                            "CHICO: Batch size mismatch for %s! Expected %d, got %d registers",
+                            "CHICO: Batch size mismatch for %s! Expected %d, got %d registers. "
+                            "Resetting connection to prevent stream desynchronization.",
                             description, count, len(result.registers)
                         )
-                        continue
+                        try:
+                            client.close()
+                        except Exception:
+                            pass
+                        break
                     
                     # Parse batch results
                     for i in range(count):

@@ -183,7 +183,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         async with self._lock:
             try:
                 return await self.hass.async_add_executor_job(self._sync_update)
-            except (ModbusException, ConnectionError, TimeoutError, OSError) as err:
+            except (ModbusException, ConnectionError, TimeoutError, OSError, ValueError) as err:
                 raise UpdateFailed(f"Error communicating with Modbus: {err}") from err
     
     def _sync_update(self):
