@@ -20,6 +20,7 @@ from .const import (
     CONF_SCAN_INTERVAL,
     CONF_CONTROLLER_TYPE,
     DEFAULT_SCAN_INTERVAL,
+    INTER_WRITE_DELAY,
     PLATFORMS,
 )
 
@@ -280,6 +281,9 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 self._close_client()
                 raise ValueError(f"Modbus write error on 0x{address:04X}: {result}")
         
+        # Inter-write turnaround delay to allow heat pump MCU to commit to EEPROM/RAM
+        time.sleep(INTER_WRITE_DELAY)
+
         # Update cache immediately with timestamp
         now = time.time()
         float_val = value / scale if scale != 1 else float(value)
@@ -344,6 +348,9 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                     self._close_client()
                     raise ValueError(f"Modbus bit-write error on 0x{address:04X}: {w_res}")
         
+        # Inter-write turnaround delay to allow heat pump MCU to commit to EEPROM/RAM
+        time.sleep(INTER_WRITE_DELAY)
+
         # Update cache immediately
         now = time.time()
         if reg_key is None:

@@ -56,15 +56,10 @@ async def validate_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict
             # Auto-detect controller type
             controller_type = detect_controller_type(client, device_address)
             
-            if controller_type is None or controller_type == "carel":
-                if controller_type == "carel":
-                    _LOGGER.warning(
-                        "CAREL controller detected, but CAREL support is not yet implemented. Defaulting to CHICO."
-                    )
-                else:
-                    _LOGGER.warning(
-                        "Could not auto-detect controller type, defaulting to CHICO"
-                    )
+            if controller_type is None:
+                _LOGGER.warning(
+                    "Could not auto-detect controller type, defaulting to CHICO"
+                )
                 controller_type = "chico"
             
             return controller_type

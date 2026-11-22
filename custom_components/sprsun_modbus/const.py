@@ -9,11 +9,12 @@ DEFAULT_PORT = 502
 DEFAULT_DEVICE_ADDRESS = 1
 DEFAULT_SCAN_INTERVAL = 10  # seconds - balance between responsiveness and load
 DEFAULT_TIMEOUT = 30  # seconds - Elfin W11 timeout (must be >= scan_interval + cycle_time)
+INTER_WRITE_DELAY = 0.08  # seconds - safe turnaround delay for heat pump MCU EEPROM commit
 
 # Configuration keys
 CONF_DEVICE_ADDRESS = "device_address"
 CONF_SCAN_INTERVAL = "scan_interval"
-CONF_CONTROLLER_TYPE = "controller_type"  # "chico" or "carel"
+CONF_CONTROLLER_TYPE = "controller_type"  # "chico"
 
 # Platforms
 PLATFORMS: list[Platform] = [
@@ -26,7 +27,7 @@ PLATFORMS: list[Platform] = [
     Platform.CLIMATE,
 ]
 
-# Read-Only Registers (50 parameters) - zgodnie z modbus_reference.md
+# Read-Only Registers (50 parameters) - according to modbus_reference.md
 REGISTERS_READ_ONLY = {
     # System Status
     0x0000: ("compressor_runtime", "Compressor Runtime", 1, "h", None),

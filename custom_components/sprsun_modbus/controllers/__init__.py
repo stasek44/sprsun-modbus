@@ -96,28 +96,25 @@ def detect_controller_type(
         device_address: Device address
         
     Returns:
-        Controller type string ("chico" or "carel") or None if detection failed
+        Controller type string ("chico") or None if detection failed
     """
     from .chico import ChicoController
-    from .carel import CarelController
     
-    # Try detection in order
-    for controller_class in [ChicoController, CarelController]:
-        try:
-            if controller_class.detect(client, device_address):
-                return controller_class().name.lower()
-        except Exception:
-            continue
+    try:
+        if ChicoController.detect(client, device_address):
+            return ChicoController().name.lower()
+    except Exception:
+        pass
     
     return None
 
 
-def get_controller(controller_type: str) -> ControllerBase:
+def get_controller(controller_type: str = "chico") -> ControllerBase:
     """
     Get controller instance by type.
     
     Args:
-        controller_type: Controller type string ("chico" or "carel")
+        controller_type: Controller type string ("chico")
         
     Returns:
         Controller instance
@@ -126,11 +123,9 @@ def get_controller(controller_type: str) -> ControllerBase:
         ValueError: If controller type is unknown
     """
     from .chico import ChicoController
-    from .carel import CarelController
     
     controllers = {
         "chico": ChicoController,
-        "carel": CarelController,
     }
     
     controller_class = controllers.get(controller_type.lower())

@@ -1,4 +1,4 @@
-"""Unit tests for heat pump controllers (Chico, Carel, and base)."""
+"""Unit tests for heat pump controllers (Chico and base)."""
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -11,7 +11,6 @@ from custom_components.sprsun_modbus.controllers import (
     ControllerBase,
 )
 from custom_components.sprsun_modbus.controllers.chico import ChicoController
-from custom_components.sprsun_modbus.controllers.carel import CarelController
 
 
 class TestControllers(unittest.TestCase):
@@ -24,11 +23,10 @@ class TestControllers(unittest.TestCase):
         self.assertEqual(controller.name, "CHICO")
         self.assertIn("SPRSUN", controller.manufacturer)
 
-    def test_get_controller_carel(self):
-        """Test getting Carel controller instance."""
-        controller = get_controller("carel")
-        self.assertIsInstance(controller, CarelController)
-        self.assertEqual(controller.name, "CAREL")
+    def test_get_controller_carel_unsupported(self):
+        """Test getting Carel controller raises ValueError as it is not supported."""
+        with self.assertRaises(ValueError):
+            get_controller("carel")
 
     def test_get_controller_unknown(self):
         """Test getting unknown controller raises ValueError."""
@@ -48,28 +46,8 @@ class TestControllers(unittest.TestCase):
         detected = detect_controller_type(client, device_address=1)
         self.assertEqual(detected, "chico")
 
-    def test_detect_controller_type_carel(self):
-        """Test auto-detecting Carel controller when Chico detection fails."""
-        client = MagicMock()
-        
-        # Chico check (0x002C) fails, Carel check (325) succeeds
-        def mock_read(address, count, device_id):
-            res = MagicMock()
-            if address == 0x002C:
-                res.isError.return_value = True
-            elif address == 325:
-                res.isError.return_value = False
-                res.registers = [1, 2, 3]  # Version 1.2.3
-            else:
-                res.isError.return_value = True
-            return res
-
-        client.read_holding_registers.side_effect = mock_read
-        detected = detect_controller_type(client, device_address=1)
-        self.assertEqual(detected, "carel")
-
     def test_detect_controller_type_none(self):
-        """Test detection returning None when all checks fail."""
+        """Test detection returning None when Chico check fails."""
         client = MagicMock()
         res = MagicMock()
         res.isError.return_value = True
@@ -124,6 +102,83 @@ class TestControllers(unittest.TestCase):
         self.assertEqual(data["working_status_register"], 0b00000011)
         self.assertEqual(data["output_symbol_1"], 0b00000001)
 
+    def test_chico_read_all_registers_adc_noise_clamping(self):
+        """Test small negative ADC noise on current sensors (0xFFFF / 65535) is clamped to 0."""
+        controller = ChicoController()
+        client = MagicMock()
+
+        response = MagicMock()
+        response.isError.return_value = False
+
+        regs = [0] * 50
+        regs[0x002C] = 590    # controller_version
+        regs[0x000E] = 250    # inlet_temp = 25.0 °C
+        regs[0x001A] = 65535  # ac_current = -1 signed int16 (ADC noise around 0)
+        regs[0x0023] = 65534  # compressor_current = -2 signed int16 (ADC noise around 0)
+        response.registers = regs
+
+        client.read_holding_registers.return_value = response
+
+        data = controller.read_all_registers(client, device_address=1, initial_read=False)
+
+        # Negative noise should be clamped to 0.0
+        self.assertEqual(data["ac_current"], 0.0)
+        self.assertEqual(data["compressor_current"], 0.0)
+
+        # Positive current values should be preserved
+        regs[0x001A] = 12
+        regs[0x0023] = 8
+        data_pos = controller.read_all_registers(client, device_address=1, initial_read=False)
+        self.assertEqual(data_pos["ac_current"], 12.0)
+        self.assertEqual(data_pos["compressor_current"], 8.0)
+
+    def test_chico_read_all_registers_corrupt_all_zeros(self):
+        """Test corrupt zero-filled frame from RS485 gateway raises ValueError."""
+        controller = ChicoController()
+        client = MagicMock()
+
+        response = MagicMock()
+        response.isError.return_value = False
+        response.registers = [0] * 50
+        client.read_holding_registers.return_value = response
+
+        with self.assertRaises(ValueError) as ctx:
+            controller.read_all_registers(client, device_address=1, initial_read=False)
+        self.assertIn("Corrupt Modbus frame detected", str(ctx.exception))
+
+    def test_chico_read_all_registers_corrupt_zero_version_and_water_temps(self):
+        """Test zero controller version and simultaneous zero water temps raises ValueError."""
+        controller = ChicoController()
+        client = MagicMock()
+
+        response = MagicMock()
+        response.isError.return_value = False
+        regs = [10] * 50
+        regs[0x002C] = 0  # controller_version = 0
+        regs[0x000E] = 0  # inlet_temp = 0
+        regs[0x000F] = 0  # hotwater_temp = 0
+        regs[0x0012] = 0  # outlet_temp = 0
+        response.registers = regs
+        client.read_holding_registers.return_value = response
+
+        with self.assertRaises(ValueError) as ctx:
+            controller.read_all_registers(client, device_address=1, initial_read=False)
+        self.assertIn("Corrupt Modbus frame detected", str(ctx.exception))
+
+    def test_chico_read_all_registers_short_frame(self):
+        """Test incomplete RO frame (<50 registers) raises ValueError."""
+        controller = ChicoController()
+        client = MagicMock()
+
+        response = MagicMock()
+        response.isError.return_value = False
+        response.registers = [10] * 40  # only 40 registers instead of 50
+        client.read_holding_registers.return_value = response
+
+        with self.assertRaises(ValueError) as ctx:
+            controller.read_all_registers(client, device_address=1, initial_read=False)
+        self.assertIn("expected 50 registers", str(ctx.exception))
+
     def test_chico_read_all_registers_ro_error(self):
         """Test handling of Modbus error on RO read."""
         controller = ChicoController()
@@ -146,7 +201,10 @@ class TestControllers(unittest.TestCase):
             res.isError.return_value = False
             # Return all zeros or dummy values matching count
             if address == 0x0000:
-                res.registers = [0] * 50
+                regs = [0] * 50
+                regs[0x002C] = 590  # controller_version
+                regs[0x000E] = 250  # inlet_temp
+                res.registers = regs
             elif address == 0x0032:  # Batch 1 (0x0032-0x0034): 3 registers
                 res.registers = [1, 0, 3]
             elif address == 0x0036:  # Batch 2: P06
@@ -166,6 +224,38 @@ class TestControllers(unittest.TestCase):
         self.assertEqual(data["_control_0032"], 1)
         self.assertEqual(data["unit_mode"], 3)
         self.assertEqual(data["econ_heat_ambi_1"], -15)
+
+    def test_chico_rw_batch_size_mismatch_resets_connection(self):
+        """Test batch register count mismatch triggers client.close() and breaks loop."""
+        controller = ChicoController()
+        client = MagicMock()
+
+        def mock_read(address, count, device_id):
+            res = MagicMock()
+            res.isError.return_value = False
+            if address == 0x0000:
+                regs = [0] * 50
+                regs[0x002C] = 590
+                regs[0x000E] = 250
+                res.registers = regs
+            elif address == 0x0032:
+                # Batch 1 expects count=3, but gateway returned truncated response with 2 registers
+                res.registers = [1, 0]
+            else:
+                res.registers = [0] * count
+            return res
+
+        client.read_holding_registers.side_effect = mock_read
+
+        with patch("time.sleep"):
+            data = controller.read_all_registers(client, device_address=1, initial_read=True)
+
+        # Connection should be safely reset to prevent stream desynchronization
+        client.close.assert_called_once()
+        # Loop was broken: subsequent batches (e.g. 0x0036 unit_mode) should not be read
+        self.assertNotIn("unit_mode", data)
+        # RO data read before the mismatch should remain intact
+        self.assertEqual(data["inlet_temp"], 25.0)
 
     def test_chico_write_register_success(self):
         """Test successful Chico register write."""
@@ -205,15 +295,6 @@ class TestControllers(unittest.TestCase):
 
         with self.assertRaises(ValueError):
             controller.write_register(client, device_address=1, address=0x00CC, value=76)
-
-    def test_carel_stubs(self):
-        """Test Carel placeholder methods handle gracefully."""
-        controller = CarelController()
-        client = MagicMock()
-
-        self.assertEqual(controller.read_all_registers(client, 1), {})
-        self.assertFalse(controller.write_register(client, 1, 0x0001, 10))
-        self.assertIn("CAREL", controller.get_device_info("entry_carel")["model"])
 
 
 if __name__ == "__main__":

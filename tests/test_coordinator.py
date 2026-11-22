@@ -7,6 +7,7 @@ from tests.conftest import setup_mocks
 setup_mocks()
 
 from custom_components.sprsun_modbus import SPRSUNDataUpdateCoordinator
+from custom_components.sprsun_modbus.const import INTER_WRITE_DELAY
 from homeassistant.helpers.update_coordinator import UpdateFailed
 
 
@@ -171,14 +172,16 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         self.coordinator.client = client
         self.coordinator.data = {}
 
-        success = self.coordinator._sync_write_register(
-            address=0x00CC,
-            value=76,  # 38.0 * 2
-            key="heating_setpoint",
-            scale=2,
-        )
+        with patch("time.sleep") as mock_sleep:
+            success = self.coordinator._sync_write_register(
+                address=0x00CC,
+                value=76,  # 38.0 * 2
+                key="heating_setpoint",
+                scale=2,
+            )
 
         self.assertTrue(success)
+        mock_sleep.assert_called_once_with(INTER_WRITE_DELAY)
         client.write_register.assert_called_once_with(
             address=0x00CC, value=76, device_id=1
         )
@@ -245,14 +248,16 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         self.coordinator.data = {}
 
         # Set bit 0 to True on address 0x0032
-        success = self.coordinator._sync_write_bit(
-            address=0x0032,
-            bit=0,
-            value=True,
-            reg_key="_control_0032"
-        )
+        with patch("time.sleep") as mock_sleep:
+            success = self.coordinator._sync_write_bit(
+                address=0x0032,
+                bit=0,
+                value=True,
+                reg_key="_control_0032"
+            )
 
         self.assertTrue(success)
+        mock_sleep.assert_called_once_with(INTER_WRITE_DELAY)
         client.write_register.assert_called_once_with(
             address=0x0032,
             value=1,  # 0b00000001
@@ -298,6 +303,34 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         await self.coordinator.async_shutdown()
         client.close.assert_called_once()
         self.assertIsNone(self.coordinator.client)
+
+    async def test_async_lock_serializes_concurrent_operations(self):
+        """Test mutex lock ensures concurrent read and write operations are strictly serialized."""
+        import asyncio
+
+        active_jobs = 0
+        max_concurrent_jobs = 0
+
+        async def simulated_executor_job(func, *args, **kwargs):
+            nonlocal active_jobs, max_concurrent_jobs
+            active_jobs += 1
+            max_concurrent_jobs = max(max_concurrent_jobs, active_jobs)
+            await asyncio.sleep(0.02)
+            active_jobs -= 1
+            return {"inlet_temp": {"value": 25.0, "updated_at": 1000.0}}
+
+        self.coordinator.hass.async_add_executor_job = simulated_executor_job
+        self.coordinator._sync_update = MagicMock(return_value={"inlet_temp": {"value": 25.0, "updated_at": 1000.0}})
+        self.coordinator._sync_write_register = MagicMock(return_value=True)
+
+        # Launch read and write concurrently under the coordinator's lock
+        await asyncio.gather(
+            self.coordinator._async_update_data(),
+            self.coordinator.async_write_register(0x00CC, 40.0, "heating_setpoint", 2),
+        )
+
+        # Verify that active_jobs never exceeded 1 (strict mutual exclusion)
+        self.assertEqual(max_concurrent_jobs, 1)
 
 
 if __name__ == "__main__":

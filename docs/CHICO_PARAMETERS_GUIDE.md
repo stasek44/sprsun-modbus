@@ -1,654 +1,428 @@
-# 📖 Przewodnik po parametrach i ustawieniach pompy ciepła SPRSUN
+# 📖 SPRSUN Heat Pump Parameters & Settings Guide
 
-## Spis treści
-- [1. Parametry podstawowe (P)](#1-parametry-podstawowe-p)
-- [2. Parametry ekonomiczne (E)](#2-parametry-ekonomiczne-e)
-- [3. Parametry ogólne (G)](#3-parametry-ogólne-g)
-- [4. Odczyty temperatury](#4-odczyty-temperatury)
-- [5. Odczyty pracy systemu](#5-odczyty-pracy-systemu)
-- [6. Statusy wejść i wyjść](#6-statusy-wejść-i-wyjść)
-- [7. Alarmy i błędy](#7-alarmy-i-błędy)
-- [8. Parametry zaawansowane](#8-parametry-zaawansowane)
-- [9. Sterowanie](#9-sterowanie)
+## Table of Contents
+- [1. Basic Parameters (P)](#1-basic-parameters-p)
+- [2. Economic Curve Parameters (E)](#2-economic-curve-parameters-e)
+- [3. General / Engineering Parameters (G)](#3-general--engineering-parameters-g)
+- [4. Temperature Readings](#4-temperature-readings)
+- [5. System Operation Readings](#5-system-operation-readings)
+- [6. Input and Output Statuses](#6-input-and-output-statuses)
+- [7. Alarms and Faults](#7-alarms-and-faults)
+- [8. Advanced Parameters](#8-advanced-parameters)
+- [9. Controls](#9-controls)
+- [10. Practical Tips & Troubleshooting](#10-practical-tips--troubleshooting)
+- [11. Additional Information](#11-additional-information)
 
 ---
 
-## 1. Parametry podstawowe (P)
+## 1. Basic Parameters (P)
 
 ### P01 - Heating Setpoint (0x00CC)
-**Zakres:** 10-55°C | **Domyślnie:** ~45°C  
-**Temperatura docelowa wody w trybie ogrzewania.**
+**Range:** 10–55°C | **Default:** ~45°C  
+**Target water temperature in space heating mode.**
 
-- Ustawia żądaną temperaturę wody grzewczej (do grzejników/ogrzewania podłogowego)
-- Wyższa wartość = cieplejsze pomieszczenia, ale wyższe zużycie energii
-- Dla ogrzewania podłogowego: 30-40°C
-- Dla grzejników: 45-55°C
+- Sets the desired heating flow water temperature (for radiators / underfloor heating).
+- Higher value = warmer rooms, but higher electrical consumption.
+- For underfloor heating: typically 30–40°C.
+- For traditional radiators: typically 45–55°C.
 
 ### P02 - Cooling Setpoint (0x00CB)
-**Zakres:** 12-30°C | **Domyślnie:** ~18°C  
-**Temperatura docelowa wody w trybie chłodzenia.**
+**Range:** 12–30°C | **Default:** ~18°C  
+**Target water temperature in cooling mode.**
 
-- Ustawia żądaną temperaturę wody chłodzącej (fan-coile, chłodzenie podłogowe)
-- Niższa wartość = chłodniejsze pomieszczenia
-- Typowo: 15-18°C dla chłodzenia aktywnego
+- Sets the desired chilled water temperature (fan-coils, surface/underfloor cooling).
+- Lower value = cooler indoor temperature.
+- Typically: 15–18°C for active cooling.
 
 ### P03 - Temp Diff (Heating/Cooling) (0x00C6)
-**Zakres:** 2-18°C | **Domyślnie:** 5°C  
-**Histereza temperatury dla ogrzewania i chłodzenia.**
+**Range:** 2–18°C | **Default:** 5°C  
+**Temperature hysteresis for heating and cooling.**
 
-- Różnica temperatury, przy której pompa włącza/wyłącza się
-- Przykład: Setpoint 45°C, diff 5°C → pompa wyłącza się przy 45°C, włącza przy 40°C
-- Większa wartość = rzadsze cykle włącz/wyłącz (oszczędność energii, mniej komfortu)
-- Mniejsza wartość = częstsze cykle (więcej komfortu, wyższe zużycie)
+- The temperature delta at which the heat pump starts and stops.
+- Example: Setpoint 45°C, diff 5°C → pump stops at 45°C and restarts when water drops to 40°C.
+- Higher value = fewer on/off compressor cycles (longer lifespan, energy savings, slightly wider temperature swings).
+- Lower value = tighter temperature control, but more frequent compressor starts.
 
 ### P04 - Hot Water Setpoint (0x00CA)
-**Zakres:** 10-55°C | **Domyślnie:** ~50°C  
-**Temperatura docelowa ciepłej wody użytkowej (CWU).**
+**Range:** 10–55°C | **Default:** ~50°C  
+**Target domestic hot water (DHW) temperature.**
 
-- Ustawia temperaturę wody w zasobniku CWU
-- Typowo: 45-55°C
-- **Uwaga:** Przy temp. <55°C zaleca się włączenie funkcji antylegionella
+- Sets the target water temperature in the DHW cylinder/tank.
+- Typically: 45–55°C.
+- **Note:** For setpoints below 55°C, enabling the antilegionella disinfection function is strongly recommended.
 
 ### P05 - Hot Water Temp Diff (0x00C8)
-**Zakres:** 2-18°C | **Domyślnie:** 5°C  
-**Histereza temperatury dla ciepłej wody użytkowej.**
+**Range:** 2–18°C | **Default:** 5°C  
+**Temperature hysteresis for domestic hot water (DHW).**
 
-- Różnica temp. przy której pompa podgrzewa CWU
-- Przykład: Setpoint 50°C, diff 5°C → pompa włącza się przy 45°C
+- The temperature drop before the heat pump starts heating the DHW tank.
+- Example: Setpoint 50°C, diff 5°C → pump triggers DHW heating when tank drops to 45°C.
 
 ### P06 - Unit Mode (0x0036)
-**Tryb pracy pompy ciepła.**
+**Operating mode of the heat pump.**
 
-- **0 - DHW (Hot Water Only):** Tylko podgrzew CWU
-- **1 - Heating Only:** Tylko ogrzewanie
-- **2 - Cooling Only:** Tylko chłodzenie
-- **3 - Heating + DHW:** Ogrzewanie + podgrzew CWU (typowy tryb zimowy)
-- **4 - Cooling + DHW:** Chłodzenie + podgrzew CWU (typowy tryb letni)
+- **0 - DHW (Hot Water Only):** DHW water heating only.
+- **1 - Heating Only:** Space heating only.
+- **2 - Cooling Only:** Space cooling only.
+- **3 - Heating + DHW:** Space heating combined with DHW (typical winter mode).
+- **4 - Cooling + DHW:** Space cooling combined with DHW (typical summer mode).
 
-**Wykorzystanie:**
-- Zima: Tryb 3 (Heating + DHW)
-- Lato: Tryb 4 (Cooling + DHW) lub 0 (tylko CWU)
-- Okresowo: Tryb 0 dla szybkiego podgrzewu CWU
+**Usage recommendations:**
+- Winter: Mode 3 (Heating + DHW).
+- Summer: Mode 4 (Cooling + DHW) or Mode 0 (DHW only).
+- Temporary rapid DHW reheat: Mode 0.
 
 ### P07 - Fan Mode (0x0190)
-**Tryb pracy wentylatorów.**
+**Outdoor fan speed profile.**
 
-- **0 - Normal:** Standardowa prędkość, optymalna wydajność
-- **1 - Economic:** Wolniejsze obroty = cichsza praca, mniejsze zużycie energii, niższa wydajność
-- **2 - Night:** Tryb nocny - minimalne obroty dla najcichszej pracy
-- **3 - Test:** Tryb testowy - maksymalna wydajność
+- **0 - Normal:** Standard fan speed, optimal performance.
+- **1 - Economic:** Lower fan RPM = quieter operation, lower power draw, slightly reduced thermal capacity.
+- **2 - Night:** Night mode — lowest fan RPM for whisper-quiet operation.
+- **3 - Test:** Test mode — full speed fan operation for diagnostics.
 
-**Kiedy używać:**
-- Normal: normalny dzień
-- Economic: gdy priorytetem jest oszczędność
-- Night: w nocy, aby nie przeszkadzać
-- Test: diagnostyka, sprawdzanie wydajności
-
----
-
-## 2. Parametry ekonomiczne (E)
-
-**Idea:** Automatyczna zmiana temperatury docelowej w zależności od temp. zewnętrznej (krzywa grzewcza).
-
-### E01-E04 - Economic Heat Ambient (0x0169-0x016C)
-**Zakres:** -30 do 50°C | **Temperatury zewnętrzne - punkty krzywej ogrzewania**
-
-Definiuje 4 punkty temperatury otoczenia dla trybu Economic Heating:
-- **E01:** Najniższa temp. zewnętrzna (np. -20°C)
-- **E02:** Niska temp. (np. -10°C)
-- **E03:** Średnia temp. (np. 0°C)
-- **E04:** Wysoka temp. (np. 10°C)
-
-### E13-E16 - Economic Heat Temp (0x0175-0x0178)
-**Zakres:** 10-55°C | **Temperatury docelowe wody - punkty krzywej ogrzewania**
-
-Odpowiadające temperatury docelowe wody:
-- **E13:** Temp. wody gdy na zewnątrz E01 (np. 55°C przy -20°C)
-- **E14:** Temp. wody gdy na zewnątrz E02 (np. 50°C przy -10°C)
-- **E15:** Temp. wody gdy na zewnątrz E03 (np. 45°C przy 0°C)
-- **E16:** Temp. wody gdy na zewnątrz E04 (np. 35°C przy 10°C)
-
-**Przykład działania:**
-```
-Temp. zewnętrzna -15°C → Pompa interpoluje między E01(-20°C)→E13(55°C) a E02(-10°C)→E14(50°C)
-Wynik: Temp. docelowa wody ~52-53°C
-```
-
-### E05-E08 - Economic Water Ambient (0x016D-0x0170)
-**Zakres:** -30 do 50°C | **Punkty krzywej dla CWU**
-
-Jak E01-E04, ale dla ciepłej wody użytkowej.
-
-### E17-E20 - Economic Water Temp (0x0179-0x017C)
-**Zakres:** 10-55°C | **Temperatury docelowe CWU**
-
-Odpowiadające E05-E08 temperatury docelowe CWU.
-
-### E09-E12 - Economic Cool Ambient (0x0171-0x0174)
-**Zakres:** -30 do 50°C | **Punkty krzywej dla chłodzenia**
-
-Jak E01-E04, ale dla trybu chłodzenia.
-
-### E21-E24 - Economic Cool Temp (0x017D-0x0180)
-**Zakres:** 12-30°C | **Temperatury docelowe chłodzenia**
-
-Odpowiadające E09-E12 temperatury docelowe wody chłodzącej.
-
-**Kiedy używać trybu Economic:**
-- Automatyczna optymalizacja w zależności od pogody
-- Oszczędność energii - nie przegrzewa/przechładza
-- Idealny na cały sezon grzewczy/chłodzący
+**When to use:**
+- Normal: Standard daily operation.
+- Economic: When energy efficiency or reduced noise is prioritized.
+- Night: Scheduled during sleep hours to prevent disturbing neighbors.
+- Test: Diagnostic and performance verification.
 
 ---
 
-## 3. Parametry ogólne (G)
+## 2. Economic Curve Parameters (E)
+
+**Concept:** Automatic adjustment of the target water setpoint based on the outdoor ambient temperature (weather compensation heating/cooling curve).
+
+### E01–E04 - Economic Heat Ambient (0x0169–0x016C)
+**Range:** -30 to 50°C | **Outdoor ambient temperature reference points for heating curve**
+
+Defines 4 outdoor ambient temperature inflection points:
+- **E01:** Lowest outdoor design temperature (e.g., -20°C).
+- **E02:** Cold outdoor temperature (e.g., -10°C).
+- **E03:** Moderate outdoor temperature (e.g., 0°C).
+- **E04:** Mild outdoor temperature (e.g., +10°C).
+
+### E13–E16 - Economic Heat Temp (0x0175–0x0178)
+**Range:** 10–55°C | **Target water temperatures corresponding to E01–E04**
+
+Water setpoints mapped to the ambient temperatures:
+- **E13:** Water temp when outdoor is E01 (e.g., 55°C at -20°C).
+- **E14:** Water temp when outdoor is E02 (e.g., 50°C at -10°C).
+- **E15:** Water temp when outdoor is E03 (e.g., 45°C at 0°C).
+- **E16:** Water temp when outdoor is E04 (e.g., 35°C at +10°C).
+
+**Example Behavior:**
+```
+Outdoor temperature = -15°C
+The controller interpolates linearly between E01 (-20°C / 55°C) and E02 (-10°C / 50°C).
+Resulting water setpoint: ~52.5°C.
+```
+
+### E05–E08 - Economic Water Ambient (0x016D–0x0170)
+**Range:** -30 to 50°C | **Outdoor temperature reference points for DHW**
+
+Analogous to E01–E04, applied to domestic hot water generation.
+
+### E17–E20 - Economic Water Temp (0x0179–0x017C)
+**Range:** 10–55°C | **Target DHW temperatures corresponding to E05–E08**
+
+Corresponding target DHW temperatures.
+
+### E09–E12 - Economic Cool Ambient (0x0171–0x0174)
+**Range:** -30 to 50°C | **Outdoor temperature reference points for cooling**
+
+Analogous to E01–E04, applied to space cooling.
+
+### E21–E24 - Economic Cool Temp (0x017D–0x0180)
+**Range:** 12–30°C | **Target chilled water temperatures corresponding to E09–E12**
+
+Corresponding target chilled water temperatures for cooling.
+
+**Benefits of Economic Mode Curves:**
+- Automatic seasonal adaptation without manual setpoint changes.
+- Significant electricity savings by avoiding unnecessary water overheating or subcooling.
+- Maximum seasonal coefficient of performance (SCOP).
+
+---
+
+## 3. General / Engineering Parameters (G)
 
 ### G02 - Pump Work Mode (0x019E)
-**Tryb pracy pompy obiegowej.**
+**Circulation water pump operating profile.**
 
-- **0 - Interval:** Pompa pracuje cyklicznie (np. 3 min co 30 min) - zapobiega zatrzymaniu i zamarzaniu podczas dłuższych przerw w pracy
-- **1 - Normal:** Pompa pracuje ciągle gdy pompa ciepła w trybie ogrzewania/chłodzenia (Always On)
-- **2 - Demand:** Pompa pracuje tylko gdy jest faktyczne zapotrzebowanie - najbardziej ekonomiczny
+- **0 - Interval:** Pump runs periodically (e.g. 3 minutes every 30 minutes) — prevents water stagnation and pipe freezing during extended idle periods.
+- **1 - Normal:** Pump runs continuously whenever space heating or cooling is active (Always On).
+- **2 - Demand:** Pump runs only when there is an active heating/cooling demand — most economical, but may cause more frequent compressor cycling.
 
-**Wybór trybu:**
-- **Interval**: Gdy pompa jest wyłączona przez długi czas (np. tylko CWU latem) - chroni przed zamarzaniem. W tym trybie pompa włącza się okresowo (interwał ustawiany fabrycznie, typowo 30 minut) na krótki czas (typowo 3 minuty) aby zapewnić cyrkulację i zapobiec zamarzaniu.
-- **Normal**: Standardowy tryb - ciągła cyrkulacja zapewnia równomierne ogrzewanie/chłodzenie
-- **Demand**: Oszczędność energii - pompa włącza się tylko gdy potrzeba. Uwaga: może skutkować częstszymi cyklami włącz/wyłącz pompy ciepła
+**Mode recommendations:**
+- **Interval:** Recommended during summer or when heating is turned off for long periods (protects against freezing and lime buildup).
+- **Normal:** Standard heating season setting — continuous flow provides uniform heat distribution and accurate return temperature sensing.
+- **Demand:** Best for energy conservation where room thermostats regulate flow.
 
-**Informacje o pompie DC/inverter:**
-Jeśli masz pompę DC (ze zmienną prędkością), to:
-- W trybie Normal lub Demand pompa automatycznie reguluje prędkość według G04 (Delta Temp Set)
-- Parametr G04 określa docelową różnicę temperatur między zasilaniem a powrotem
-- Im wyższa różnica temperatur ustawiona, tym wolniej pracuje pompa = oszczędność energii
-
-**Zalecane:** Normal dla instalacji grzewczej, Demand gdy priorytetem jest oszczędność energii
+**DC / Inverter Circulation Pump Control:**
+If your installation uses a variable-speed DC pump connected to the controller:
+- In Normal or Demand mode, pump speed is automatically modulated to maintain the target delta T set in G04.
+- Higher delta T = lower pump speed = reduced electricity consumption.
 
 ### G03 - Start Interval (0x0185)
-**Zakres:** 1-120 minut | **Minimalny odstęp między startami sprężarki**
+**Range:** 1–120 minutes | **Minimum compressor restart protection delay**
 
-- Chroni sprężarkę przed zbyt częstym włączaniem
-- Typowo: 5-10 minut
-- Zbyt krótki = zużycie sprężarki
-- Zbyt długi = mniejszy komfort
+- Protects the compressor against short-cycling and rapid pressure equalization stress.
+- Typical setting: 5–10 minutes.
 
 ### G04 - DC Pump Temp Differential (0x018D)
-**Zakres:** 5-30°C | **Różnica temp. dla sterowania pompą DC**
+**Range:** 5–30°C | **Target temperature differential (Delta T) for DC pump**
 
-- Przy pompie obiegowej ze sterowaniem prędkości (DC/inverter)
-- Określa różnicę temp. między zasilaniem a powrotem do regulacji prędkości pompy
-- **Zasada działania**: Pompa DC automatycznie dostosowuje prędkość aby utrzymać zadaną różnicę temperatur między wyjściem a powrotem
-- Wyższa wartość (np. 10-15°C) = wolniejsza pompa = większe ∆T = oszczędność energii ale mniejszy komfort
-- Niższa wartość (np. 5-8°C) = szybsza pompa = mniejsze ∆T = lepsze mieszanie i równomierność temperatur
-
-**Uwaga**: Ten parametr działa tylko gdy masz pompę DC/inverter. Przy standardowej pompie stałoprędkościowej parametr jest ignorowany.
+- Active only when a variable-speed inverter DC circulation pump is installed.
+- Controls pump speed to maintain the specified temperature difference between heating flow and return.
+- Higher value (e.g. 10–15°C) = slower pump flow = larger Delta T.
+- Lower value (e.g. 5–8°C) = faster pump flow = smaller Delta T = better mixing.
 
 ### G05 - Heating Heater External Temp (0x0184)
-**Zakres:** -30 do 30°C | **Temperatura aktywacji dogrzewu dla ogrzewania**
+**Range:** -30 to 30°C | **Bivalent auxiliary electric heater threshold for heating (OUT4)**
 
-- Poniżej tej temp. zewnętrznej włącza się grzałka elektryczna wspomagająca ogrzewanie (OUT4)
-- Typowo: -10°C do -5°C (zależy od mocy pompy)
-- Niższa wartość = rzadsze użycie dogrzewu (oszczędność prądu)
-
-**Ważne informacje o dogrzewie:**
-- Grzałka elektryczna pobiera dużo prądu (typowo 3-9 kW)
-- Zaleca się używanie tylko jako wspomaganie w ekstremalnie niskich temperaturach
-- Fabryczne okablowanie łączy grzałkę ogrzewania na wyjściu OUT4
-- Grzałka powinna być typu przepływowego, zamontowana w rurze zasilania instalacji
-- Opóźnienie włączenia grzałki ustawiane jest w G06
+- Outdoor temperature below which the auxiliary electric heating element is allowed to engage.
+- Typically: -10°C to -5°C.
+- Delay before turning on is governed by G06.
 
 ### G06 - Heating Heater Delay (0x0182)
-**Zakres:** 1-60 minut | **Opóźnienie włączenia dogrzewu ogrzewania**
+**Range:** 1–60 minutes | **Delay before activating heating auxiliary heater**
 
-- Czas oczekiwania przed włączeniem grzałki elektrycznej
-- Daje pompie ciepła szansę na osiągnięcie temp. bez dogrzewu
-- Typowo: 10-30 minut
+- Waiting time before energizing the electric auxiliary element, giving the heat pump compressor time to reach the setpoint alone.
+- Typically: 15–30 minutes.
 
 ### G07 - Hot Water Heater External Temp (0x0183)
-**Zakres:** -30 do 30°C | **Temperatura aktywacji dogrzewu dla CWU**
+**Range:** -30 to 30°C | **Auxiliary electric heater threshold for DHW (OUT12)**
 
-- Jak G05, ale dla podgrzewu CWU (OUT12)
-- Poniżej tej temp. zewnętrznej używa grzałki do szybszego podgrzewu CWU
-- Fabryczne okablowanie łączy grzałkę CWU na wyjściu OUT12
-- Grzałka powinna być zamontowana w zasobniku CWU lub w rurze przepływowej CWU
-- Opóźnienie włączenia grzałki ustawiane jest w G08
-
-**Uwaga**: Jeśli używasz własnych grzałek (nie z zestawu producenta), upewnij się że są to grzałki przepływowe zainstalowane we właściwej ścieżce przepływu wody zgodnie z dokumentacją instalacyjną.
+- Outdoor temperature below which the DHW tank booster heater is allowed to engage.
+- Delay before turning on is governed by G08.
 
 ### G08 - Hot Water Heater Delay (0x0181)
-**Zakres:** 1-60 minut | **Opóźnienie włączenia dogrzewu CWU**
+**Range:** 1–60 minutes | **Delay before activating DHW auxiliary heater**
 
-- Jak G06, ale dla CWU
+- Waiting time before energizing the DHW electric element.
+- Typically: 15–30 minutes.
 
 ### G09 - Mode Control Enable (0x0191)
-**Automatyczne przełączanie trybów w zależności od temp. zewnętrznej.**
+**Automatic heating / cooling changeover based on ambient temperature.**
 
-- **0 - NO linkage (Manual):** Tryb ustawiany ręcznie przez P06 (Unit Mode) - bez automatyki
-- **1 - YES amb (Automatic):** Automatyczne przełączanie heating/cooling w zależności od temperatury zewnętrznej (G10/G11)
+- **0 - NO linkage (Manual):** Operating mode is set manually via P06.
+- **1 - YES amb (Automatic):** Automatic switching between heating and cooling based on outdoor ambient temperature thresholds (G10 / G11).
 
-**Jak działa tryb automatyczny:**
-1. Ustaw G10 (punkt przełączania, np. 20°C)
-2. Ustaw G11 (histereza, np. 3°C)
-3. Gdy temp. zewnętrzna > G10 + G11 (np. >23°C) → automatycznie przełącza na cooling lub cooling+DHW
-4. Gdy temp. zewnętrzna < G10 - G11 (np. <17°C) → automatycznie przełącza na heating lub heating+DHW  
-5. Między 17-23°C → utrzymuje aktualny tryb (bez przełączania)
-
-**Przykład użycia:**
-Latem gdy temperatura rośnie powyżej 23°C, pompa automatycznie przełącza się na chłodzenie. Jesienią gdy temperatura spada poniżej 17°C, automatycznie wraca do ogrzewania.
-
-**Uwaga**: CWU pozostaje aktywne w obu trybach (jeśli wybrano tryb z +DHW w P06).
+**Automatic changeover logic:**
+1. Configure G10 (setpoint, e.g., 20°C).
+2. Configure G11 (hysteresis, e.g., 3°C).
+3. When outdoor temperature > G10 + G11 (e.g. >23°C) → switches automatically to cooling (or cooling + DHW).
+4. When outdoor temperature < G10 - G11 (e.g. <17°C) → switches automatically to heating (or heating + DHW).
+5. Between 17°C and 23°C → maintains the current operating mode without hunting.
 
 ### G10 - Ambient Switch Setpoint (0x0192)
-**Zakres:** -20 do 30°C | **Punkt przełączenia trybu (temp. zewnętrzna)**
+**Range:** -20 to 30°C | **Changeover ambient temperature setpoint**
 
-- Próg temperatury zewnętrznej dla automatycznego przełączania heating ↔ cooling
-- Typowo: 18-22°C
+- Baseline outdoor temperature threshold for automatic heating/cooling changeover.
+- Typically: 18–22°C.
 
 ### G11 - Ambient Switch Diff (0x0193)
-**Zakres:** 1-10°C | **Histereza przełączania trybu**
+**Range:** 1–10°C | **Changeover ambient hysteresis**
 
-- Zapobiega częstemu przełączaniu
-- Przykład: G10=20°C, G11=3°C
-  - Przełącza na cooling gdy temp > 23°C
-  - Przełącza na heating gdy temp < 17°C
+- Deadband around G10 to prevent rapid cycling between heating and cooling during spring and autumn.
 
 ---
 
-## 4. Odczyty temperatury
+## 4. Temperature Readings
 
-### Czujniki wody
+### Water Circuit Sensors
 
-**Inlet Temperature (0x000E)** - Temperatura wody na wejściu (powrót z instalacji)  
-- Pokazuje jak bardzo obieg oddał/odebrał energię
-- Niższa w trybie heating, wyższa w cooling
+- **Inlet Water Temperature (0x000E):** Water temperature returning from the heating system into the heat pump.
+- **Outlet Water Temperature (0x0012):** Water temperature leaving the heat pump towards the heating system (flow).
+- **Hot Water Temperature (0x000F):** Water temperature inside the DHW storage cylinder.
 
-**Outlet Temperature (0x0012)** - Temperatura wody na wyjściu (zasilanie instalacji)  
-- Temperatura którą pompa wysyła do instalacji
-- Wyższa w trybie heating, niższa w cooling
+### Refrigerant Circuit Sensors (R32 / R410A)
 
-**Hot Water Temperature (0x000F)** - Temperatura wody w zasobniku CWU  
-- Monitorowanie stanu podgrzewu CWU
+- **Ambient Temperature (0x0011):** Outdoor ambient air temperature.  
+  ⚠️ **SIGNED VALUE** (can be negative). Essential for weather curves and automatic defrost.
+- **Suction Gas Temperature (0x0015):** Refrigerant vapor temperature prior to entering the compressor suction port.  
+  ⚠️ **SIGNED VALUE** (can be negative).
+- **Discharge / Exhaust Temperature (0x001B):** Superheated refrigerant vapor temperature leaving the compressor.  
+  Normal: 60–85°C. Critical threshold: >100°C indicates overheating or refrigerant shortage.
+- **Driving Temperature (0x0022):** Power inverter module / drive heatsink temperature.  
+  ⚠️ **SIGNED VALUE** (can be negative).
+- **Coil Temperature (0x0016):** Outdoor finned heat exchanger coil temperature.  
+  ⚠️ **SIGNED VALUE** (can be negative). In heating mode, this drops below 0°C; triggers defrost cycles.
+- **Evaporator Temperature (0x0028):** Refrigerant evaporating temperature.  
+  ⚠️ **SIGNED VALUE** (can be negative).
+- **Condenser Temperature (0x0029):** Refrigerant condensing temperature. Typically 35–50°C.
 
-### Czujniki czynnika (R410A/R32)
+### Pressure Sensors
 
-**Ambient Temperature (0x0011)** - Temperatura otoczenia (powietrza zewnętrznego)  
-⚠️ **MOŻE BYĆ UJEMNA** (signed)  
-- Kluczowy parametr dla krzywych grzewczych i automatyki
-- Wpływa na wydajność pompy
-
-**Suction Gas Temperature (0x0015)** - Temperatura gazu ssania (przed sprężarką)  
-⚠️ **MOŻE BYĆ UJEMNA** (signed)  
-- Temperatura czynnika po parowaniu
-- Wskaźnik wydajności parownika
-- Typowo: -5 do +10°C (heating mode)
-
-**Discharge/Exhaust Temperature (0x001B)** - Temperatura gazu tłoczenia (po sprężarce)  
-- Temperatura czynnika po sprężaniu
-- Typowo: 60-85°C
-- **Alarm jeśli > 95-100°C** (przegrzanie)
-
-**Driving Temperature (0x0022)** - Temperatura silnika/falownika sprężarki  
-⚠️ **MOŻE BYĆ UJEMNA** (signed, ale rzadko)  
-- Monitorowanie temperatury układu napędowego
-- Alarm jeśli za wysoka
-
-**Coil Temperature (0x0016)** - Temperatura wymiennika wężownicy  
-⚠️ **MOŻE BYĆ UJEMNA** (signed)  
-- Temperatura cewki wymiennika
-- W trybie heating: temperatura skraplacza
-- W trybie cooling: temperatura parownika
-
-**Evaporator Temperature (0x0028)** - Temperatura parownika  
-⚠️ **MOŻE BYĆ UJEMNA** (signed, często!)  
-- Temperatura parowania czynnika
-- Heating mode: ujemna (parownik na zewnątrz, odbiera ciepło z powietrza)
-- Cooling mode: dodatnia
-- Typowo: -10 do +5°C (heating)
-
-**Condenser Temperature (0x0029)** - Temperatura skraplacza  
-- Temperatura skraplania czynnika
-- Typowo: 35-50°C
-
-### Ciśnienia
-
-**Suction/Discharge Pressure (0x002F/0x0030)** - Ciśnienie ssania/tłoczenia  
-⚠️ **W KODZIE REJESTRY SĄ ZAMIENIONE!**
-- 0x002F = faktycznie **discharge** (~15-30 bar)
-- 0x0030 = faktycznie **suction** (~4-7 bar)
-- Jednostka: bar (0.1 PSI → bar)
-- Monitorowanie pracy obiegu czynnika
-- Za wysokie/niskie = alarm i wyłączenie
+- **Discharge Pressure (0x002F) & Suction Pressure (0x0030):**  
+  ⚠️ **MODBUS MAPPING NOTE:** In the CHICO register specification, registers 0x002F and 0x0030 are swapped compared to standard vendor docs. In this integration:
+  - `0x002F` = High pressure / discharge (~15–30 bar).
+  - `0x0030` = Low pressure / suction (~4–7 bar).
+  - Both converted to `bar` (0.1 PSI to bar multiplier 0.0069).
 
 ---
 
-## 5. Odczyty pracy systemu
+## 5. System Operation Readings
 
-### Wydajność
+### Performance & Energy
 
-**COP (0x0001)** - Coefficient of Performance  
-- Współczynnik wydajności = Energia oddana / Energia pobrana
-- Przykład: COP=4 → za 1 kW energii elektrycznej dostajesz 4 kW ciepła
-- Typowo: 3-5 (zależy od temp. zewnętrznej)
+- **COP (0x0001):** Coefficient of Performance (Real-time Thermal Output / Electrical Power Input). Typical: 3.0–5.0 depending on ambient conditions.
+- **Heating/Cooling Capacity (0x0019):** Estimated real-time thermal output delivered to the water circuit [W].
+- **EEV1 / EEV2 Step (0x001C / 0x001D):** Electronic expansion valve opening position (0–500 steps).
 
-**Heating/Cooling Capacity (0x0019)** - Aktualna moc grzewcza/chłodząca [W]  
-- Faktyczna wydajność pompy w danym momencie
-- Zależy od temperatury zewnętrznej i obciążenia
+### Electrical Measurements
 
-**EEV1/EEV2 Step (0x001C/0x001D)** - Pozycja zaworu rozprężnego elektronicznego  
-- Reguluje przepływ czynnika
-- Wartość 0-500 kroków
-- Automatycznie sterowana przez pompę
+- **AC Voltage (0x0017):** Incoming mains voltage [V].
+- **AC Current (0x001A):** Total active line current drawn by the unit [A].
+- **DC Bus Voltage (0x0021):** Inverter DC bus internal voltage [V] (typically 300–380V).
+- **Compressor Current (0x0023):** Current drawn by the inverter compressor [A].
 
-### Elektryka
+### Speeds & Frequencies
 
-**AC Voltage (0x0017)** - Napięcie zasilania [V]  
-**AC Current (0x001A)** - Prąd pobierany [A]  
-- Monitoring zasilania
-- AC Current × AC Voltage ≈ moc pobierana
+- **Compressor Frequency (0x001E):** Current operating frequency of the compressor inverter [Hz].
+- **Target Frequency (0x0024):** Commanded compressor frequency target [Hz].
+- **DC Fan 1 & 2 Speed (0x0026 / 0x0027):** Actual fan rotational speeds [RPM].
+- **DC Fan Target (0x0031):** Commanded target speed for the outdoor fans [RPM].
+- **DC Pump Speed (0x002E):** Modulation percentage of the DC circulation pump [%].
 
-**DC Bus Voltage (0x0021)** - Napięcie magistrali DC falownika [V]  
-- Wewnętrzne napięcie układu sterowania falownikiem
-- Typowo: 300-380V
+### Operational Metrics & Diagnostics
 
-**Compressor Current (0x0023)** - Prąd sprężarki [A]  
-- Faktyczny prąd pobierany przez sprężarkę
-
-### Sprężarka i wentylatory
-
-**Compressor Frequency (0x001E)** - Częstotliwość pracy sprężarki [Hz]  
-- Aktualne obroty sprężarki
-- Zakres: 30-120 Hz (zależy od modelu)
-- Wyższa = więcej mocy
-
-**Target Frequency (0x0024)** - Docelowa częstotliwość sprężarki [Hz]  
-- Żądane obroty (pompa dąży do tej wartości)
-
-**DC Fan 1/2 Speed (0x0026/0x0027)** - Prędkość wentylatorów [RPM]  
-- Aktualne obroty wentylatorów wymiennika zewnętrznego
-
-**DC Fan Target (0x0031)** - Docelowa prędkość wentylatora  
-- Żądane obroty wentylatorów
-
-**DC Pump Speed (0x002E)** - Prędkość pompy DC [%]  
-- Jeśli masz pompę z regulacją prędkości
-
-### Przepływ
-
-**Pump Flow (0x0018)** - Przepływ wody [m³/h]  
-- Ilość wody przepływającej przez pompę ciepła
-- Typowo: 1-3 m³/h (zależy od instalacji)
-
-### Statystyki
-
-**Compressor Runtime (0x0000)** - Całkowity czas pracy sprężarki [h]  
-- Licznik motogodzin dla serwisu
-- Pomaga planować przeglądy
-
-**Software/Controller/Display Version (0x0013/0x0014/0x002C/0x002D)**  
-- Wersje oprogramowania komponentów
-- Przydatne dla serwisu i aktualizacji
+- **Compressor Runtime (0x0000):** Cumulative operating hours of the compressor [h].
+- **Pump Flow (0x0018):** Primary water loop flow rate [m³/h].
+- **Firmware Versions (0x0013 / 0x0014 / 0x002C / 0x002D):** Software, controller, and display firmware version registers.
 
 ---
 
-## 6. Statusy wejść i wyjść
+## 6. Input and Output Statuses
 
-### Switching Input Symbol (0x0002) - Statusy wejść cyfrowych
+### Switching Input Symbol (0x0002) - Digital Inputs
 
-**A/C Linkage Switch (bit 0)** - Sygnał z klimatyzacji  
-**Linkage Switch (bit 1)** - Główny sygnał sprzężenia  
-**Heating Linkage (bit 2)** - Żądanie ogrzewania z termostatu  
-**Cooling Linkage (bit 3)** - Żądanie chłodzenia z termostatu  
-**Flow Switch (bit 4)** - Czujnik przepływu wody (zabezpieczenie)  
-**High Pressure Switch (bit 5)** - Czujnik wysokiego ciśnienia (zabezpieczenie)  
-**Phase Sequence (bit 6)** - Detekcja kolejności faz (3-fazowe)  
+- **Bit 0 - A/C Linkage Switch:** External A/C demand signal.
+- **Bit 1 - Linkage Switch:** Master external thermostat contact.
+- **Bit 2 - Heating Linkage:** External heating demand contact.
+- **Bit 3 - Cooling Linkage:** External cooling demand contact.
+- **Bit 4 - Flow Switch:** Safety water flow paddle switch (1 = flow OK).
+- **Bit 5 - High Pressure Switch:** Safety high pressure mechanical switch.
+- **Bit 6 - Phase Sequence OK:** Correct 3-phase power supply sequencing (3-phase models).
 
-**Interpretacja:** 
-- 0 = nieaktywny/rozwarty
-- 1 = aktywny/zwarty
+### Working Status Mark (0x0003) - Operational State Flags
 
-**Linkage** = fizyczne wejścia dla sprzężenia z innymi urządzeniami (termostaty, klimatyzacja)
+- **Bit 0 - Hot Water Demand:** DHW heating demand is active.
+- **Bit 1 - Heating Demand:** Space heating demand is active.
+- **Bit 4 - Antilegionella Active:** High-temperature DHW pasteurization cycle running.
+- **Bit 5 - Cooling Demand:** Space cooling demand is active.
+- **Bit 6 - Alarm Stop:** Unit halted due to an active protection fault or alarm.
+- **Bit 7 - Defrost Active:** Reverse-cycle evaporator coil defrosting in progress.
 
-### Working Status Mark (0x0003) - Status pracy
+### Output Symbols (Relay Outputs)
 
-**Hot Water Demand (bit 0)** - Zapotrzebowanie na CWU  
-**Heating Demand (bit 1)** - Zapotrzebowanie na ogrzewanie  
-**With/Without Heating (bit 2)** - Funkcja ogrzewania dostępna  
-**With/Without Cooling (bit 3)** - Funkcja chłodzenia dostępna  
-**Antilegionella Active (bit 4)** - Dezynfekcja antylegionella trwa  
-**Cooling Demand (bit 5)** - Zapotrzebowanie na chłodzenie  
-**Alarm Stop (bit 6)** - Zatrzymanie z powodu alarmu  
-**Defrost Active (bit 7)** - Trwa odszranianie wymiennika  
+#### Output Symbol 1 (0x0004)
+- **Bit 0 - Compressor:** Compressor contactor / inverter active.
+- **Bit 5 - Fan:** Outdoor evaporator fan active.
+- **Bit 6 - 4-Way Valve:** Reversing valve energized (0 = Heating, 1 = Cooling/Defrost).
+- **Bit 7 - Fan High Speed:** Fan high-speed winding/setting engaged.
 
-### Output Symbol 1 (0x0004) - Statusy wyjść głównych
+#### Output Symbol 2 (0x0005)
+- **Bit 0 - Chassis Heater:** Base pan defrost drainage trace heater.
+- **Bit 5 - Heating Heater:** Space heating auxiliary electric heater contactor (OUT4).
+- **Bit 6 - 3-Way Valve:** Diverting valve position (0 = Space Heating/Cooling, 1 = DHW Cylinder).
+- **Bit 7 - Hot Water Heater:** DHW cylinder auxiliary electric immersion heater contactor (OUT12).
 
-**Compressor (bit 0)** - Sprężarka pracuje  
-**Fan (bit 5)** - Wentylator wymiennika pracuje  
-**4-Way Valve (bit 6)** - Zawór 4-drogowy (heating=0, cooling=1)  
-**Fan High Speed (bit 7)** - Wentylator na wysokich obrotach (0=low, 1=high)  
-
-### Output Symbol 2 (0x0005) - Statusy wyjść dodatkowych
-
-**Chassis Heater (bit 0)** - Grzałka skrzyni sprężarki (chroni przy niskich temp.)  
-**Heating Heater (bit 5)** - Grzałka dogrzewu dla ogrzewania  
-**3-Way Valve (bit 6)** - Zawór 3-drogowy (CWU/heating)  
-**Hot Water Heater (bit 7)** - Grzałka dogrzewu dla CWU  
-
-### Output Symbol 3 (0x0006) - Statusy wyjść pompy
-
-**A/C Pump (bit 0)** - Pompa klimatyzacji  
-**Crank Heater (bit 1)** - Grzałka skrzyni korbowej (ochrona zimowa)  
-**Assistant Solenoid Valve (bit 5)** - Pomocniczy zawór elektromagnetyczny  
-**Circulation Pump (bit 6)** - Pompa obiegowa instalacji  
+#### Output Symbol 3 (0x0006)
+- **Bit 0 - A/C Pump:** Auxiliary cooling loop pump.
+- **Bit 1 - Crank Heater:** Compressor crankcase oil warming belt.
+- **Bit 5 - Assistant Solenoid Valve:** Bypass / liquid injection solenoid valve.
+- **Bit 6 - Circulation Pump:** Primary heating system water circulation pump.
 
 ---
 
-## 7. Alarmy i błędy
+## 7. Alarms and Faults
 
-### Failure Symbol 1 (0x0007) - Błędy czujników temperatury
+### Failure Symbol 1 (0x0007) - Sensor Open / Short Faults
+- **Bit 0:** Hot Water Temperature Sensor Error.
+- **Bit 1:** Ambient Temperature Sensor Error.
+- **Bit 2:** Coil Temperature Sensor Error.
+- **Bit 4:** Outlet Water Temperature Sensor Error.
+- **Bit 5:** High Pressure Sensor Error.
+- **Bit 7:** Phase Sequence Error (3-phase supplies).
 
-**Hot Water Temp Sensor (bit 0)** - Uszkodzony czujnik temp. CWU  
-**Ambient Temp Sensor (bit 1)** - Uszkodzony czujnik temp. otoczenia  
-**Coil Temp Sensor (bit 2)** - Uszkodzony czujnik temp. cewki  
-**Outlet Temp Sensor (bit 4)** - Uszkodzony czujnik temp. wylotu  
-**High Pressure Sensor (bit 5)** - Uszkodzony czujnik wysokiego ciśnienia  
-**Phase Sequence Error (bit 7)** - Błędna kolejność faz (tylko 3-fazowe)  
+### Failure Symbol 2 (0x0008) - Flow & Protection
+- **Bit 0 - Water Flow Error:** No water flow detected through the heat pump (check circulator, valves, air locks, dirt strainer).
+- **Bit 2 - High Temp Protection:** Outlet flow water temperature exceeded safety limits during heating.
 
-**Akcja:** Sprawdź okablowanie czujnika, wymień jeśli uszkodzony
+### Failure Symbol 3 (0x0009) & Symbol 4 (0x000A)
+- **Symbol 3, Bit 6:** Outlet Gas Temperature Sensor Error.
+- **Symbol 4, Bit 0:** Inlet Water Temperature Sensor Error.
+- **Symbol 4, Bit 1:** Exhaust Temperature Too High (>105°C — critical compressor protection shutdown).
+- **Symbol 4, Bit 5:** Low Temperature Protection (Outlet water below freezing in cooling mode).
+- **Symbol 4, Bit 6:** Suction Gas Temperature Sensor Error.
 
-### Failure Symbol 2 (0x0008) - Błędy przepływu i zabezpieczeń
+### Failure Symbol 5 (0x000B) - Pressure Protections (High Priority)
+- **Bit 0 - Low Pressure Protection:** Refrigerant suction pressure dropped below minimum safety limit (leakage, blocked filter drier, EEV failure).
+- **Bit 1 - High Pressure Protection:** Refrigerant discharge pressure exceeded high limit (fouled condenser, fan motor failure, air in refrigerant circuit).
+- **Bit 2:** Coil Temperature Too High.
+- **Bit 6 / 7:** High / Low Pressure Transducer Signal Failure.
 
-**Water Flow Error (bit 0)** - Brak przepływu wody  
-- Sprawdź: pompę obiegową, filtry, powietrze w instalacji, zawory
-
-**High Temp Protection (bit 2)** - Za wysoka temp. wody na wylocie (heating)  
-- Sprawdź: przepływ, obciążenie instalacji
-
-### Failure Symbol 3 (0x0009) - Błędy sensora gazu
-
-**Outlet Gas Temp Error (bit 6)** - Uszkodzony czujnik temp. gazu wylotowego  
-
-### Failure Symbol 4 (0x000A) - Błędy temperatury
-
-**Water Inlet Temp Error (bit 0)** - Uszkodzony czujnik temp. wejścia wody  
-**Exhaust Temp Too High (bit 1)** - Przegrzanie gazu tłoczenia (>100°C)  
-- **POWAŻNY BŁĄD** - pompa wyłącza się dla ochrony sprężarki
-
-**Low Temp Protection (bit 5)** - Za niska temp. wody na wylocie (cooling)  
-- Ochrona przed zamarzaniem
-
-**Inlet Gas Temp Error (bit 6)** - Uszkodzony czujnik temp. gazu ssania  
-
-### Failure Symbol 5 (0x000B) - Błędy ciśnienia (NAJWAŻNIEJSZE!)
-
-**Low Pressure Protection (bit 0)** - Za niskie ciśnienie ssania  
-- Przyczyny: za mało czynnika, zatkany filtr, problem z parownikiem
-- **Akcja:** Wezwij serwis, sprawdź szczelność, doładuj czynnik
-
-**High Pressure Protection (bit 1)** - Za wysokie ciśnienie tłoczenia  
-- Przyczyny: za dużo czynnika, zatkany skraplacz, wentylatory nie działają
-- **Akcja:** Wezwij serwis, sprawdź wentylatory i wymiennik
-
-**Coil Temp Too High (bit 2)** - Przegrzanie cewki wymiennika  
-
-**High/Low Pressure Sensors (bit 6/7)** - Uszkodzone czujniki ciśnienia  
-
-### Failure Symbol 6 (0x000C) - Błędy antyfreeze
-
-**Primary/Secondary Antifreeze (bit 4/5)** - Ochrona przed zamarzaniem  
-- Pompa wykryła ryzyko zamarzania wymiennika lub instalacji
-- Sprawdź przepływ, temperaturę zewnętrzną
-
-### Failure Symbol 7 (0x000D) - Błędy systemowe
-
-**Ambient Temp Too Low (bit 1)** - Temperatura otoczenia poniżej granicy pracy  
-- Pompy ciepła mają dolną granicę temp. pracy (np. -20°C)
-
-**Inverter Module Fault (bit 4)** - Awaria falownika sprężarki  
-- **POWAŻNY BŁĄD** - wezwij serwis
-
-**DC Fan 1/2 Failure (bit 5/6)** - Awaria wentylatora 1 lub 2  
-- Sprawdź wentylatory, okablowanie, sterowanie
+### Failure Symbol 6 (0x000C) & Symbol 7 (0x000D) - System & Inverter
+- **Symbol 6, Bit 4 / 5:** Secondary / Primary Antifreeze Protection active.
+- **Symbol 7, Bit 1:** Ambient Temperature Below Operating Limits (e.g. below -25°C).
+- **Symbol 7, Bit 4 - Inverter Module Fault:** Compressor frequency drive fault (overcurrent, overvoltage, IPM module failure).
+- **Symbol 7, Bit 5 / 6:** DC Fan Motor 1 or 2 Failure.
 
 ---
 
-## 8. Parametry zaawansowane
+## 8. Advanced Parameters
 
-### Antilegionella (Dezynfekcja CWU)
+### Antilegionella Disinfection
+- **Disinfection Temperature (0x019A):** 30–70°C (recommended: 60°C).
+- **Weekday (0x019B):** 0 = Sunday, 1 = Monday, ..., 6 = Saturday.
+- **Start Hour (0x019C):** 0–23 (e.g., 2 for 02:00 AM).
+- **End Hour (0x019D):** 0–23 (e.g., 4 for 04:00 AM).
 
-**Temperatura (0x019A):** 30-70°C (zalecane 60°C)  
-**Dzień tygodnia (0x019B):** 0=Niedziela, 1=Poniedziałek... 6=Sobota  
-**Godzina rozpoczęcia (0x019C):** 0-23  
-**Godzina zakończenia (0x019D):** 0-23  
-
-**Cel:** Zabicie bakterii Legionella w zasobniku CWU przez okresowe podgrzanie do 60°C.  
-**Przykład:** Co niedzielę (0) od 3:00 (0x019C=3) do 5:00 (0x019D=5) podgrzej CWU do 60°C (0x019A=60).
-
-**Kiedy włączać:**
-- CWU normalnie poniżej 55°C
-- Zasobnik > 100L
-- Długie okresy bez rozbioru CWU
-
-### Frequency Conversion Failure (0x001F/0x0020/0x002A/0x002B)
-
-Kody błędów falownika sprężarki. Wartości specyficzne dla modelu falownika.  
-Jeśli widzisz błąd = wezwij serwis z kodem błędu.
+**Purpose:** Periodically elevates the DHW cylinder temperature above 60°C to eliminate Legionella pneumophila bacteria.
 
 ### Smart Grid Status (0x0025)
-
-Status komunikacji z inteligentną siecią energetyczną (Smart Grid).  
-Pozwala na sterowanie pompą przez operatora sieci (zmniejszenie poboru w szczycie).
+- Indicates demand-response status from utility contacts (peak shaving / PV surplus boost).
 
 ---
 
-## 9. Sterowanie
+## 9. Controls
 
 ### Power Switch (0x0032 bit 0)
-
-**ON/OFF główne pompy ciepła.**
-
-- 0 = OFF (pompa wyłączona, standby)
-- 1 = ON (pompa pracuje według ustawień)
-
-**Uwaga:** To nie jest wyłącznik awaryjny - używa normalnej procedury wyłączania.
+- Master software On / Off switch for the heat pump.
+- `0` = Standby / Off.
+- `1` = Operating according to active setpoints and schedules.
 
 ### Failure Reset (0x0033 bit 7)
-
-**Przycisk resetowania błędów.**
-
-- Zapisz 1 aby zresetować alarmy (po usunięciu przyczyny)
-- Automatycznie wraca do 0
-
-**Kiedy używać:**
-- Po naprawieniu przyczyny błędu
-- Po sprawdzeniu że instalacja jest OK
-- **NIE resetuj bez zrozumienia przyczyny!**
+- Instantaneous alarm reset pulse.
+- Writing `1` clears latching error codes after the underlying physical fault is corrected.
+- Auto-resets back to `0`.
 
 ### Control Mark 2 (0x0034)
-
-**Antilegionella Enable (bit 0):** Włącz/wyłącz funkcję antylegionella  
-- 0 = Wyłączona (domyślnie)
-- 1 = Włączona
-- Jeśli włączona, pompa będzie okresowo (zgodnie z parametrami 0x019A-0x019D) podgrzewać CWU do wysokiej temperatury (60°C) aby zabić bakterie Legionella
-
-**Two/Three Function (bit 1, G01):** Konfiguracja funkcjonalności pompy  
-- **0 = Two (Dwufunkcyjna):** Pompa obsługuje **2 funkcje**: Ogrzewanie + Chłodzenie (bez CWU)
-  - Nie ma trzeciego wymiennika dla CWU
-  - Pompa może tylko grzać lub chłodzić instalację
-  - Tryby dostępne w P06: Heating Only (1), Cooling Only (2)
-  
-- **1 = Three (Trójfunkcyjna):** Pompa obsługuje **3 funkcje**: Ogrzewanie + Chłodzenie + CWU (standard)
-  - Ma trzeci wymiennik/zawór 3-drogowy dla podgrzewu CWU
-  - Pompa może grzać/chłodzić instalację ORAZ podgrzewać CWU
-  - Tryby dostępne w P06: DHW Only (0), Heating Only (1), Cooling Only (2), Heating+DHW (3), Cooling+DHW (4)
-
-**Kiedy zmienić:**
-- **Two**: Jeśli nie masz zasobnika CWU lub używasz innego źródła do podgrzewu CWU (np. kocioł elektryczny)
-- **Three**: Standardowa konfiguracja - pompa obsługuje wszystko (heating + cooling + DHW)
-
-**Uwaga**: Ten parametr powinien odpowiadać fizycznej konfiguracji instalacji. Nieprawidłowe ustawienie może powodować błędy pracy pompy.
+- **Bit 0 - Antilegionella Enable:** Master switch for weekly scheduled thermal pasteurization.
+- **Bit 1 - Two / Three Function (G01):**
+  - `0 = Two Function (Heating + Cooling only)`: For installations without a DHW tank or with separate hot water heating.
+  - `1 = Three Function (Heating + Cooling + DHW)`: Standard installation with a 3-way diverting valve and DHW cylinder.
 
 ---
 
-## 📝 Praktyczne wskazówki
+## 10. Practical Tips & Troubleshooting
 
-### Optymalizacja energetyczna
+### Energy Optimization
+1. **Use Weather Compensation Curves (Economic Mode):** Prevents overheating flow water in mild outdoor conditions.
+2. **Tune Hysteresis Carefully (P03 / P05):** A setting between 4°C and 6°C strikes an optimal balance between comfort and compressor runtimes.
+3. **Set Fan Mode to Economic or Night:** Minimizes acoustic footprint during evening hours.
+4. **Target 48–50°C for DHW:** Significant heat pump COP boost compared to heating water to 55°C, while utilizing weekly antilegionella cycles for sanitary safety.
+5. **Keep Auxiliary Heater Thresholds Conservative:** Set G05/G07 to -10°C or below to avoid expensive resistive electric heating during normal winter weather.
 
-1. **Używaj krzywych grzewczych (Economic mode)** - automatyczna adaptacja do pogody
-2. **Ustaw odpowiednią histerezę (P03/P05)** - 5-8°C to dobry kompromis
-3. **Fan Mode = Economic** gdy nie potrzebujesz max wydajności
-4. **Temperatura CWU = 50°C** + antylegionella (oszczędność vs bezpieczeństwo)
-5. **G05/G07 jak najniżej** - ogranicza użycie dogrzewu elektrycznego
-
-### Rozwiązywanie problemów
-
-**Pompa często się włącza/wyłącza:**
-- Zwiększ histerezę (P03/P05)
-- Sprawdź G03 (Start Interval)
-
-**Za zimno w domu:**
-- Zwiększ P01 (Heating Setpoint)
-- Sprawdź krzywą grzewczą (E01-E16)
-- Sprawdź czy nie ma błędów ciśnienia
-
-**Za mało CWU:**
-- Zwiększ P04 (Hot Water Setpoint)
-- Sprawdź czy P06 = DHW lub Heating+DHW lub Cooling+DHW
-- Zmniejsz P05 (uruchomi się wcześniej)
-
-**Alarmy ciśnienia:**
-- **Low pressure:** Wyciek czynnika - wezwij serwis
-- **High pressure:** Zatkany wymiennik, wentylatory - sprawdź wymiennik, wyczyść
-
-**Hałas nocą:**
-- P07 = Night Mode
-- Sprawdź montaż (wibracje)
-- Zwiększ G03 (rzadsze starty)
-
-### Monitorowanie
-
-**Regularnie sprawdzaj:**
-- COP - powinien być 3-5 (jeśli niższy = problem)
-- Ciśnienia - ssanie 4-7 bar, tłoczenie 15-30 bar
-- Temp. tłoczenia - nie powinna przekraczać 85°C
-- Błędy - reaguj na alarmy natychmiast
-
-**Wskaźniki problemów:**
-- COP < 2.5 = problem z wydajnością
-- Temp. tłoczenia > 90°C = przegrzanie
-- Częste cykle on/off = źle dobrana histereza
-- Alarmy ciśnienia = natychmiast serwis!
+### Common Issues & Remedies
+- **Frequent Short-Cycling:** Increase hysteresis (P03) and check minimum start delay (G03).
+- **Insufficient Domestic Hot Water:** Verify P06 is set to a mode including DHW (`0`, `3`, or `4`), ensure G01 (Three Function) is set to `1`, and inspect the 3-way valve actuator.
+- **Low Pressure / Antifreeze Alarms in Winter:** Check water flow rate (strainer, pump), verify glycol concentration, and confirm outdoor coil defrost cycles are operating normally.
 
 ---
 
-## 🔗 Dodatkowe informacje
+## 11. Additional Information
 
-**Ważne:**
-- Zmiany parametrów działają tylko dla urządzenia #1 (device_address=1)
-- Przed zmianą zaawansowanych parametrów skonsultuj z serwisem
-- Zapisuj oryginalne wartości przed eksperymentowaniem
-- Niektóre parametry mogą wymagać restartu pompy
-
-**W razie wątpliwości:**
-- Skonsultuj z instalatorem
-- Sprawdź instrukcję obsługi producenta
-- Wezwij autoryzowany serwis
-
+- Parameter write changes apply to Modbus Slave Address #1 (`device_address = 1`).
+- Avoid modifying factory engineering parameters without referencing manufacturer documentation or consulting a certified technician.

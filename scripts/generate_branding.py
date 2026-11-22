@@ -416,10 +416,10 @@ def get_banner_svg():
         <text x="16" y="26" font-family="DejaVu Sans, Fira Sans, sans-serif" font-size="13" font-weight="bold" fill="#34D399">🔒 100% Local (LAN)</text>
       </g>
 
-      <!-- Pill 4: Carel & Chico -->
+      <!-- Pill 4: CHICO Controller -->
       <g transform="translate(555, 0)">
-        <rect x="0" y="0" width="175" height="42" rx="10" fill="#101D30" stroke="#1E334D" stroke-width="1.5"/>
-        <text x="16" y="26" font-family="DejaVu Sans, Fira Sans, sans-serif" font-size="13" font-weight="bold" fill="#A78BFA">🎛️ Carel &amp; Chico</text>
+        <rect x="0" y="0" width="185" height="42" rx="10" fill="#101D30" stroke="#1E334D" stroke-width="1.5"/>
+        <text x="16" y="26" font-family="DejaVu Sans, Fira Sans, sans-serif" font-size="13" font-weight="bold" fill="#A78BFA">🎛️ CHICO Controller</text>
       </g>
     </g>
 
