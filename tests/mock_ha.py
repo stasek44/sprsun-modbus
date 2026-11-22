@@ -221,6 +221,18 @@ def setup_mocks():
                 def options(self):
                     return getattr(self, "_attr_options", [])
 
+                @property
+                def current_temperature(self):
+                    return getattr(self, "native_current_temperature", None)
+
+                @property
+                def target_temperature(self):
+                    return getattr(self, "native_target_temperature", None)
+
+                @property
+                def temperature_unit(self):
+                    return getattr(self, "_attr_native_temperature_unit", getattr(self, "_attr_temperature_unit", None))
+
                 def async_write_ha_state(self):
                     pass
 
@@ -298,7 +310,11 @@ def setup_mocks():
 
             class MockOptionsFlow:
                 def __init__(self, config_entry=None):
-                    self.config_entry = config_entry
+                    self._config_entry = config_entry
+
+                @property
+                def config_entry(self):
+                    return self._config_entry
                 def async_show_form(self, step_id, data_schema, description_placeholders=None):
                     return {"type": "form", "step_id": step_id, "data_schema": data_schema}
                 def async_create_entry(self, title, data):

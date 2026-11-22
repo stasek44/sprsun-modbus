@@ -12,7 +12,7 @@ from homeassistant.components.climate import (
     PRESET_ECO,
     PRESET_BOOST,
 )
-from homeassistant.const import CONF_NAME, ATTR_TEMPERATURE
+from homeassistant.const import CONF_NAME, ATTR_TEMPERATURE, UnitOfTemperature
 from custom_components.sprsun_modbus.const import DOMAIN
 from custom_components.sprsun_modbus.climate import (
     SPRSUNClimate,
@@ -105,14 +105,18 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
 
     def test_climate_temperatures(self):
         """Test current and target temperature resolution."""
+        self.assertEqual(self.climate._attr_native_temperature_unit, UnitOfTemperature.CELSIUS)
         # Current temp is water returning from emitters (inlet_temp)
+        self.assertEqual(self.climate.native_current_temperature, 26.5)
         self.assertEqual(self.climate.current_temperature, 26.5)
 
         # In heating mode, target temp is heating_setpoint
+        self.assertEqual(self.climate.native_target_temperature, 38.0)
         self.assertEqual(self.climate.target_temperature, 38.0)
 
         # In cooling mode, target temp is cooling_setpoint
         self.coordinator.data["unit_mode"]["value"] = 2
+        self.assertEqual(self.climate.native_target_temperature, 18.0)
         self.assertEqual(self.climate.target_temperature, 18.0)
 
     def test_climate_fan_and_preset_modes(self):
@@ -185,8 +189,11 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
     def test_dhw_climate_properties(self):
         """Test DHW climate mode, action and temperatures."""
         # Unit mode 3 includes DHW -> HEAT
+        self.assertEqual(self.dhw_climate._attr_native_temperature_unit, UnitOfTemperature.CELSIUS)
         self.assertEqual(self.dhw_climate.hvac_mode, HVACMode.HEAT)
+        self.assertEqual(self.dhw_climate.native_current_temperature, 48.0)
         self.assertEqual(self.dhw_climate.current_temperature, 48.0)
+        self.assertEqual(self.dhw_climate.native_target_temperature, 50.0)
         self.assertEqual(self.dhw_climate.target_temperature, 50.0)
 
         # Unit mode 1 (Heating only) does NOT include DHW -> OFF

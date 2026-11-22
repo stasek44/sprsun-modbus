@@ -175,6 +175,9 @@ class TestConfigFlow(unittest.IsolatedAsyncioTestCase):
         flow = SPRSUNOptionsFlowHandler(entry)
         flow.hass = MagicMock()
 
+        self.assertEqual(flow.config_entry, entry)
+        self.assertEqual(flow._config_entry, entry)
+
         result = await flow.async_step_init(user_input=None)
         self.assertEqual(result["type"], "form")
         self.assertEqual(result["step_id"], "init")

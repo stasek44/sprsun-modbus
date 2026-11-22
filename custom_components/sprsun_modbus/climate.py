@@ -64,7 +64,7 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     
     _attr_fan_modes = ["normal", "eco", "night", "test"]
     _attr_preset_modes = [PRESET_NONE, PRESET_ECO, PRESET_BOOST]
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_target_temperature_step = 0.5
     
     def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
@@ -189,12 +189,12 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         return HVACAction.IDLE
     
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         """Return inlet water temperature (water returning from heating system)."""
         return self._get_cache_value("inlet_temp")
     
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         """Return target temperature based on current mode."""
         unit_mode = int(self._get_cache_value("unit_mode", 1))
         
@@ -374,7 +374,7 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         HVACMode.HEAT,
     ]
     
-    _attr_temperature_unit = UnitOfTemperature.CELSIUS
+    _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 10
     _attr_max_temp = 55
     _attr_target_temperature_step = 0.5
@@ -470,12 +470,12 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         return HVACAction.IDLE
     
     @property
-    def current_temperature(self) -> float | None:
+    def native_current_temperature(self) -> float | None:
         """Return hot water temperature."""
         return self._get_cache_value("hotwater_temp")
     
     @property
-    def target_temperature(self) -> float | None:
+    def native_target_temperature(self) -> float | None:
         """Return hot water setpoint."""
         return self._get_cache_value("hotwater_setpoint")
     

@@ -79,6 +79,7 @@ class TestControllers(unittest.TestCase):
         
         # 50 registers
         regs = [0] * 50
+        regs[0x002C] = 590   # controller_version = 590
         regs[0x000E] = 250   # inlet_temp = 25.0 °C
         regs[0x0011] = 65516 # ambient_temp = -20 * 0.5 = -10.0 °C (signed)
         regs[0x0015] = 65526 # suction_gas_temp = -10 * 0.5 = -5.0 °C (signed)
@@ -205,13 +206,11 @@ class TestControllers(unittest.TestCase):
                 regs[0x002C] = 590  # controller_version
                 regs[0x000E] = 250  # inlet_temp
                 res.registers = regs
-            elif address == 0x0032:  # Batch 1 (0x0032-0x0034): 3 registers
-                res.registers = [1, 0, 3]
-            elif address == 0x0036:  # Batch 2: P06
-                res.registers = [3]  # Heat + DHW
-            elif address == 0x0169:  # Batch 4: E01-E12 (12 registers)
+            elif address == 0x0032:  # Batch 1 (0x0032-0x0036): 5 registers
+                res.registers = [1, 0, 0, 0, 3]
+            elif address == 0x0169:  # Batch 3: E01-E24 + G08-G03 (29 registers)
                 # First register negative ambient: -15°C -> 65521
-                res.registers = [65521] + [0] * 11
+                res.registers = [65521] + [0] * 28
             else:
                 res.registers = [0] * count
             return res
@@ -239,7 +238,7 @@ class TestControllers(unittest.TestCase):
                 regs[0x000E] = 250
                 res.registers = regs
             elif address == 0x0032:
-                # Batch 1 expects count=3, but gateway returned truncated response with 2 registers
+                # Batch 1 expects count=5, but gateway returned truncated response with 2 registers
                 res.registers = [1, 0]
             else:
                 res.registers = [0] * count

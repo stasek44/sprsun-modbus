@@ -35,15 +35,23 @@ Connect the heat pump RS485 terminals to your Modbus bridge (e.g., Elfin EW11):
 - **B/-** (Heat pump) → **B** (Gateway)
 - **GND** (Heat pump) → **GND** (Gateway, strongly recommended for signal integrity)
 
-### Recommended Gateway Settings (Elfin EW11)
-- **Protocol:** TCP Server
-- **Port:** `502`
-- **Baud Rate:** `19200`
-- **Data Bits:** `8`
-- **Stop Bits:** `2`
-- **Parity:** `None`
-- **Timeout:** `30s` (must be greater than scan interval + cycle time)
-- **Max Accept:** `1` (prevents socket contention)
+### Recommended Gateway Settings (Elfin EW11 / W11)
+- **Communication Settings (Network / Socket):**
+  - **Protocol:** `TCP Server`
+  - **Port:** `502`
+  - **Timeout:** `5s`–`10s` (purges dead socket slots quickly; avoid 60s+ which holds dead sockets)
+  - **Max Accept:** `1` (CRITICAL: prevents socket contention and RS485 frame interleaving)
+  - **Buffer Size:** `512`
+  - **Keep Alive:** `60s`
+- **Serial Port Settings (RS485):**
+  - **Baud Rate:** `19200`
+  - **Data Bits:** `8`
+  - **Stop Bits:** `2` (or `1` depending on unit)
+  - **Parity:** `None`
+  - **Flow Control:** `Half Duplex`
+  - **Gap Time:** `20ms`–`50ms`
+  - **CLI Settings:** `Disable` (CRITICAL: prevents raw binary bytes from triggering CLI mode)
+  - **Protocol:** `Modbus` (enables Modbus RTU <-> Modbus TCP translation)
 
 ---
 
