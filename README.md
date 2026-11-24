@@ -3,6 +3,7 @@
 [![HACS](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 [![GitHub Release](https://img.shields.io/github/release/stasek44/sprsun-modbus.svg)](https://github.com/stasek44/sprsun-modbus/releases)
 [![License](https://img.shields.io/github/license/stasek44/sprsun-modbus.svg)](LICENSE)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-yellow.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/stasek44)
 
 Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using an RS485-to-WiFi/Ethernet bridge such as Elfin EW11). The integration allows reading parameters in real-time and fully managing heat pump operations.
 
@@ -95,6 +96,14 @@ pytest tests/ -v
 ```
 
 See **[AGENTS.md](AGENTS.md)** for architecture principles and contribution guidelines.
+
+---
+
+## Support
+
+If this integration helped you or saved you time, you can buy me a coffee:
+
+<a href="https://buymeacoffee.com/stasek44" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" height="42"></a>
 
 ---
 
