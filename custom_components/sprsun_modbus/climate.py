@@ -35,6 +35,13 @@ async def async_setup_entry(
     ])
 
 
+def _round_to_step(value: float, step: float) -> float:
+    """Round value to the nearest step (e.g. 0.5 or 1.0)."""
+    if step <= 0:
+        return value
+    return float(round(value / step + 1e-9) * step)
+
+
 class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     """SPRSUN Heat Pump Climate Entity for Heating/Cooling Control.
     
@@ -65,16 +72,11 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     _attr_fan_modes = ["normal", "eco", "night", "test"]
     _attr_preset_modes = [PRESET_NONE, PRESET_ECO, PRESET_BOOST]
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
-    _attr_target_temperature_step = 0.5
     
     def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
         """Initialize the climate entity."""
         super().__init__(coordinator)
-        
-        options = config_entry.options if isinstance(getattr(config_entry, "options", None), dict) else {}
-        data = config_entry.data if isinstance(getattr(config_entry, "data", None), dict) else {}
-        temp_step = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
-        self._attr_target_temperature_step = float(temp_step)
+        self._config_entry = config_entry
         
         self._attr_name = "Heating/Cooling"
         self._attr_unique_id = f"{config_entry.entry_id}_climate"
@@ -86,6 +88,23 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
             manufacturer="SPRSUN",
             model="Heat Pump",
         )
+    
+    @property
+    def target_temperature_step(self) -> float:
+        """Return the target temperature step."""
+        entry = getattr(self, "_config_entry", None) or getattr(self.coordinator, "config_entry", None)
+        options = entry.options if isinstance(getattr(entry, "options", None), dict) else {}
+        data = entry.data if isinstance(getattr(entry, "data", None), dict) else {}
+        raw_val = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
+        try:
+            return float(raw_val)
+        except (ValueError, TypeError):
+            return DEFAULT_TEMP_STEP
+
+    @property
+    def precision(self) -> float:
+        """Return the precision of the system."""
+        return self.target_temperature_step
     
     @property
     def available(self) -> bool:
@@ -284,6 +303,9 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         if temperature is None:
             return
         
+        # Round according to step
+        temperature = _round_to_step(float(temperature), self.target_temperature_step)
+        
         # Determine which setpoint to write based on current mode
         unit_mode = int(self._get_cache_value("unit_mode", 1))
         
@@ -382,16 +404,11 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
     _attr_native_temperature_unit = UnitOfTemperature.CELSIUS
     _attr_min_temp = 10
     _attr_max_temp = 55
-    _attr_target_temperature_step = 0.5
     
     def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
         """Initialize the DHW climate entity."""
         super().__init__(coordinator)
-        
-        options = config_entry.options if isinstance(getattr(config_entry, "options", None), dict) else {}
-        data = config_entry.data if isinstance(getattr(config_entry, "data", None), dict) else {}
-        temp_step = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
-        self._attr_target_temperature_step = float(temp_step)
+        self._config_entry = config_entry
         
         self._attr_name = "DHW"
         self._attr_unique_id = f"{config_entry.entry_id}_dhw_climate"
@@ -403,6 +420,23 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
             manufacturer="SPRSUN",
             model="Heat Pump",
         )
+    
+    @property
+    def target_temperature_step(self) -> float:
+        """Return the target temperature step."""
+        entry = getattr(self, "_config_entry", None) or getattr(self.coordinator, "config_entry", None)
+        options = entry.options if isinstance(getattr(entry, "options", None), dict) else {}
+        data = entry.data if isinstance(getattr(entry, "data", None), dict) else {}
+        raw_val = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
+        try:
+            return float(raw_val)
+        except (ValueError, TypeError):
+            return DEFAULT_TEMP_STEP
+
+    @property
+    def precision(self) -> float:
+        """Return the precision of the system."""
+        return self.target_temperature_step
     
     @property
     def available(self) -> bool:
@@ -539,6 +573,9 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         temperature = kwargs.get(ATTR_TEMPERATURE)
         if temperature is None:
             return
+        
+        # Round according to step
+        temperature = _round_to_step(float(temperature), self.target_temperature_step)
         
         # Write hot water setpoint (P04 at 0x00CA, scale 0.5)
         await self.coordinator.async_write_register(

@@ -153,6 +153,24 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
             scale=2.0,
         )
 
+    async def test_async_set_native_value_rounds_with_step_1(self):
+        """Test async_set_native_value rounds fractional values when step is 1.0."""
+        self.config_entry.options = {CONF_TEMP_STEP: 1.0}
+        number = SPRSUNNumber(
+            self.coordinator, self.config_entry, "heating_setpoint", "Heating Setpoint",
+            0x00CC, 0.5, "°C", 10, 55, 1.0, "temperature", orig_step=0.5
+        )
+
+        self.assertEqual(number.native_step, 1.0)
+        await number.async_set_native_value(42.6)
+
+        self.coordinator.async_write_register.assert_called_with(
+            address=0x00CC,
+            value=43.0,
+            key="heating_setpoint",
+            scale=2.0,
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -253,6 +253,10 @@ def setup_mocks():
                     return getattr(self, "_attr_target_temperature_step", None)
 
                 @property
+                def precision(self):
+                    return getattr(self, "_attr_precision", None)
+
+                @property
                 def native_step(self):
                     return getattr(self, "_attr_native_step", None)
 

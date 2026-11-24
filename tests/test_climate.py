@@ -231,9 +231,11 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         )
 
     def test_temperature_step_default(self):
-        """Test default target temperature step is 0.5°C."""
+        """Test default target temperature step and precision is 0.5°C."""
         self.assertEqual(self.climate.target_temperature_step, 0.5)
+        self.assertEqual(self.climate.precision, 0.5)
         self.assertEqual(self.dhw_climate.target_temperature_step, 0.5)
+        self.assertEqual(self.dhw_climate.precision, 0.5)
 
     def test_temperature_step_custom_options(self):
         """Test custom target temperature step configured via options."""
@@ -246,7 +248,9 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         dhw = SPRSUNDHWClimate(self.coordinator, entry)
 
         self.assertEqual(climate.target_temperature_step, 1.0)
+        self.assertEqual(climate.precision, 1.0)
         self.assertEqual(dhw.target_temperature_step, 1.0)
+        self.assertEqual(dhw.precision, 1.0)
 
     def test_temperature_step_custom_data(self):
         """Test custom target temperature step configured via initial data."""
@@ -259,7 +263,47 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         dhw = SPRSUNDHWClimate(self.coordinator, entry)
 
         self.assertEqual(climate.target_temperature_step, 1.0)
+        self.assertEqual(climate.precision, 1.0)
         self.assertEqual(dhw.target_temperature_step, 1.0)
+        self.assertEqual(dhw.precision, 1.0)
+
+    async def test_set_temperature_rounding_with_step_1(self):
+        """Test async_set_temperature rounds fractional temperatures when step is 1.0."""
+        entry = MagicMock()
+        entry.entry_id = "step_1_entry"
+        entry.data = {CONF_NAME: "SPRSUN Heat Pump"}
+        entry.options = {CONF_TEMP_STEP: 1.0}
+
+        climate = SPRSUNClimate(self.coordinator, entry)
+        dhw = SPRSUNDHWClimate(self.coordinator, entry)
+
+        # Space heating setpoint rounding: 28.5 -> 29.0
+        await climate.async_set_temperature(**{ATTR_TEMPERATURE: 28.5})
+        self.coordinator.async_write_register.assert_called_with(
+            address=0x00CC,
+            value=29.0,
+            key="heating_setpoint",
+            scale=2,
+        )
+
+        # DHW setpoint rounding: 48.4 -> 48.0
+        await dhw.async_set_temperature(**{ATTR_TEMPERATURE: 48.4})
+        self.coordinator.async_write_register.assert_called_with(
+            address=0x00CA,
+            value=48.0,
+            key="hotwater_setpoint",
+            scale=2,
+        )
+
+    async def test_set_temperature_half_step_with_step_05(self):
+        """Test async_set_temperature preserves 0.5 steps when step is 0.5."""
+        await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 28.5})
+        self.coordinator.async_write_register.assert_called_with(
+            address=0x00CC,
+            value=28.5,
+            key="heating_setpoint",
+            scale=2,
+        )
 
 
 if __name__ == "__main__":

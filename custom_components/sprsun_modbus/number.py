@@ -29,8 +29,7 @@ async def async_setup_entry(
     entities = []
     for address, config in REGISTERS_NUMBER.items():
         key, name, scale, unit, min_val, max_val, step, device_class = config
-        if device_class == "temperature" and step == 0.5:
-            step = temp_step
+        initial_step = temp_step if (device_class == "temperature" and step == 0.5) else step
         entities.append(
             SPRSUNNumber(
                 coordinator,
@@ -42,12 +41,20 @@ async def async_setup_entry(
                 unit,
                 min_val,
                 max_val,
-                step,
+                initial_step,
                 device_class,
+                orig_step=step,
             )
         )
     
     async_add_entities(entities)
+
+
+def _round_to_step(value: float, step: float) -> float:
+    """Round value to the nearest step (e.g. 0.5 or 1.0)."""
+    if step <= 0:
+        return value
+    return float(round(value / step + 1e-9) * step)
 
 
 class SPRSUNNumber(CoordinatorEntity, NumberEntity):
@@ -68,10 +75,12 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
         max_val: float,
         step: float,
         device_class: str | None,
+        orig_step: float | None = None,
     ) -> None:
         """Initialize the number."""
         super().__init__(coordinator)
-        
+        self._config_entry = config_entry
+        self._orig_step = orig_step if orig_step is not None else step
         self._key = key
         self._address = address
         self._scale = scale
@@ -99,6 +108,20 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
         )
     
     @property
+    def native_step(self) -> float:
+        """Return the step for the number value."""
+        if self._attr_device_class == NumberDeviceClass.TEMPERATURE and self._orig_step == 0.5:
+            entry = getattr(self, "_config_entry", None) or getattr(self.coordinator, "config_entry", None)
+            options = entry.options if isinstance(getattr(entry, "options", None), dict) else {}
+            data = entry.data if isinstance(getattr(entry, "data", None), dict) else {}
+            raw_val = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
+            try:
+                return float(raw_val)
+            except (ValueError, TypeError):
+                return DEFAULT_TEMP_STEP
+        return self._attr_native_step
+
+    @property
     def native_value(self) -> float | None:
         """Return the current value."""
         if not self.coordinator.data:
@@ -123,6 +146,8 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
     
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
+        value = _round_to_step(float(value), self.native_step)
+
         # Use coordinator's write helper (handles cache + timestamp automatically)
         await self.coordinator.async_write_register(
             address=self._address,
