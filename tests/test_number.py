@@ -119,6 +119,27 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(number.native_unit_of_measurement, "°C")
         self.assertEqual(str(number.device_class), "temperature")
 
+    def test_non_temperature_number_attributes_and_step(self):
+        """Test non-temperature number initializes cleanly without AttributeError on native_step."""
+        # E.g., comp_delay_hotwater: (0x00D6, ("comp_delay_hotwater", "Comp Delay Hotwater", 1.0, "min", 0, 15, 1, None))
+        number = SPRSUNNumber(
+            self.coordinator,
+            self.config_entry,
+            "comp_delay_hotwater",
+            "Comp Delay Hotwater",
+            0x00D6,
+            1.0,
+            "min",
+            0,
+            15,
+            1,
+            None,
+        )
+
+        self.assertIsNone(number.device_class)
+        self.assertEqual(number.native_step, 1)
+        self.assertEqual(number.native_unit_of_measurement, "min")
+
     def test_native_value_extraction(self):
         """Test native_value handles both dict format and legacy scalar format."""
         num_dict = SPRSUNNumber(

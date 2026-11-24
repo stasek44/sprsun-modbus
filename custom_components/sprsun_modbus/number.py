@@ -95,6 +95,8 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
         # Set device class
         if device_class == "temperature":
             self._attr_device_class = NumberDeviceClass.TEMPERATURE
+        else:
+            self._attr_device_class = None
         
         # Device info
         self._attr_device_info = DeviceInfo(
@@ -107,7 +109,7 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
     @property
     def native_step(self) -> float:
         """Return the step for the number value."""
-        if self._attr_device_class == NumberDeviceClass.TEMPERATURE and self._orig_step == 0.5:
+        if getattr(self, "_attr_device_class", None) == NumberDeviceClass.TEMPERATURE and self._orig_step == 0.5:
             return get_temp_step(self._config_entry, getattr(self.coordinator, "config_entry", None))
         return self._attr_native_step
 
