@@ -9,6 +9,7 @@ from homeassistant import config_entries
 from homeassistant.config_entries import ConfigFlowResult
 from homeassistant.const import CONF_HOST, CONF_PORT, CONF_NAME
 from homeassistant.core import HomeAssistant, callback
+from homeassistant.helpers import selector
 import homeassistant.helpers.config_validation as cv
 
 from pymodbus.client import ModbusTcpClient
@@ -81,6 +82,27 @@ async def validate_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict
     }
 
 
+def _format_temp_step(val: Any) -> str:
+    """Format temperature step to string ("0.5" or "1.0")."""
+    try:
+        return f"{float(val):.1f}"
+    except (ValueError, TypeError):
+        return "0.5"
+
+
+def _temp_step_selector() -> selector.SelectSelector:
+    """Return SelectSelector for temperature step."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                selector.SelectOptionDict(value="0.5", label="0.5°C"),
+                selector.SelectOptionDict(value="1.0", label="1.0°C"),
+            ],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
 class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for SPRSUN Heat Pump."""
     
@@ -104,6 +126,10 @@ class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 
                 # Add controller type to user input
                 user_input[CONF_CONTROLLER_TYPE] = info["controller_type"]
+                if CONF_TEMP_STEP in user_input:
+                    user_input[CONF_TEMP_STEP] = float(user_input[CONF_TEMP_STEP])
+                else:
+                    user_input[CONF_TEMP_STEP] = DEFAULT_TEMP_STEP
                 
                 _LOGGER.info(
                     "Detected %s controller at %s:%s (slave %s)",
@@ -132,9 +158,7 @@ class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
                     vol.Coerce(int), vol.Range(min=5, max=300)
                 ),
-                vol.Optional(CONF_TEMP_STEP, default=DEFAULT_TEMP_STEP): vol.All(
-                    vol.Coerce(float), vol.In([0.5, 1.0])
-                ),
+                vol.Required(CONF_TEMP_STEP, default="0.5"): _temp_step_selector(),
             }
         )
         
@@ -161,13 +185,29 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         """Initialize options flow."""
         self._config_entry = config_entry
+
+    @property
+    def config_entry(self) -> config_entries.ConfigEntry:
+        """Return the config entry."""
+        if hasattr(self, "_config_entry") and self._config_entry is not None:
+            return self._config_entry
+        return super().config_entry
     
     async def async_step_init(
         self, user_input: dict[str, Any] | None = None
     ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
+            if CONF_TEMP_STEP in user_input:
+                user_input[CONF_TEMP_STEP] = float(user_input[CONF_TEMP_STEP])
             return self.async_create_entry(title="", data=user_input)
+        
+        temp_step_default = _format_temp_step(
+            self.config_entry.options.get(
+                CONF_TEMP_STEP,
+                self.config_entry.data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP),
+            )
+        )
         
         data_schema = vol.Schema(
             {
@@ -203,13 +243,8 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
                 ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
                 vol.Required(
                     CONF_TEMP_STEP,
-                    default=self.config_entry.options.get(
-                        CONF_TEMP_STEP,
-                        self.config_entry.data.get(
-                            CONF_TEMP_STEP, DEFAULT_TEMP_STEP
-                        ),
-                    ),
-                ): vol.All(vol.Coerce(float), vol.In([0.5, 1.0])),
+                    default=temp_step_default,
+                ): _temp_step_selector(),
             }
         )
         

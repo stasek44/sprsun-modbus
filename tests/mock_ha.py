@@ -29,14 +29,26 @@ def setup_mocks():
                 def __call__(self, data):
                     return data
 
+            class MockMarker(str):
+                def __new__(cls, key, default=None):
+                    obj = super().__new__(cls, key)
+                    obj.schema = key
+                    obj._default = default
+                    return obj
+
+                def default(self):
+                    if callable(self._default):
+                        return self._default()
+                    return self._default
+
             class MockVol:
                 Schema = MockSchema
                 @staticmethod
                 def Required(key, default=None):
-                    return key
+                    return MockMarker(key, default=default)
                 @staticmethod
                 def Optional(key, default=None):
-                    return key
+                    return MockMarker(key, default=default)
                 @staticmethod
                 def All(*args):
                     return lambda v: v
@@ -307,6 +319,37 @@ def setup_mocks():
             cv.port = lambda v: v
             helpers.config_validation = cv
             sys.modules["homeassistant.helpers.config_validation"] = cv
+
+            # Selector
+            selector_mod = MagicMock()
+
+            class SelectSelectorMode(StrEnum):
+                DROPDOWN = "dropdown"
+                LIST = "list"
+
+            class SelectOptionDict(dict):
+                def __init__(self, value, label=None):
+                    super().__init__(value=value, label=label)
+
+            class SelectSelectorConfig:
+                def __init__(self, options, mode=SelectSelectorMode.DROPDOWN, translation_key=None):
+                    self.options = options
+                    self.mode = mode
+                    self.translation_key = translation_key
+
+            class SelectSelector:
+                def __init__(self, config=None):
+                    self.config = config
+
+                def __call__(self, val):
+                    return val
+
+            selector_mod.SelectSelectorMode = SelectSelectorMode
+            selector_mod.SelectOptionDict = SelectOptionDict
+            selector_mod.SelectSelectorConfig = SelectSelectorConfig
+            selector_mod.SelectSelector = SelectSelector
+            helpers.selector = selector_mod
+            sys.modules["homeassistant.helpers.selector"] = selector_mod
 
             # Config entries
             class MockConfigFlow:

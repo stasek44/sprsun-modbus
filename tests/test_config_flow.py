@@ -17,6 +17,7 @@ from custom_components.sprsun_modbus.config_flow import (
     SPRSUNConfigFlow,
     SPRSUNOptionsFlowHandler,
     validate_connection,
+    _format_temp_step,
 )
 
 
@@ -216,7 +217,7 @@ class TestConfigFlow(unittest.IsolatedAsyncioTestCase):
             CONF_PORT: 502,
             CONF_DEVICE_ADDRESS: 1,
             CONF_SCAN_INTERVAL: 10,
-            CONF_TEMP_STEP: 1.0,
+            CONF_TEMP_STEP: "1.0",
         }
 
         with patch("custom_components.sprsun_modbus.config_flow.validate_connection") as mock_val:
@@ -231,6 +232,51 @@ class TestConfigFlow(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result["title"], "My Heat Pump 1C")
             self.assertEqual(result["data"][CONF_CONTROLLER_TYPE], "chico")
             self.assertEqual(result["data"][CONF_TEMP_STEP], 1.0)
+
+    def test_format_temp_step(self):
+        """Test _format_temp_step formats floats and strings to clean 1-decimal strings."""
+        self.assertEqual(_format_temp_step(0.5), "0.5")
+        self.assertEqual(_format_temp_step(1.0), "1.0")
+        self.assertEqual(_format_temp_step(1), "1.0")
+        self.assertEqual(_format_temp_step("0.5"), "0.5")
+        self.assertEqual(_format_temp_step("1.0"), "1.0")
+        self.assertEqual(_format_temp_step("1"), "1.0")
+        self.assertEqual(_format_temp_step(None), "0.5")
+        self.assertEqual(_format_temp_step("invalid"), "0.5")
+
+    async def test_options_flow_preserves_saved_temp_step(self):
+        """Test options flow form schema has saved temp_step as default."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_step"
+        entry.data = {CONF_SCAN_INTERVAL: 10}
+        entry.options = {CONF_TEMP_STEP: 1.0}
+
+        flow = SPRSUNOptionsFlowHandler(entry)
+        flow.hass = MagicMock()
+
+        result = await flow.async_step_init(user_input=None)
+        self.assertEqual(result["type"], "form")
+
+        # Verify that temp_step is in schema and default value is "1.0"
+        schema_dict = result["data_schema"].schema
+        # Find the CONF_TEMP_STEP marker in schema
+        step_marker = next(k for k in schema_dict if getattr(k, "schema", None) == CONF_TEMP_STEP or str(k) == CONF_TEMP_STEP)
+        self.assertEqual(step_marker.default(), "1.0")
+
+    async def test_options_flow_converts_string_step_to_float(self):
+        """Test options flow converts string selector input to float."""
+        entry = MagicMock()
+        entry.entry_id = "test_entry_step"
+        entry.data = {}
+        entry.options = {}
+
+        flow = SPRSUNOptionsFlowHandler(entry)
+        flow.hass = MagicMock()
+
+        result = await flow.async_step_init(user_input={CONF_TEMP_STEP: "1.0"})
+        self.assertEqual(result["type"], "create_entry")
+        self.assertEqual(result["data"][CONF_TEMP_STEP], 1.0)
+        self.assertIsInstance(result["data"][CONF_TEMP_STEP], float)
 
 
 if __name__ == "__main__":
