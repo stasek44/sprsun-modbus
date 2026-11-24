@@ -45,8 +45,12 @@ Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using an RS485-
 
 ## Installation
 
-### Via HACS (Recommended)
-1. In Home Assistant, navigate to **HACS** → **Integrations** → Menu (top right) → **Custom repositories**.
+### One-Click Install (Recommended)
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=stasek44&repository=sprsun-modbus&category=integration)
+
+### Via HACS / Marketplace
+1. In Home Assistant, open **Settings** → **Marketplace** (or **HACS** in older installations) → Menu (top right) → **Custom repositories**.
 2. Add repository URL: `https://github.com/stasek44/sprsun-modbus` with category **Integration**.
 3. Search for **SPRSUN Heat Pump Modbus**, click **Download**, and restart Home Assistant.
 
