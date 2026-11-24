@@ -48,7 +48,7 @@ Never create or push a stable release tag (`vX.Y.Z`) directly after making code 
 2. **Pre-release Staging (Beta):**
    - Bump version in `custom_components/sprsun_modbus/manifest.json` with a beta suffix (e.g. `5.1.7b1`).
    - Create a pre-release tag (e.g. `v5.1.7-beta.1`) and push to GitHub.
-   - GitHub Actions automatically marks this as a GitHub Pre-release (`prerelease: true`), hiding it from regular HACS users.
+   - GitHub Actions runs full unit tests (Python 3.12/3.13), Hassfest, HACS validation, and Ruff on the tag. Only upon 100% success does it publish the release, automatically marked as Pre-release (`prerelease: true`).
 
 3. **Live Testing & Verification via MCP:**
    - Refresh HACS repository info: `ha_manage_hacs(action="update_information", repository_id="stasek44/sprsun-modbus")`.
@@ -62,3 +62,4 @@ Never create or push a stable release tag (`vX.Y.Z`) directly after making code 
 4. **Production Release (Stable):**
    - Only after live verification passes cleanly and the user confirms, bump `manifest.json` to the final stable version (`5.1.7`).
    - Create the clean stable tag `v5.1.7` and push to GitHub.
+   - GitHub Actions executes unit tests and quality validations before publishing the stable release as Latest.
