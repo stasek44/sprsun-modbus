@@ -83,11 +83,11 @@ async def validate_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict
 
 
 def _format_temp_step(val: Any) -> str:
-    """Format temperature step to string ("0.5" or "1.0")."""
+    """Format temperature step to string ("1.0" or "0.5")."""
     try:
         return f"{float(val):.1f}"
     except (ValueError, TypeError):
-        return "0.5"
+        return "1.0"
 
 
 def _temp_step_selector() -> selector.SelectSelector:
@@ -95,10 +95,35 @@ def _temp_step_selector() -> selector.SelectSelector:
     return selector.SelectSelector(
         selector.SelectSelectorConfig(
             options=[
-                selector.SelectOptionDict(value="0.5", label="0.5°C"),
                 selector.SelectOptionDict(value="1.0", label="1.0°C"),
+                selector.SelectOptionDict(value="0.5", label="0.5°C"),
             ],
             mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _device_address_selector() -> selector.NumberSelector:
+    """Return NumberSelector for device address (box mode, not slider)."""
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=1,
+            max=247,
+            step=1,
+            mode=selector.NumberSelectorMode.BOX,
+        )
+    )
+
+
+def _scan_interval_selector() -> selector.NumberSelector:
+    """Return NumberSelector for scan interval (box mode, not slider)."""
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=5,
+            max=300,
+            step=1,
+            unit_of_measurement="s",
+            mode=selector.NumberSelectorMode.BOX,
         )
     )
 
@@ -152,13 +177,13 @@ class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
                 vol.Required(CONF_HOST): str,
                 vol.Required(CONF_PORT, default=DEFAULT_PORT): cv.port,
-                vol.Required(CONF_DEVICE_ADDRESS, default=DEFAULT_DEVICE_ADDRESS): vol.All(
-                    vol.Coerce(int), vol.Range(min=1, max=247)
-                ),
-                vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
-                    vol.Coerce(int), vol.Range(min=5, max=300)
-                ),
-                vol.Required(CONF_TEMP_STEP, default="0.5"): _temp_step_selector(),
+                vol.Required(
+                    CONF_DEVICE_ADDRESS, default=DEFAULT_DEVICE_ADDRESS
+                ): _device_address_selector(),
+                vol.Optional(
+                    CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
+                ): _scan_interval_selector(),
+                vol.Required(CONF_TEMP_STEP, default="1.0"): _temp_step_selector(),
             }
         )
         
@@ -231,7 +256,7 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_DEVICE_ADDRESS, DEFAULT_DEVICE_ADDRESS
                         ),
                     ),
-                ): vol.All(vol.Coerce(int), vol.Range(min=1, max=247)),
+                ): _device_address_selector(),
                 vol.Required(
                     CONF_SCAN_INTERVAL,
                     default=self.config_entry.options.get(
@@ -240,7 +265,7 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
                             CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL
                         ),
                     ),
-                ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
+                ): _scan_interval_selector(),
                 vol.Required(
                     CONF_TEMP_STEP,
                     default=temp_step_default,

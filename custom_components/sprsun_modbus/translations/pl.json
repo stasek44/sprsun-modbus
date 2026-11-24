@@ -11,6 +11,9 @@
           "device_address": "Adres Modbus (1-247)",
           "scan_interval": "Interwał skanowania (5-300 sekund)",
           "temp_step": "Krok temperatury (°C)"
+        },
+        "data_description": {
+          "temp_step": "Domyślnie 1.0°C. Niektóre pompy pozwalają na bardziej precyzyjne sterowanie co 0.5°C, ale nie ma gwarancji, że będzie to działać na każdym oprogramowaniu."
         }
       }
     },
@@ -33,6 +36,9 @@
           "device_address": "Adres Modbus (1-247)",
           "scan_interval": "Interwał skanowania (5-300 sekund)",
           "temp_step": "Krok temperatury (°C)"
+        },
+        "data_description": {
+          "temp_step": "Domyślnie 1.0°C. Niektóre pompy pozwalają na bardziej precyzyjne sterowanie co 0.5°C, ale nie ma gwarancji, że będzie to działać na każdym oprogramowaniu."
         }
       }
     }

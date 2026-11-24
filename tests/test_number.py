@@ -51,14 +51,14 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
         entities = async_add_entities.call_args[0][0]
         self.assertEqual(len(entities), len(REGISTERS_NUMBER))
 
-        # Check default step for temperature entities with 0.5 step
+        # Check default step for temperature entities is now 1.0
         heating_setpoint = next(e for e in entities if e._key == "heating_setpoint")
-        self.assertEqual(heating_setpoint.native_step, 0.5)
+        self.assertEqual(heating_setpoint.native_step, 1.0)
 
     async def test_async_setup_entry_applies_temp_step_option(self):
         """Test async_setup_entry applies custom temp_step from options."""
         hass = MagicMock()
-        self.config_entry.options = {CONF_TEMP_STEP: 1.0}
+        self.config_entry.options = {CONF_TEMP_STEP: 0.5}
         hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
         async_add_entities = MagicMock()
 
@@ -70,8 +70,8 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
         # Temperature diff has step 1 originally, so it should stay 1
         temp_diff = next(e for e in entities if e._key == "temp_diff_heating_cooling")
 
-        self.assertEqual(heating_setpoint.native_step, 1.0)
-        self.assertEqual(hotwater_setpoint.native_step, 1.0)
+        self.assertEqual(heating_setpoint.native_step, 0.5)
+        self.assertEqual(hotwater_setpoint.native_step, 0.5)
         self.assertEqual(temp_diff.native_step, 1)
 
     async def test_async_setup_entry_applies_temp_step_mappingproxy(self):
@@ -156,9 +156,10 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
 
     async def test_async_set_native_value(self):
         """Test async_set_native_value converts scale and delegates to coordinator."""
+        self.config_entry.options = {CONF_TEMP_STEP: 0.5}
         number = SPRSUNNumber(
             self.coordinator, self.config_entry, "heating_setpoint", "Heating Setpoint",
-            0x00CC, 0.5, "°C", 10, 55, 0.5, "temperature"
+            0x00CC, 0.5, "°C", 10, 55, 0.5, "temperature", orig_step=0.5
         )
 
         await number.async_set_native_value(42.5)

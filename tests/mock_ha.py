@@ -348,10 +348,41 @@ def setup_mocks():
                 def __call__(self, val):
                     return val
 
+            class NumberSelectorMode(StrEnum):
+                BOX = "box"
+                SLIDER = "slider"
+
+            class NumberSelectorConfig:
+                def __init__(
+                    self,
+                    min=None,
+                    max=None,
+                    step=None,
+                    unit_of_measurement=None,
+                    mode=NumberSelectorMode.BOX,
+                    translation_key=None,
+                ):
+                    self.min = min
+                    self.max = max
+                    self.step = step
+                    self.unit_of_measurement = unit_of_measurement
+                    self.mode = mode
+                    self.translation_key = translation_key
+
+            class NumberSelector:
+                def __init__(self, config=None):
+                    self.config = config
+
+                def __call__(self, val):
+                    return int(val)
+
             selector_mod.SelectSelectorMode = SelectSelectorMode
             selector_mod.SelectOptionDict = SelectOptionDict
             selector_mod.SelectSelectorConfig = SelectSelectorConfig
             selector_mod.SelectSelector = SelectSelector
+            selector_mod.NumberSelectorMode = NumberSelectorMode
+            selector_mod.NumberSelectorConfig = NumberSelectorConfig
+            selector_mod.NumberSelector = NumberSelector
             helpers.selector = selector_mod
             sys.modules["homeassistant.helpers.selector"] = selector_mod
 

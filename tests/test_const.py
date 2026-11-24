@@ -37,7 +37,7 @@ class TestSPRSUNConstants(unittest.TestCase):
         self.assertEqual(DEFAULT_DEVICE_ADDRESS, 1)
         self.assertEqual(DEFAULT_SCAN_INTERVAL, 10)
         self.assertEqual(DEFAULT_TIMEOUT, 30)
-        self.assertEqual(DEFAULT_TEMP_STEP, 0.5)
+        self.assertEqual(DEFAULT_TEMP_STEP, 1.0)
         self.assertEqual(CONF_TEMP_STEP, "temp_step")
         self.assertEqual(INTER_WRITE_DELAY, 0.08)
 
@@ -204,8 +204,8 @@ class TestSPRSUNConstants(unittest.TestCase):
         # Default fallback
         entry.options = MappingProxyType({})
         entry.data = MappingProxyType({})
-        self.assertEqual(get_temp_step(entry), 0.5)
-        self.assertEqual(get_temp_step(None), 0.5)
+        self.assertEqual(get_temp_step(entry), 1.0)
+        self.assertEqual(get_temp_step(None), 1.0)
 
         # Coordinator mock fallback
         mock_coord_entry = MagicMock()

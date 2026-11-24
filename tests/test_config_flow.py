@@ -241,8 +241,8 @@ class TestConfigFlow(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(_format_temp_step("0.5"), "0.5")
         self.assertEqual(_format_temp_step("1.0"), "1.0")
         self.assertEqual(_format_temp_step("1"), "1.0")
-        self.assertEqual(_format_temp_step(None), "0.5")
-        self.assertEqual(_format_temp_step("invalid"), "0.5")
+        self.assertEqual(_format_temp_step(None), "1.0")
+        self.assertEqual(_format_temp_step("invalid"), "1.0")
 
     async def test_options_flow_preserves_saved_temp_step(self):
         """Test options flow form schema has saved temp_step as default."""

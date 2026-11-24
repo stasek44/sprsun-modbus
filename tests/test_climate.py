@@ -134,11 +134,11 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         """Test setting temperature in heating mode writes P01 (0x00CC)."""
         self.coordinator.data["unit_mode"]["value"] = 3
 
-        await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 41.5})
+        await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 41.0})
 
         self.coordinator.async_write_register.assert_called_once_with(
             address=0x00CC,
-            value=41.5,
+            value=41.0,
             key="heating_setpoint",
             scale=2,
         )
@@ -203,10 +203,10 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
 
     async def test_dhw_climate_set_temperature(self):
         """Test setting DHW setpoint writes P04 (0x00CA)."""
-        await self.dhw_climate.async_set_temperature(**{ATTR_TEMPERATURE: 52.5})
+        await self.dhw_climate.async_set_temperature(**{ATTR_TEMPERATURE: 52.0})
         self.coordinator.async_write_register.assert_called_once_with(
             address=0x00CA,
-            value=52.5,
+            value=52.0,
             key="hotwater_setpoint",
             scale=2,
         )
@@ -231,11 +231,11 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         )
 
     def test_temperature_step_default(self):
-        """Test default target temperature step and precision is 0.5°C."""
-        self.assertEqual(self.climate.target_temperature_step, 0.5)
-        self.assertEqual(self.climate.precision, 0.5)
-        self.assertEqual(self.dhw_climate.target_temperature_step, 0.5)
-        self.assertEqual(self.dhw_climate.precision, 0.5)
+        """Test default target temperature step and precision is 1.0°C."""
+        self.assertEqual(self.climate.target_temperature_step, 1.0)
+        self.assertEqual(self.climate.precision, 1.0)
+        self.assertEqual(self.dhw_climate.target_temperature_step, 1.0)
+        self.assertEqual(self.dhw_climate.precision, 1.0)
 
     def test_temperature_step_custom_options(self):
         """Test custom target temperature step configured via options."""
@@ -314,7 +314,13 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
 
     async def test_set_temperature_half_step_with_step_05(self):
         """Test async_set_temperature preserves 0.5 steps when step is 0.5."""
-        await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 28.5})
+        entry = MagicMock()
+        entry.entry_id = "step_05_entry"
+        entry.data = {CONF_NAME: "SPRSUN Heat Pump"}
+        entry.options = {CONF_TEMP_STEP: 0.5}
+        climate = SPRSUNClimate(self.coordinator, entry)
+
+        await climate.async_set_temperature(**{ATTR_TEMPERATURE: 28.5})
         self.coordinator.async_write_register.assert_called_with(
             address=0x00CC,
             value=28.5,

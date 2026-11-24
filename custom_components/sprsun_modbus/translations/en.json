@@ -11,6 +11,9 @@
           "device_address": "Modbus Device Address (1-247)",
           "scan_interval": "Scan Interval (5-300 seconds)",
           "temp_step": "Temperature Step (°C)"
+        },
+        "data_description": {
+          "temp_step": "Default 1.0°C. Some heat pump models allow finer 0.5°C control, but it is not guaranteed to work on all firmware versions."
         }
       }
     },
@@ -33,6 +36,9 @@
           "device_address": "Modbus Device Address (1-247)",
           "scan_interval": "Scan Interval (5-300 seconds)",
           "temp_step": "Temperature Step (°C)"
+        },
+        "data_description": {
+          "temp_step": "Default 1.0°C. Some heat pump models allow finer 0.5°C control, but it is not guaranteed to work on all firmware versions."
         }
       }
     }

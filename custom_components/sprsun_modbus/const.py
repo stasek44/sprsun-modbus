@@ -12,7 +12,7 @@ DEFAULT_PORT = 502
 DEFAULT_DEVICE_ADDRESS = 1
 DEFAULT_SCAN_INTERVAL = 10  # seconds - balance between responsiveness and load
 DEFAULT_TIMEOUT = 30  # seconds - Elfin W11 timeout (must be >= scan_interval + cycle_time)
-DEFAULT_TEMP_STEP = 0.5  # °C - temperature step for target temperature setpoints
+DEFAULT_TEMP_STEP = 1.0  # °C - temperature step for target temperature setpoints (1.0°C default for compatibility)
 INTER_WRITE_DELAY = 0.08  # seconds - safe turnaround delay for heat pump MCU EEPROM commit
 
 # Configuration keys
