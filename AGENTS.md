@@ -14,6 +14,26 @@ These guidelines apply to contributors, maintainers, and AI agents working on th
   - Respect `INTER_WRITE_DELAY` (defined in `const.py`) between consecutive write operations to allow the heat pump MCU adequate time to commit values to EEPROM.
   - Bitfield registers (`0x0032`, `0x0033`, `0x0034`) must use bit-masking operations to prevent clobbering adjacent flags during writes.
   - Parameter writes are restricted to Modbus Device Address `#1` per the hardware protocol.
+- **Expert / Sensitive Parameters Safety:**
+  - Engineering or factory-level parameters that affect compressor limits, protection thresholds, or hardware configuration must be opt-in (e.g., disabled by default in the entity registry or gated behind an integration option) and clearly documented with warnings.
+
+---
+
+## Branching & Pull Request Policy
+
+Keep `main` clean, stable, and always deployable:
+
+1. **Always Work on a Branch:**
+   - **Never commit code changes, bug fixes, or new features directly to `main`.**
+   - Create a dedicated branch from `main` using a descriptive prefix:
+     - `feat/<topic>` — new features (e.g., `feat/expert-settings`)
+     - `fix/<topic>` — bug fixes
+     - `refactor/<topic>` — internal cleanup/refactoring
+     - `docs/<topic>` or `chore/<topic>` — documentation or CI/maintenance updates
+2. **Pull Request & CI Checks:**
+   - Push the working branch and open a Pull Request targeting `main` (use a **Draft PR** while development or live hardware testing is in progress).
+   - Opening a PR triggers GitHub Actions (`test.yaml` and `validate.yaml`) and gives a clear diff for review before merging.
+   - Merge into `main` only after local verification and CI checks succeed (and after live verification for behavioral/Modbus changes). Delete temporary branches after merging.
 
 ---
 
@@ -46,21 +66,24 @@ For all bug fixes, features, or configuration modifications:
 
 ## Maintainer Release & Staging Protocol
 
-Only repository maintainers (or authorized automated release agents) publish tags and releases. Releases follow a staged verification pipeline:
+Only repository maintainers (or authorized automated release agents) publish tags and releases. Follow SemVer (`PATCH` for fixes/docs, `MINOR` for new features/entities):
 
-1. **Pre-release Staging (Beta):**
-   - For changes requiring live hardware/integration validation, bump `manifest.json` to a beta version (e.g. `5.1.8b1`).
-   - Create and push a pre-release tag (e.g. `v5.1.8-beta.1`).
-   - GitHub Actions executes unit tests (Python 3.12/3.13), Hassfest, HACS validation, and Ruff. Upon 100% pass, it creates a GitHub Release marked as **Pre-release** (hidden from standard HACS users).
+1. **Pre-release Staging from Feature Branch (Beta):**
+   - Stage and test risky/functional changes **on the feature branch** so `main` stays untouched during testing.
+   - Bump `custom_components/sprsun_modbus/manifest.json` to a beta version (e.g. `5.2.0b1`).
+   - Commit on the feature branch, create a pre-release tag (e.g. `v5.2.0-beta.1`), and push branch + tag to GitHub.
+   - GitHub Actions (`release.yaml`) runs full unit tests (Python 3.12/3.13), Hassfest, HACS validation, and Ruff on the tag, then publishes a **Pre-release** (hidden from standard HACS users).
 
 2. **Live Environment Verification:**
-   - Install/update the beta version on a test Home Assistant instance (via HACS or manually; or automated via `ha-mcp` if available).
-   - Verify post-restart health:
+   - Install the beta tag on a test Home Assistant instance (via HACS/Marketplace or manually; automated via `ha-mcp` if available).
+   - Restart Home Assistant and verify post-restart health:
      - Integration state is `loaded`.
      - Logs contain 0 unexpected exceptions or warnings.
-     - Entity states and controls (climate, numbers, switches) behave accurately.
+     - Entity states and Modbus writes/controls behave accurately on hardware.
+   - If issues are found, fix them on the same feature branch and stage `vX.Y.Z-beta.2`, etc.
 
-3. **Production Release (Stable):**
-   - Once verified error-free on the live environment, bump `manifest.json` to the final stable version (e.g. `5.1.8`).
-   - Create and push the clean stable tag (e.g. `v5.1.8`).
-   - GitHub Actions runs the full test and validation suite before publishing the release as **Latest** on GitHub.
+3. **Merge & Production Release (Stable):**
+   - Once live verification succeeds, update `manifest.json` on the feature branch to the final stable version (e.g. `5.2.0`).
+   - Ensure all PR CI checks (`test.yaml`, `validate.yaml`) are green, then merge the PR into `main` (e.g. squash and merge).
+   - Pull the updated `main` locally, create the clean stable tag (e.g. `v5.2.0`), and push the tag to GitHub.
+   - GitHub Actions executes unit tests and quality validations on `vX.Y.Z` before publishing the release as **Latest**.
