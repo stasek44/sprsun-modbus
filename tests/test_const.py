@@ -22,6 +22,7 @@ from custom_components.sprsun_modbus.const import (
     REGISTERS_SELECT,
     REGISTERS_NUMBER,
     WEEKDAY_MAP,
+    get_temp_step,
 )
 
 
@@ -180,6 +181,37 @@ class TestSPRSUNConstants(unittest.TestCase):
         self.assertEqual(WEEKDAY_MAP[0], "Sunday")
         self.assertEqual(WEEKDAY_MAP[1], "Monday")
         self.assertEqual(WEEKDAY_MAP[6], "Saturday")
+
+    def test_get_temp_step_mappings_and_fallbacks(self):
+        """Test get_temp_step helper handles dict, MappingProxyType, None and fallback."""
+        from types import MappingProxyType
+        from unittest.mock import MagicMock
+
+        # Standard dict
+        entry = MagicMock()
+        entry.options = {CONF_TEMP_STEP: 1.0}
+        self.assertEqual(get_temp_step(entry), 1.0)
+
+        # MappingProxyType (used by Home Assistant)
+        entry.options = MappingProxyType({CONF_TEMP_STEP: 1.0})
+        self.assertEqual(get_temp_step(entry), 1.0)
+
+        # In data
+        entry.options = MappingProxyType({})
+        entry.data = MappingProxyType({CONF_TEMP_STEP: 1.0})
+        self.assertEqual(get_temp_step(entry), 1.0)
+
+        # Default fallback
+        entry.options = MappingProxyType({})
+        entry.data = MappingProxyType({})
+        self.assertEqual(get_temp_step(entry), 0.5)
+        self.assertEqual(get_temp_step(None), 0.5)
+
+        # Coordinator mock fallback
+        mock_coord_entry = MagicMock()
+        mock_fallback = MagicMock()
+        mock_fallback.options = {CONF_TEMP_STEP: 1.0}
+        self.assertEqual(get_temp_step(mock_coord_entry, mock_fallback), 1.0)
 
 
 if __name__ == "__main__":

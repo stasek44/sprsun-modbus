@@ -9,7 +9,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, REGISTERS_NUMBER, CONF_TEMP_STEP, DEFAULT_TEMP_STEP
+from .const import DOMAIN, REGISTERS_NUMBER, get_temp_step
 
 PRIMARY_SETPOINTS = {"heating_setpoint", "cooling_setpoint", "hotwater_setpoint"}
 
@@ -21,10 +21,7 @@ async def async_setup_entry(
 ) -> None:
     """Set up SPRSUN numbers."""
     coordinator = getattr(config_entry, "runtime_data", None) or hass.data[DOMAIN][config_entry.entry_id]
-    
-    options = config_entry.options if isinstance(getattr(config_entry, "options", None), dict) else {}
-    data = config_entry.data if isinstance(getattr(config_entry, "data", None), dict) else {}
-    temp_step = float(options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP)))
+    temp_step = get_temp_step(config_entry, getattr(coordinator, "config_entry", None))
     
     entities = []
     for address, config in REGISTERS_NUMBER.items():
@@ -111,14 +108,7 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
     def native_step(self) -> float:
         """Return the step for the number value."""
         if self._attr_device_class == NumberDeviceClass.TEMPERATURE and self._orig_step == 0.5:
-            entry = getattr(self, "_config_entry", None) or getattr(self.coordinator, "config_entry", None)
-            options = entry.options if isinstance(getattr(entry, "options", None), dict) else {}
-            data = entry.data if isinstance(getattr(entry, "data", None), dict) else {}
-            raw_val = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
-            try:
-                return float(raw_val)
-            except (ValueError, TypeError):
-                return DEFAULT_TEMP_STEP
+            return get_temp_step(self._config_entry, getattr(self.coordinator, "config_entry", None))
         return self._attr_native_step
 
     @property

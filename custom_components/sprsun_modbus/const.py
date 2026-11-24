@@ -1,4 +1,7 @@
 """Constants for the SPRSUN Heat Pump Modbus integration."""
+from collections.abc import Mapping
+from typing import Any
+
 from homeassistant.const import Platform
 
 DOMAIN = "sprsun_modbus"
@@ -17,6 +20,32 @@ CONF_DEVICE_ADDRESS = "device_address"
 CONF_SCAN_INTERVAL = "scan_interval"
 CONF_CONTROLLER_TYPE = "controller_type"  # "chico"
 CONF_TEMP_STEP = "temp_step"
+
+
+def get_temp_step(entry: Any, fallback_entry: Any = None) -> float:
+    """Extract configured temperature step from entry options or data.
+    
+    Supports MappingProxyType (used by Home Assistant ConfigEntry), standard dicts,
+    and handles fallback lookup.
+    """
+    for e in (entry, fallback_entry):
+        if e is None:
+            continue
+        raw_options = getattr(e, "options", None)
+        raw_data = getattr(e, "data", None)
+        options = raw_options if isinstance(raw_options, Mapping) else {}
+        data = raw_data if isinstance(raw_data, Mapping) else {}
+        if CONF_TEMP_STEP in options:
+            try:
+                return float(options[CONF_TEMP_STEP])
+            except (ValueError, TypeError):
+                pass
+        if CONF_TEMP_STEP in data:
+            try:
+                return float(data[CONF_TEMP_STEP])
+            except (ValueError, TypeError):
+                pass
+    return DEFAULT_TEMP_STEP
 
 # Platforms
 PLATFORMS: list[Platform] = [

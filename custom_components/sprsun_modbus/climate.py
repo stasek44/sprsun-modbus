@@ -17,7 +17,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, CONF_TEMP_STEP, DEFAULT_TEMP_STEP
+from .const import DOMAIN, get_temp_step
 
 
 async def async_setup_entry(
@@ -92,14 +92,7 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     @property
     def target_temperature_step(self) -> float:
         """Return the target temperature step."""
-        entry = getattr(self, "_config_entry", None) or getattr(self.coordinator, "config_entry", None)
-        options = entry.options if isinstance(getattr(entry, "options", None), dict) else {}
-        data = entry.data if isinstance(getattr(entry, "data", None), dict) else {}
-        raw_val = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
-        try:
-            return float(raw_val)
-        except (ValueError, TypeError):
-            return DEFAULT_TEMP_STEP
+        return get_temp_step(self._config_entry, getattr(self.coordinator, "config_entry", None))
 
     @property
     def precision(self) -> float:
@@ -424,14 +417,7 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
     @property
     def target_temperature_step(self) -> float:
         """Return the target temperature step."""
-        entry = getattr(self, "_config_entry", None) or getattr(self.coordinator, "config_entry", None)
-        options = entry.options if isinstance(getattr(entry, "options", None), dict) else {}
-        data = entry.data if isinstance(getattr(entry, "data", None), dict) else {}
-        raw_val = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
-        try:
-            return float(raw_val)
-        except (ValueError, TypeError):
-            return DEFAULT_TEMP_STEP
+        return get_temp_step(self._config_entry, getattr(self.coordinator, "config_entry", None))
 
     @property
     def precision(self) -> float:

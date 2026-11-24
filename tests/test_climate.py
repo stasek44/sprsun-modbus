@@ -252,6 +252,23 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(dhw.target_temperature_step, 1.0)
         self.assertEqual(dhw.precision, 1.0)
 
+    def test_temperature_step_mappingproxy(self):
+        """Test target temperature step works with MappingProxyType (as in real Home Assistant)."""
+        from types import MappingProxyType
+
+        entry = MagicMock()
+        entry.entry_id = "custom_step_mappingproxy"
+        entry.data = MappingProxyType({CONF_NAME: "SPRSUN Heat Pump"})
+        entry.options = MappingProxyType({CONF_TEMP_STEP: 1.0})
+
+        climate = SPRSUNClimate(self.coordinator, entry)
+        dhw = SPRSUNDHWClimate(self.coordinator, entry)
+
+        self.assertEqual(climate.target_temperature_step, 1.0)
+        self.assertEqual(climate.precision, 1.0)
+        self.assertEqual(dhw.target_temperature_step, 1.0)
+        self.assertEqual(dhw.precision, 1.0)
+
     def test_temperature_step_custom_data(self):
         """Test custom target temperature step configured via initial data."""
         entry = MagicMock()

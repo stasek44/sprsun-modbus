@@ -74,6 +74,24 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(hotwater_setpoint.native_step, 1.0)
         self.assertEqual(temp_diff.native_step, 1)
 
+    async def test_async_setup_entry_applies_temp_step_mappingproxy(self):
+        """Test async_setup_entry applies custom temp_step with MappingProxyType (as in real HA)."""
+        from types import MappingProxyType
+
+        hass = MagicMock()
+        self.config_entry.options = MappingProxyType({CONF_TEMP_STEP: 1.0})
+        hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
+        async_add_entities = MagicMock()
+
+        await async_setup_entry(hass, self.config_entry, async_add_entities)
+
+        entities = async_add_entities.call_args[0][0]
+        heating_setpoint = next(e for e in entities if e._key == "heating_setpoint")
+        hotwater_setpoint = next(e for e in entities if e._key == "hotwater_setpoint")
+
+        self.assertEqual(heating_setpoint.native_step, 1.0)
+        self.assertEqual(hotwater_setpoint.native_step, 1.0)
+
     def test_number_attributes(self):
         """Test number attributes (min, max, step, units, device_class)."""
         # 0x00CC: ("heating_setpoint", "Heating Setpoint", 0.5, "°C", 10, 55, 0.5, "temperature")
