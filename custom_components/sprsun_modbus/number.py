@@ -9,7 +9,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, REGISTERS_NUMBER
+from .const import DOMAIN, REGISTERS_NUMBER, CONF_TEMP_STEP, DEFAULT_TEMP_STEP
 
 PRIMARY_SETPOINTS = {"heating_setpoint", "cooling_setpoint", "hotwater_setpoint"}
 
@@ -22,9 +22,15 @@ async def async_setup_entry(
     """Set up SPRSUN numbers."""
     coordinator = getattr(config_entry, "runtime_data", None) or hass.data[DOMAIN][config_entry.entry_id]
     
+    options = config_entry.options if isinstance(getattr(config_entry, "options", None), dict) else {}
+    data = config_entry.data if isinstance(getattr(config_entry, "data", None), dict) else {}
+    temp_step = float(options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP)))
+    
     entities = []
     for address, config in REGISTERS_NUMBER.items():
         key, name, scale, unit, min_val, max_val, step, device_class = config
+        if device_class == "temperature" and step == 0.5:
+            step = temp_step
         entities.append(
             SPRSUNNumber(
                 coordinator,

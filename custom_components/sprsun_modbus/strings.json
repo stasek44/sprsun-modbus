@@ -9,7 +9,8 @@
           "host": "Host (IP Address)",
           "port": "Port",
           "device_address": "Modbus Device Address (1-247)",
-          "scan_interval": "Scan Interval (5-300 seconds)"
+          "scan_interval": "Scan Interval (5-300 seconds)",
+          "temp_step": "Temperature Step (°C)"
         }
       }
     },
@@ -30,7 +31,8 @@
           "host": "Host (IP Address)",
           "port": "Port",
           "device_address": "Modbus Device Address (1-247)",
-          "scan_interval": "Scan Interval (5-300 seconds)"
+          "scan_interval": "Scan Interval (5-300 seconds)",
+          "temp_step": "Temperature Step (°C)"
         }
       }
     }

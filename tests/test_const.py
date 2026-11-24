@@ -11,7 +11,9 @@ from custom_components.sprsun_modbus.const import (
     DEFAULT_DEVICE_ADDRESS,
     DEFAULT_SCAN_INTERVAL,
     DEFAULT_TIMEOUT,
+    DEFAULT_TEMP_STEP,
     INTER_WRITE_DELAY,
+    CONF_TEMP_STEP,
     PLATFORMS,
     REGISTERS_READ_ONLY,
     BINARY_SENSOR_BITS,
@@ -34,6 +36,8 @@ class TestSPRSUNConstants(unittest.TestCase):
         self.assertEqual(DEFAULT_DEVICE_ADDRESS, 1)
         self.assertEqual(DEFAULT_SCAN_INTERVAL, 10)
         self.assertEqual(DEFAULT_TIMEOUT, 30)
+        self.assertEqual(DEFAULT_TEMP_STEP, 0.5)
+        self.assertEqual(CONF_TEMP_STEP, "temp_step")
         self.assertEqual(INTER_WRITE_DELAY, 0.08)
 
     def test_platforms(self):

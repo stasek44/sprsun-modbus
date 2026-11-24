@@ -11,6 +11,7 @@ from custom_components.sprsun_modbus.const import (
     CONF_DEVICE_ADDRESS,
     CONF_SCAN_INTERVAL,
     CONF_CONTROLLER_TYPE,
+    CONF_TEMP_STEP,
 )
 from custom_components.sprsun_modbus.config_flow import (
     SPRSUNConfigFlow,
@@ -197,11 +198,39 @@ class TestConfigFlow(unittest.IsolatedAsyncioTestCase):
 
         user_input = {
             CONF_SCAN_INTERVAL: 20,
+            CONF_TEMP_STEP: 1.0,
         }
 
         result = await flow.async_step_init(user_input=user_input)
         self.assertEqual(result["type"], "create_entry")
         self.assertEqual(result["data"], user_input)
+
+    async def test_config_flow_user_step_with_temp_step(self):
+        """Test async_step_user creates config entry with custom temp_step."""
+        flow = SPRSUNConfigFlow()
+        flow.hass = MagicMock()
+
+        user_input = {
+            CONF_NAME: "My Heat Pump 1C",
+            CONF_HOST: "192.168.1.155",
+            CONF_PORT: 502,
+            CONF_DEVICE_ADDRESS: 1,
+            CONF_SCAN_INTERVAL: 10,
+            CONF_TEMP_STEP: 1.0,
+        }
+
+        with patch("custom_components.sprsun_modbus.config_flow.validate_connection") as mock_val:
+            mock_val.return_value = {
+                "title": "My Heat Pump 1C",
+                "controller_type": "chico",
+            }
+
+            result = await flow.async_step_user(user_input=user_input)
+
+            self.assertEqual(result["type"], "create_entry")
+            self.assertEqual(result["title"], "My Heat Pump 1C")
+            self.assertEqual(result["data"][CONF_CONTROLLER_TYPE], "chico")
+            self.assertEqual(result["data"][CONF_TEMP_STEP], 1.0)
 
 
 if __name__ == "__main__":

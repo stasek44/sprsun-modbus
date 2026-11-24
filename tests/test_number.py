@@ -9,6 +9,7 @@ from homeassistant.const import CONF_NAME, CONF_HOST, CONF_PORT
 from custom_components.sprsun_modbus.const import (
     DOMAIN,
     CONF_DEVICE_ADDRESS,
+    CONF_TEMP_STEP,
     REGISTERS_NUMBER,
 )
 from custom_components.sprsun_modbus.number import SPRSUNNumber, async_setup_entry
@@ -36,6 +37,7 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
             CONF_PORT: 502,
             CONF_DEVICE_ADDRESS: 1,
         }
+        self.config_entry.options = {}
 
     async def test_async_setup_entry_creates_all_numbers(self):
         """Test async_setup_entry creates all 42 number entities."""
@@ -48,6 +50,29 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
         async_add_entities.assert_called_once()
         entities = async_add_entities.call_args[0][0]
         self.assertEqual(len(entities), len(REGISTERS_NUMBER))
+
+        # Check default step for temperature entities with 0.5 step
+        heating_setpoint = next(e for e in entities if e._key == "heating_setpoint")
+        self.assertEqual(heating_setpoint.native_step, 0.5)
+
+    async def test_async_setup_entry_applies_temp_step_option(self):
+        """Test async_setup_entry applies custom temp_step from options."""
+        hass = MagicMock()
+        self.config_entry.options = {CONF_TEMP_STEP: 1.0}
+        hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
+        async_add_entities = MagicMock()
+
+        await async_setup_entry(hass, self.config_entry, async_add_entities)
+
+        entities = async_add_entities.call_args[0][0]
+        heating_setpoint = next(e for e in entities if e._key == "heating_setpoint")
+        hotwater_setpoint = next(e for e in entities if e._key == "hotwater_setpoint")
+        # Temperature diff has step 1 originally, so it should stay 1
+        temp_diff = next(e for e in entities if e._key == "temp_diff_heating_cooling")
+
+        self.assertEqual(heating_setpoint.native_step, 1.0)
+        self.assertEqual(hotwater_setpoint.native_step, 1.0)
+        self.assertEqual(temp_diff.native_step, 1)
 
     def test_number_attributes(self):
         """Test number attributes (min, max, step, units, device_class)."""

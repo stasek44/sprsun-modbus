@@ -76,9 +76,10 @@ Copy the directory `custom_components/sprsun_modbus` into your Home Assistant `<
    - **Port:** `502`
    - **Device Address:** Modbus slave address (typically `1`)
    - **Scan Interval:** `10`–`30` seconds
+   - **Temperature Step:** `0.5°C` (default) or `1.0°C` (set to `1.0°C` if your heat pump model or firmware enforces 1°C steps and rejects half-degree setpoints)
 4. Save. Entities will be discovered and created automatically.
 
-Options can be updated at any time under **Configure** on the integration card.
+Options (including **Scan Interval** and **Temperature Step**) can be updated at any time under **Configure** on the integration card.
 
 ---
 

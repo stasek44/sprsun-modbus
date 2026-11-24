@@ -13,7 +13,7 @@ from homeassistant.components.climate import (
     PRESET_BOOST,
 )
 from homeassistant.const import CONF_NAME, ATTR_TEMPERATURE, UnitOfTemperature
-from custom_components.sprsun_modbus.const import DOMAIN
+from custom_components.sprsun_modbus.const import DOMAIN, CONF_TEMP_STEP
 from custom_components.sprsun_modbus.climate import (
     SPRSUNClimate,
     SPRSUNDHWClimate,
@@ -50,6 +50,7 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         self.config_entry.data = {
             CONF_NAME: "SPRSUN Heat Pump",
         }
+        self.config_entry.options = {}
 
         self.climate = SPRSUNClimate(self.coordinator, self.config_entry)
         self.dhw_climate = SPRSUNDHWClimate(self.coordinator, self.config_entry)
@@ -228,6 +229,37 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         self.coordinator.async_write_register.assert_called_with(
             address=0x0036, value=1, key="unit_mode", scale=1
         )
+
+    def test_temperature_step_default(self):
+        """Test default target temperature step is 0.5°C."""
+        self.assertEqual(self.climate.target_temperature_step, 0.5)
+        self.assertEqual(self.dhw_climate.target_temperature_step, 0.5)
+
+    def test_temperature_step_custom_options(self):
+        """Test custom target temperature step configured via options."""
+        entry = MagicMock()
+        entry.entry_id = "custom_step_entry"
+        entry.data = {CONF_NAME: "SPRSUN Heat Pump"}
+        entry.options = {CONF_TEMP_STEP: 1.0}
+
+        climate = SPRSUNClimate(self.coordinator, entry)
+        dhw = SPRSUNDHWClimate(self.coordinator, entry)
+
+        self.assertEqual(climate.target_temperature_step, 1.0)
+        self.assertEqual(dhw.target_temperature_step, 1.0)
+
+    def test_temperature_step_custom_data(self):
+        """Test custom target temperature step configured via initial data."""
+        entry = MagicMock()
+        entry.entry_id = "custom_step_entry"
+        entry.data = {CONF_NAME: "SPRSUN Heat Pump", CONF_TEMP_STEP: 1.0}
+        entry.options = {}
+
+        climate = SPRSUNClimate(self.coordinator, entry)
+        dhw = SPRSUNDHWClimate(self.coordinator, entry)
+
+        self.assertEqual(climate.target_temperature_step, 1.0)
+        self.assertEqual(dhw.target_temperature_step, 1.0)
 
 
 if __name__ == "__main__":

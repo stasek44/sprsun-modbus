@@ -46,6 +46,9 @@ def setup_mocks():
                 @staticmethod
                 def Range(min=None, max=None):
                     return lambda v: v
+                @staticmethod
+                def In(container):
+                    return lambda v: v
 
             sys.modules["voluptuous"] = MockVol()
 
@@ -232,6 +235,22 @@ def setup_mocks():
                 @property
                 def temperature_unit(self):
                     return getattr(self, "_attr_native_temperature_unit", getattr(self, "_attr_temperature_unit", None))
+
+                @property
+                def target_temperature_step(self):
+                    return getattr(self, "_attr_target_temperature_step", None)
+
+                @property
+                def native_step(self):
+                    return getattr(self, "_attr_native_step", None)
+
+                @property
+                def native_min_value(self):
+                    return getattr(self, "_attr_native_min_value", None)
+
+                @property
+                def native_max_value(self):
+                    return getattr(self, "_attr_native_max_value", None)
 
                 def async_write_ha_state(self):
                     pass

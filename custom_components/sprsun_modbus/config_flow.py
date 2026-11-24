@@ -23,6 +23,8 @@ from .const import (
     CONF_DEVICE_ADDRESS,
     CONF_SCAN_INTERVAL,
     CONF_CONTROLLER_TYPE,
+    CONF_TEMP_STEP,
+    DEFAULT_TEMP_STEP,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -130,6 +132,9 @@ class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Optional(CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL): vol.All(
                     vol.Coerce(int), vol.Range(min=5, max=300)
                 ),
+                vol.Optional(CONF_TEMP_STEP, default=DEFAULT_TEMP_STEP): vol.All(
+                    vol.Coerce(float), vol.In([0.5, 1.0])
+                ),
             }
         )
         
@@ -196,6 +201,15 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
                         ),
                     ),
                 ): vol.All(vol.Coerce(int), vol.Range(min=5, max=300)),
+                vol.Required(
+                    CONF_TEMP_STEP,
+                    default=self.config_entry.options.get(
+                        CONF_TEMP_STEP,
+                        self.config_entry.data.get(
+                            CONF_TEMP_STEP, DEFAULT_TEMP_STEP
+                        ),
+                    ),
+                ): vol.All(vol.Coerce(float), vol.In([0.5, 1.0])),
             }
         )
         

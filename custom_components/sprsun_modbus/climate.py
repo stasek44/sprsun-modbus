@@ -17,7 +17,7 @@ from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, CONF_TEMP_STEP, DEFAULT_TEMP_STEP
 
 
 async def async_setup_entry(
@@ -70,6 +70,11 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
     def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
         """Initialize the climate entity."""
         super().__init__(coordinator)
+        
+        options = config_entry.options if isinstance(getattr(config_entry, "options", None), dict) else {}
+        data = config_entry.data if isinstance(getattr(config_entry, "data", None), dict) else {}
+        temp_step = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
+        self._attr_target_temperature_step = float(temp_step)
         
         self._attr_name = "Heating/Cooling"
         self._attr_unique_id = f"{config_entry.entry_id}_climate"
@@ -382,6 +387,11 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
     def __init__(self, coordinator, config_entry: ConfigEntry) -> None:
         """Initialize the DHW climate entity."""
         super().__init__(coordinator)
+        
+        options = config_entry.options if isinstance(getattr(config_entry, "options", None), dict) else {}
+        data = config_entry.data if isinstance(getattr(config_entry, "data", None), dict) else {}
+        temp_step = options.get(CONF_TEMP_STEP, data.get(CONF_TEMP_STEP, DEFAULT_TEMP_STEP))
+        self._attr_target_temperature_step = float(temp_step)
         
         self._attr_name = "DHW"
         self._attr_unique_id = f"{config_entry.entry_id}_dhw_climate"
