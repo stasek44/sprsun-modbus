@@ -3,7 +3,11 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
+import inspect
+import json
 import logging
+from pathlib import Path
+import re
 import select as sys_select
 import socket
 import time
@@ -42,8 +46,44 @@ def _resolve_platforms(coordinator: Any) -> list[Platform]:
     return PLATFORMS
 
 
+def _read_manifest_version() -> str:
+    """Read integration version string from manifest.json."""
+    try:
+        data = json.loads(Path(__file__).with_name("manifest.json").read_text(encoding="utf-8"))
+        return str(data.get("version", ""))
+    except Exception:
+        return ""
+
+
+def _is_prerelease_version(version: str) -> bool:
+    """Return True for beta/alpha/rc/dev pre-release version strings."""
+    lowered = version.strip().lower()
+    if any(token in lowered for token in ("alpha", "beta", "dev", "rc")):
+        return True
+    return bool(re.search(r"\d+(?:a|b|rc)\d*", lowered))
+
+
+def _configure_prerelease_logging(version: str) -> None:
+    """Default package logger level to DEBUG on beta/test pre-release builds."""
+    if not _is_prerelease_version(version):
+        return
+    pkg_logger = logging.getLogger(__package__ or "custom_components.sprsun_modbus")
+    if pkg_logger.level in (logging.NOTSET, logging.WARNING):
+        pkg_logger.setLevel(logging.DEBUG)
+        _LOGGER.debug(
+            "Pre-release version %s detected; defaulting integration log level to DEBUG",
+            version,
+        )
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SPRSUN Heat Pump from a config entry."""
+    executor = getattr(hass, "async_add_executor_job", None)
+    if callable(executor):
+        res = executor(_read_manifest_version)
+        if inspect.isawaitable(res):
+            _configure_prerelease_logging(await res)
+
     host = entry.options.get(CONF_HOST, entry.data.get(CONF_HOST))
     port = entry.options.get(CONF_PORT, entry.data.get(CONF_PORT))
     device_address = entry.options.get(CONF_DEVICE_ADDRESS, entry.data.get(CONF_DEVICE_ADDRESS))

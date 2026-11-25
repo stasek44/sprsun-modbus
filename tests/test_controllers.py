@@ -384,6 +384,14 @@ class TestControllers(unittest.TestCase):
         for spec in word_specs:
             self.assertIn(spec.address, covered, f"Address 0x{spec.address:04X} ({spec.key}) not covered by batch")
 
+        by_key = {spec.key: spec for spec in controller.get_sensors()}
+        self.assertEqual(by_key["d05_cool_dcfan_high_press"].unit, "bar")
+        self.assertEqual(by_key["d06_cool_dcfan_open_diff"].device_class, "pressure")
+        self.assertEqual(by_key["d16_dcfan_adjust_speed_1"].unit, "rpm")
+        self.assertEqual(by_key["a44_mv_water_lower"].min_value, 0)
+        self.assertEqual(by_key["f40_wt_constant_temp_diff"].min_value, 0)
+        self.assertEqual(by_key["timeband_1_weekday"].max_value, 127)
+
 
 if __name__ == "__main__":
     unittest.main()

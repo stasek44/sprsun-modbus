@@ -14,6 +14,8 @@ from custom_components.sprsun_modbus.const import (
     PLATFORMS,
 )
 from custom_components.sprsun_modbus import (
+    _configure_prerelease_logging,
+    _is_prerelease_version,
     async_setup_entry,
     async_unload_entry,
     SPRSUNDataUpdateCoordinator,
@@ -77,6 +79,34 @@ class TestIntegrationLifecycle(unittest.IsolatedAsyncioTestCase):
         )
         coordinator.async_shutdown.assert_called_once()
         self.assertNotIn(self.entry.entry_id, self.hass.data.get(DOMAIN, {}))
+
+    def test_prerelease_version_detection_and_default_debug_logging(self):
+        """Pre-release/beta builds default logger level to DEBUG while stable builds stay untouched."""
+        import logging
+
+        self.assertTrue(_is_prerelease_version("5.2.0b3"))
+        self.assertTrue(_is_prerelease_version("5.2.0-beta.2"))
+        self.assertTrue(_is_prerelease_version("5.3.0a1"))
+        self.assertTrue(_is_prerelease_version("5.3.0rc1"))
+        self.assertTrue(_is_prerelease_version("5.3.0dev0"))
+        self.assertFalse(_is_prerelease_version("5.2.0"))
+        self.assertFalse(_is_prerelease_version("5.1.9"))
+
+        pkg_logger = logging.getLogger("custom_components.sprsun_modbus")
+        orig_level = pkg_logger.level
+        try:
+            pkg_logger.setLevel(logging.WARNING)
+            _configure_prerelease_logging("5.2.0")
+            self.assertEqual(pkg_logger.level, logging.WARNING)
+
+            _configure_prerelease_logging("5.2.0b3")
+            self.assertEqual(pkg_logger.level, logging.DEBUG)
+
+            pkg_logger.setLevel(logging.ERROR)
+            _configure_prerelease_logging("5.2.0b3")
+            self.assertEqual(pkg_logger.level, logging.ERROR)
+        finally:
+            pkg_logger.setLevel(orig_level)
 
 
 if __name__ == "__main__":
