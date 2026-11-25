@@ -1,6 +1,8 @@
 """Sensor platform for SPRSUN Heat Pump."""
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from homeassistant.components.sensor import (
     SensorDeviceClass,
     SensorEntity,
@@ -64,6 +66,8 @@ async def async_setup_entry(
             spec.device_class,
             state_class=spec.state_class,
             diagnostic=spec.diagnostic,
+            options=spec.options,
+            enabled_default=spec.enabled_default,
         )
         for spec in controller.get_sensors()
     ]
@@ -86,14 +90,20 @@ class SPRSUNSensor(CoordinatorEntity, SensorEntity):
         device_class: str | None,
         state_class: str | None = None,
         diagnostic: bool | None = None,
+        options: Mapping[int, str] | None = None,
+        enabled_default: bool = True,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
 
         self._key = key
+        self._options = options
         self._attr_name = name
         self._attr_unique_id = f"{config_entry.entry_id}_{key}"
         self._attr_native_unit_of_measurement = unit
+
+        if not enabled_default:
+            self._attr_entity_registry_enabled_default = False
 
         is_diagnostic = diagnostic if diagnostic is not None else (key in DIAGNOSTIC_SENSOR_KEYS)
         if is_diagnostic:
@@ -109,6 +119,8 @@ class SPRSUNSensor(CoordinatorEntity, SensorEntity):
             self._attr_state_class = SensorStateClass.TOTAL_INCREASING
         elif state_class == "total":
             self._attr_state_class = SensorStateClass.TOTAL
+        elif state_class == "none":
+            pass
         elif state_class == "measurement" or (
             state_class is None and device_class in _MEASUREMENT_DEVICE_CLASSES
         ):
@@ -120,7 +132,14 @@ class SPRSUNSensor(CoordinatorEntity, SensorEntity):
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        return extract_cache_value(self.coordinator.data, self._key)
+        value = extract_cache_value(self.coordinator.data, self._key)
+        if value is not None and self._options is not None:
+            try:
+                int_value = int(value)
+            except (TypeError, ValueError):
+                return value
+            return self._options.get(int_value, f"Unknown ({int_value})")
+        return value
 
     @property
     def available(self) -> bool:

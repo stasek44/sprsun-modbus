@@ -35,10 +35,12 @@
           "port": "Port",
           "device_address": "Modbus Device Address (1-247)",
           "scan_interval": "Scan Interval (5-300 seconds)",
-          "temp_step": "Temperature Step (°C)"
+          "temp_step": "Temperature Step (°C)",
+          "enable_expert_writes": "Enable Expert Settings Writes (Advanced / Risky)"
         },
         "data_description": {
-          "temp_step": "Default 1.0°C. Some heat pump models allow finer 0.5°C control, but it is not guaranteed to work on all firmware versions."
+          "temp_step": "Default 1.0°C. Some heat pump models allow finer 0.5°C control, but it is not guaranteed to work on all firmware versions.",
+          "enable_expert_writes": "WARNING: Exposes writable CHICO engineering/factory parameters (H/A/B/D/F/R, Timebands, and control bits) under Config. Incorrect values can damage the compressor or disrupt operation. Keep disabled unless you know what each parameter does."
         }
       }
     }

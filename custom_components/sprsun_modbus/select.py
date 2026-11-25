@@ -10,7 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, is_expert_writes_enabled
 from .controllers import (
     build_device_info,
     extract_cache_value,
@@ -30,6 +30,10 @@ async def async_setup_entry(
     coordinator = resolve_coordinator(hass, config_entry, DOMAIN)
     controller = resolve_controller(coordinator)
 
+    specs = controller.get_selects()
+    if is_expert_writes_enabled(config_entry, getattr(coordinator, "config_entry", None)):
+        specs = specs + controller.get_expert_selects()
+
     entities = [
         SPRSUNSelect(
             coordinator,
@@ -40,7 +44,7 @@ async def async_setup_entry(
             spec.options,
             is_config=spec.is_config,
         )
-        for spec in controller.get_selects()
+        for spec in specs
     ]
 
     async_add_entities(entities)

@@ -384,6 +384,21 @@ If your installation uses a variable-speed DC pump connected to the controller:
 ### Smart Grid Status (0x0025)
 - Indicates demand-response status from utility contacts (peak shaving / PV surplus boost).
 
+### Expert / Engineering Parameter Series (Hidden Read-Only Diagnostic by Default)
+
+> ⚠️ **Safety & Visibility Notice:** Expert settings cover the newly mapped CHICO registers (`0x0032–0x01BB`, excluding core user/E/G/Antilegionella controls that were already present in `v5.1.x`). By default, all `353` read-only expert entities (`336` `sensor` + `17` `binary_sensor` under `Diagnostic`) are **disabled by default (`entity_registry_enabled_default = False`)** so they remain hidden in the Home Assistant UI until individually enabled. Writing to them requires explicitly enabling **Enable Expert Settings Writes** (`enable_expert_writes`) in the integration's **Configure** dialog, which adds `337` writable **Configuration** controls (`322` numbers in `box` mode, `2` selects, `13` switches) under the same `SPRSUN Heat Pump` device. Incorrect values can compromise defrosting, refrigerant superheat, or compressor envelope protection.
+
+- **Defrost & Defrost Fan (`H01–H18`, `0x0037–0x0046`, `0x00D4–0x00DB`, `0x01B0–0x01B1`):** Entry/exit coil temperature thresholds (`H03`, `H04`), cycle intervals and durations (`H01`, `H02`, `H05–H16`), and defrost fan pressure/speed limits (`H17`, `H18`).
+- **Main Electronic Expansion Valve (`A01–A51`, `0x0047–0x0056`, `0x008A–0x00A1`, `0x00DC–0x00E7`, `0x00BD–0x00BF`):** Target superheat steps, PI PID coefficients, heating/cooling curve ambient steps, and manual vs automatic EEV position (`A45`).
+- **Auxiliary / EVI Expansion Valve (`B01–B93`, `0x0057–0x0081`, `0x00B6–0x00BC`, `0x00EC–0x00F3`, `0x01B5`):** Vapor-injection superheat targets, initial openings (`B21–B34`, with deduced unconfirmed pairs `0x006A–0x006F` and `0x0072–0x0077`), and outlet adjustment (`B93`).
+- **Fan Curves (`D01–D22`, `0x00A2–0x00B5`, `0x00F4–0x00F5`):** DC fan enable bits (`0x0033` bits 4–5), speed-vs-ambient curves (`D03–D20`), and AC fan ambient switch points (`D21`, `D22`).
+- **Factory Limits & Protections (`F01–F56`, `0x0082–0x0089`, `0x00C0–0x00D3`, `0x0186–0x0199`, `0x01A2–0x01A3`, `0x01B2–0x01B9`):**
+  - High/low pressure protection and recovery limits (`F02` / `F03` use `+250` raw offset at `0.1 bar` scale, giving `25.0–50.0 bar`), discharge/exhaust limits, water temperature sensor calibrations (`F44–F46`), and heating/cooling temperature limits (`F54`, `F55`).
+  - **Model & Pump Mode:** `F13` (`0x0186`: `Manual`/`Auto` DC pump mode) and `F56` (`0x01BA`: `A102508`–`A206008` unit model selection) are exposed as `select` controls when expert writes are enabled.
+- **Compressor Frequency Curves (`R00–R94`, `0x00F9–0x0117`, `0x012D–0x0168`, `0x01BB`):** Ambient/water-delta frequency tables for Normal, Economic, Night, and Test fan modes, plus `R94` Oil Return Frequency (`0x01BB`).
+- **Timeband Schedules 1–3 (`0x0119–0x0124`, `0x01A4–0x01AF`, `0x0035` bits 0–2):**
+  - Start/stop hour & minute (`0x0119–0x0124`), DHW/Heating/Cooling setpoints (`0x01A4–0x01AC`, low-byte `0xFF` masked write), enable switches (`0x0035` bits 0–2), and weekday masks (`0x01AD–0x01AF`, verified on live hardware as 7-bit `0–127` weekday bitmasks rather than `0–6`).
+
 ---
 
 ## 9. Controls
@@ -403,6 +418,11 @@ If your installation uses a variable-speed DC pump connected to the controller:
 - **Bit 1 - Two / Three Function (G01):**
   - `0 = Two Function (Heating + Cooling only)`: For installations without a DHW tank or with separate hot water heating.
   - `1 = Three Function (Heating + Cooling + DHW)`: Standard installation with a 3-way diverting valve and DHW cylinder.
+
+### Expert Control Bits (`0x0032`, `0x0033`, `0x0035`)
+- **Read-Only Always (`17` binary sensors, hidden by default):** Created with `entity_registry_enabled_default = False` under Diagnostics (`0x0032` bits 1–6, `0x0033` bits 0–6 including inverted `B74 AV Cool Enable` on bit 2, `0x0034` unconfirmed bits 2–4, and `0x0035` bits 0–2) and can be enabled individually in HA if needed.
+- **Opt-In Switches (`13` switches when `enable_expert_writes = true`):** Exposes confirmed working switches (`a45_mv_mode_manual`, `manual_freq_selection`, `b01_av_mode_manual`, `b93_av_init_outlet_adjustable`, `r29_constant_freq_adj`, `f01_pressure_switch_enable`, `b74_av_cool_enable`, `b92_av_control_exhaust`, `d01_dcfan1_enable`, `d02_dcfan2_enable`, `timeband_1..3_enable`).
+- **Safety Exclusion:** `parameters_reset_flag` (`0x0033` bit 6) is intentionally **never** exposed as a writable switch to prevent accidental factory resets.
 
 ---
 

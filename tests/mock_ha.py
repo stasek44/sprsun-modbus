@@ -524,9 +524,18 @@ def setup_mocks():
             # Number
             class NumberDeviceClass(StrEnum):
                 TEMPERATURE = "temperature"
+                PRESSURE = "pressure"
+                FREQUENCY = "frequency"
+
+            class NumberMode(StrEnum):
+                AUTO = "auto"
+                BOX = "box"
+                SLIDER = "slider"
+
             number_mod = MagicMock()
             number_mod.NumberEntity = MockEntity
             number_mod.NumberDeviceClass = NumberDeviceClass
+            number_mod.NumberMode = NumberMode
             sys.modules["homeassistant.components.number"] = number_mod
 
             # Select
@@ -552,6 +561,13 @@ def setup_mocks():
             button_mod.ButtonEntity = MockEntity
             button_mod.ButtonEntityDescription = ButtonEntityDescription
             sys.modules["homeassistant.components.button"] = button_mod
+
+            # Diagnostics
+            diag_mod = MagicMock()
+            diag_mod.async_redact_data = lambda data, to_redact: {
+                k: ("**REDACTED**" if k in to_redact else v) for k, v in dict(data).items()
+            }
+            sys.modules["homeassistant.components.diagnostics"] = diag_mod
 
             # Attach submodules to parent package so "from homeassistant import config_entries" works
             ha.config_entries = cfg

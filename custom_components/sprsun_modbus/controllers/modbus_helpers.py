@@ -150,6 +150,8 @@ def decode_batch_into_data(
         words = [int(w) for w in raw_values[idx : idx + reg_count]]
         clamp_min = getattr(spec, "clamp_min", None)
         clamp_max = getattr(spec, "clamp_max", None)
+        raw_offset = getattr(spec, "raw_offset", 0)
+        bit_mask = getattr(spec, "bit_mask", None)
         data[spec.key] = decode_registers(
             words=words,
             data_type=spec.data_type,
@@ -157,6 +159,8 @@ def decode_batch_into_data(
             word_order=spec.word_order,
             clamp_min=clamp_min,
             clamp_max=clamp_max,
+            raw_offset=raw_offset,
+            bit_mask=bit_mask,
         )
         decoded += 1
 

@@ -597,6 +597,54 @@ class TestControllerAgnosticPlatforms(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(info["controller_type"], "alt")
             client.close.assert_called_once()
 
+    async def test_expert_spec_promotions_and_mask_offset_codecs(self):
+        """Test raw_offset/bit_mask codecs, future-write spec conversion helpers, and diagnostics."""
+        from custom_components.sprsun_modbus.controllers.chico_registers import (
+            CHICO_EXPERT_BINARY_SENSORS,
+            CHICO_EXPERT_SENSORS,
+        )
+        from custom_components.sprsun_modbus.diagnostics import async_get_config_entry_diagnostics
+
+        self.assertEqual(decode_registers([12], DataType.UINT16, scale=0.1, raw_offset=250), 26.2)
+        self.assertEqual(encode_registers(26.2, DataType.UINT16, scale=0.1, raw_offset=250), [12])
+        self.assertEqual(decode_registers([0x0244], DataType.UINT16, scale=0.5, bit_mask=0xFF), 34.0)
+        self.assertEqual(encode_registers(34.0, DataType.UINT16, scale=0.5, bit_mask=0xFF), [0x44])
+
+        by_sensor_key = {s.key: s for s in CHICO_EXPERT_SENSORS}
+        f02_num = by_sensor_key["f02_hp_protect_value"].as_number_spec()
+        self.assertEqual(f02_num.address, 0x0082)
+        self.assertEqual(f02_num.raw_offset, 250)
+        self.assertEqual(f02_num.min_value, 25.0)
+        self.assertEqual(f02_num.max_value, 50.0)
+
+        f13_sel = by_sensor_key["f13_dc_pump_mode"].as_select_spec()
+        self.assertEqual(f13_sel.options, {0: "Manual", 1: "Auto"})
+
+        by_bin_key = {b.key: b for b in CHICO_EXPERT_BINARY_SENSORS}
+        b74_sw = by_bin_key["b74_av_cool_enable"].as_switch_spec()
+        self.assertEqual(b74_sw.address, 0x0033)
+        self.assertEqual(b74_sw.bit, 2)
+        self.assertEqual(b74_sw.coil_address, 0x0332)
+        self.assertTrue(b74_sw.inverted)
+
+        hass = MagicMock()
+        coord = MagicMock()
+        coord.controller = SyntheticAltController()
+        coord.last_update_success = True
+        coord._rw_loaded = True
+        coord._poll_count = 3
+        coord.data = {"alt_energy": {"value": 123.5, "updated_at": 10.0}}
+        entry = MagicMock()
+        entry.entry_id = "diag_entry"
+        entry.runtime_data = coord
+        entry.data = {CONF_HOST: "192.168.1.99", CONF_PORT: 502}
+        entry.options = {}
+        hass.data = {DOMAIN: {"diag_entry": coord}}
+
+        diag = await async_get_config_entry_diagnostics(hass, entry)
+        self.assertEqual(diag["entry"]["data"][CONF_HOST], "**REDACTED**")
+        self.assertEqual(diag["values"]["alt_energy"], 123.5)
+
 
 if __name__ == "__main__":
     unittest.main()

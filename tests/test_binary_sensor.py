@@ -5,8 +5,9 @@ from unittest.mock import MagicMock
 from tests.conftest import setup_mocks
 setup_mocks()
 
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, EntityCategory
 from custom_components.sprsun_modbus.const import DOMAIN, BINARY_SENSOR_BITS
+from custom_components.sprsun_modbus.controllers.chico_registers import CHICO_BINARY_SENSORS
 from custom_components.sprsun_modbus.binary_sensor import (
     SPRSUNBinarySensor,
     async_setup_entry,
@@ -42,7 +43,7 @@ class TestSPRSUNBinarySensor(unittest.IsolatedAsyncioTestCase):
         }
 
     async def test_async_setup_entry_creates_all_binary_sensors(self):
-        """Test async_setup_entry creates all binary sensor entities."""
+        """Test async_setup_entry creates all binary sensor entities (49 core + 17 expert)."""
         hass = MagicMock()
         hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
         async_add_entities = MagicMock()
@@ -51,7 +52,20 @@ class TestSPRSUNBinarySensor(unittest.IsolatedAsyncioTestCase):
 
         async_add_entities.assert_called_once()
         entities = async_add_entities.call_args[0][0]
-        self.assertEqual(len(entities), len(BINARY_SENSOR_BITS))
+        self.assertEqual(len(entities), len(CHICO_BINARY_SENSORS))
+        self.assertEqual(len(entities), len(BINARY_SENSOR_BITS) + 17)
+
+        by_key = {entity._key: entity for entity in entities}
+        self.assertEqual(by_key["r29_constant_freq_adj"].entity_category, EntityCategory.DIAGNOSTIC)
+        self.assertFalse(
+            getattr(by_key["night_clock_mode"], "_attr_entity_registry_enabled_default", True)
+        )
+        self.assertFalse(
+            getattr(by_key["r29_constant_freq_adj"], "_attr_entity_registry_enabled_default", True)
+        )
+        self.assertTrue(
+            getattr(by_key["hotwater_demand"], "_attr_entity_registry_enabled_default", True)
+        )
 
     def test_binary_sensor_attributes(self):
         """Test standard binary sensor naming and unique_id."""
@@ -135,6 +149,31 @@ class TestSPRSUNBinarySensor(unittest.IsolatedAsyncioTestCase):
         self.coordinator.last_update_success = True
         del self.coordinator.data["working_status_register"]
         self.assertFalse(sensor.available)
+
+    def test_expert_control_bits_and_inverted_b74(self):
+        """Test expert control bitfields including inverted B74 AV Cool Enable."""
+        # 0x0033: bit 0 set (r29), bit 2 cleared (b74 inverted -> True!), bit 4 set (d01)
+        self.coordinator.data["_control_0033"] = {"value": 0b00010001, "updated_at": 1000.0}
+        self.coordinator.data["_control_0035"] = {"value": 0b00000101, "updated_at": 1000.0}
+
+        r29 = SPRSUNBinarySensor(self.coordinator, self.config_entry, "r29_constant_freq_adj", "R29")
+        self.assertTrue(r29.is_on)
+        self.assertTrue(r29.available)
+
+        # Bit 2 = 0 -> inverted=True -> ON (AV Cool Enabled)
+        b74 = SPRSUNBinarySensor(self.coordinator, self.config_entry, "b74_av_cool_enable", "B74")
+        self.assertTrue(b74.is_on)
+
+        # Bit 2 = 1 -> inverted=True -> OFF (AV Cool Unused)
+        self.coordinator.data["_control_0033"] = {"value": 0b00000100, "updated_at": 1000.0}
+        self.assertFalse(b74.is_on)
+
+        tb1 = SPRSUNBinarySensor(self.coordinator, self.config_entry, "timeband_1_enable", "TB1")
+        tb2 = SPRSUNBinarySensor(self.coordinator, self.config_entry, "timeband_2_enable", "TB2")
+        tb3 = SPRSUNBinarySensor(self.coordinator, self.config_entry, "timeband_3_enable", "TB3")
+        self.assertTrue(tb1.is_on)
+        self.assertFalse(tb2.is_on)
+        self.assertTrue(tb3.is_on)
 
 
 if __name__ == "__main__":
