@@ -478,5 +478,6 @@
 
 - **Fast Telemetry Poll (every `scan_interval`, default `10s`):** 1 contiguous read `0x0000–0x0031` (`50` registers → `49` core sensors + `49` core binary sensors), measured at **`0.146–0.186 s`** live.
 - **RW & Expert Batch Poll (startup + every `20` cycles / `~200 s`):** `10` confirmed batches (`<= 62` registers/batch, skipping PDF `Invalid` gaps, `0.20 s` inter-batch turnaround) + `2` optional batches (`0x006A–0x006F`, `0x0072–0x0077`), measured at **`4.084–4.384 s`** live across `385` decoded entries with zero errors.
+- **Opt-in Expert Writes (`enable_expert_writes`, default `false`):** Integration options include a guarded toggle that keeps engineering/factory parameters read-only by default and, when enabled, exposes confirmed writable CHICO `number` (in box input mode, supporting `INT16`, `raw_offset`, and masked Timeband byte writes via read-modify-write), `select`, and `switch` controls under `Config` while keeping dangerous `parameters_reset_flag` (`0x0033` bit 6) and unconfirmed gaps read-only.
 
 For detailed user parameter descriptions, see [CHICO_PARAMETERS_GUIDE.md](CHICO_PARAMETERS_GUIDE.md).

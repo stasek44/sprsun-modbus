@@ -524,9 +524,18 @@ def setup_mocks():
             # Number
             class NumberDeviceClass(StrEnum):
                 TEMPERATURE = "temperature"
+                PRESSURE = "pressure"
+                FREQUENCY = "frequency"
+
+            class NumberMode(StrEnum):
+                AUTO = "auto"
+                BOX = "box"
+                SLIDER = "slider"
+
             number_mod = MagicMock()
             number_mod.NumberEntity = MockEntity
             number_mod.NumberDeviceClass = NumberDeviceClass
+            number_mod.NumberMode = NumberMode
             sys.modules["homeassistant.components.number"] = number_mod
 
             # Select

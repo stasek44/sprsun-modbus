@@ -874,3 +874,26 @@ CHICO_NUMBERS: tuple[NumberSpec, ...] = (
     _num(0x019C, "antilegionella_start_hour", "Antilegionella Start Hour", 1, "h", 0, 23, 1),
     _num(0x019D, "antilegionella_end_hour", "Antilegionella End Hour", 1, "h", 0, 23, 1),
 )
+
+# Opt-in writable promotions of confirmed CHICO expert parameters (excluded: unconfirmed Invalid gaps
+# B21-B26/B29-B34, unconfirmed 0x0034 bits 2-4, and dangerous factory parameters_reset_flag bit 0x0033.6).
+CHICO_EXPERT_NUMBERS: tuple[NumberSpec, ...] = tuple(
+    spec.as_number_spec(is_expert=True)
+    for spec in CHICO_EXPERT_SENSORS
+    if spec.enabled_default
+    and not spec.options
+    and spec.min_value is not None
+    and spec.max_value is not None
+)
+
+CHICO_EXPERT_SELECTS: tuple[SelectSpec, ...] = tuple(
+    spec.as_select_spec(is_config=True, is_expert=True)
+    for spec in CHICO_EXPERT_SENSORS
+    if spec.enabled_default and spec.options
+)
+
+CHICO_EXPERT_SWITCHES: tuple[SwitchSpec, ...] = tuple(
+    spec.as_switch_spec(is_config=True, is_expert=True)
+    for spec in CHICO_EXPERT_BINARY_SENSORS
+    if spec.enabled_default and spec.key != "parameters_reset_flag"
+)

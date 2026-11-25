@@ -77,6 +77,7 @@ class SensorSpec:
         *,
         is_primary: bool = False,
         enabled_default: bool | None = None,
+        is_expert: bool = False,
     ) -> NumberSpec:
         """Convert a numeric parameter SensorSpec into a writable NumberSpec."""
         if self.min_value is None or self.max_value is None:
@@ -98,6 +99,7 @@ class SensorSpec:
             raw_offset=self.raw_offset,
             bit_mask=self.bit_mask,
             enabled_default=self.enabled_default if enabled_default is None else enabled_default,
+            is_expert=is_expert,
         )
 
     def as_select_spec(
@@ -105,6 +107,7 @@ class SensorSpec:
         *,
         is_config: bool = True,
         enabled_default: bool | None = None,
+        is_expert: bool = False,
     ) -> SelectSpec:
         """Convert an enum parameter SensorSpec into a writable SelectSpec."""
         if not self.options:
@@ -117,6 +120,7 @@ class SensorSpec:
             space=self.space,
             is_config=is_config,
             enabled_default=self.enabled_default if enabled_default is None else enabled_default,
+            is_expert=is_expert,
         )
 
 
@@ -143,6 +147,7 @@ class BinarySensorSpec:
         cache_key: str | None = None,
         is_config: bool = True,
         enabled_default: bool | None = None,
+        is_expert: bool = False,
     ) -> SwitchSpec:
         """Convert a binary parameter spec into a writable SwitchSpec."""
         return SwitchSpec(
@@ -156,6 +161,7 @@ class BinarySensorSpec:
             is_config=is_config,
             inverted=self.inverted,
             enabled_default=self.enabled_default if enabled_default is None else enabled_default,
+            is_expert=is_expert,
         )
 
 
@@ -180,6 +186,7 @@ class NumberSpec:
     raw_offset: float | int = 0
     bit_mask: int | None = None
     enabled_default: bool = True
+    is_expert: bool = False
 
 
 @dataclass(frozen=True)
@@ -193,6 +200,7 @@ class SelectSpec:
     space: RegisterSpace = RegisterSpace.HOLDING_REGISTER
     is_config: bool = True
     enabled_default: bool = True
+    is_expert: bool = False
 
 
 @dataclass(frozen=True)
@@ -209,6 +217,7 @@ class SwitchSpec:
     is_config: bool = False
     inverted: bool = False
     enabled_default: bool = True
+    is_expert: bool = False
 
 
 @dataclass(frozen=True)

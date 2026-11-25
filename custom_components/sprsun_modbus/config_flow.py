@@ -26,6 +26,8 @@ from .const import (
     CONF_CONTROLLER_TYPE,
     CONF_TEMP_STEP,
     DEFAULT_TEMP_STEP,
+    CONF_ENABLE_EXPERT_WRITES,
+    DEFAULT_ENABLE_EXPERT_WRITES,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -277,6 +279,16 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_TEMP_STEP,
                     default=temp_step_default,
                 ): _temp_step_selector(),
+                vol.Optional(
+                    CONF_ENABLE_EXPERT_WRITES,
+                    default=self.config_entry.options.get(
+                        CONF_ENABLE_EXPERT_WRITES,
+                        self.config_entry.data.get(
+                            CONF_ENABLE_EXPERT_WRITES,
+                            DEFAULT_ENABLE_EXPERT_WRITES,
+                        ),
+                    ),
+                ): bool,
             }
         )
         

@@ -104,6 +104,18 @@ class ControllerBase(ABC):
         """Return momentary button specifications for this controller."""
         return ()
 
+    def get_expert_numbers(self) -> tuple[NumberSpec, ...]:
+        """Return opt-in engineering/expert read-write number specifications."""
+        return ()
+
+    def get_expert_selects(self) -> tuple[SelectSpec, ...]:
+        """Return opt-in engineering/expert read-write select specifications."""
+        return ()
+
+    def get_expert_switches(self) -> tuple[SwitchSpec, ...]:
+        """Return opt-in engineering/expert read-write switch specifications."""
+        return ()
+
     # ------------------------------------------------------------------
     # Climate abstraction (override if controller supports climate)
     # ------------------------------------------------------------------

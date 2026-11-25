@@ -345,7 +345,7 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         )
 
         self.coordinator._sync_write_register.assert_called_once_with(
-            0x00CC, 91, "heating_setpoint", 2
+            0x00CC, 91, "heating_setpoint", 2, None
         )
 
     async def test_async_write_bit(self):
@@ -399,6 +399,76 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
 
         # Verify that active_jobs never exceeded 1 (strict mutual exclusion)
         self.assertEqual(max_concurrent_jobs, 1)
+
+    def test_sync_write_register_explicit_cached_value(self):
+        """Test _sync_write_register stores explicit cached_value for INT16/offset writes."""
+        client = MagicMock()
+        client.connected = True
+        client.write_register.return_value = MagicMock(isError=lambda: False)
+
+        self.coordinator.client = client
+        self.coordinator.data = {}
+
+        with patch("time.sleep") as mock_sleep:
+            success = self.coordinator._sync_write_register(
+                address=0x00D4,
+                value=65531,  # -5 encoded as UINT16 two's complement
+                key="h03_defrost_in_stp",
+                scale=1,
+                cached_value=-5.0,
+            )
+
+        self.assertTrue(success)
+        mock_sleep.assert_called_once_with(INTER_WRITE_DELAY)
+        client.write_register.assert_called_once_with(
+            address=0x00D4, value=65531, device_id=1
+        )
+        self.assertEqual(self.coordinator.data["h03_defrost_in_stp"]["value"], -5.0)
+
+    def test_sync_write_masked_register_preserves_unmasked_bits(self):
+        """Test _sync_write_masked_register preserves upper byte on read-modify-write."""
+        client = MagicMock()
+        client.connected = True
+        # Existing register 0x01AB = 0x1200 (weekday bits in high byte = 0x12, setpoint = 0)
+        client.read_holding_registers.return_value = MagicMock(
+            isError=lambda: False, registers=[0x1200]
+        )
+        client.write_register.return_value = MagicMock(isError=lambda: False)
+
+        self.coordinator.client = client
+        self.coordinator.data = {}
+
+        with patch("time.sleep") as mock_sleep:
+            success = self.coordinator._sync_write_masked_register(
+                address=0x01AB,
+                raw_value=70,  # 35.0 C at scale 0.5
+                mask=0x00FF,
+                key="timeband_3_heat_setp",
+                cached_value=35.0,
+            )
+
+        self.assertTrue(success)
+        mock_sleep.assert_called_once_with(INTER_WRITE_DELAY)
+        client.write_register.assert_called_once_with(
+            address=0x01AB, value=0x1246, device_id=1
+        )
+        self.assertEqual(self.coordinator.data["timeband_3_heat_setp"]["value"], 35.0)
+
+    async def test_async_write_masked_register(self):
+        """Test async_write_masked_register forwards masked payload under lock."""
+        self.coordinator._sync_write_masked_register = MagicMock(return_value=True)
+
+        await self.coordinator.async_write_masked_register(
+            address=0x01AB,
+            raw_value=70,
+            mask=0x00FF,
+            key="timeband_3_heat_setp",
+            cached_value=35.0,
+        )
+
+        self.coordinator._sync_write_masked_register.assert_called_once_with(
+            0x01AB, 70, 0x00FF, "timeband_3_heat_setp", 35.0
+        )
 
 
 if __name__ == "__main__":

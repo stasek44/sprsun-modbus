@@ -1,14 +1,14 @@
 """Number platform for SPRSUN Heat Pump."""
 from __future__ import annotations
 
-from homeassistant.components.number import NumberDeviceClass, NumberEntity
+from homeassistant.components.number import NumberDeviceClass, NumberEntity, NumberMode
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, get_temp_step
+from .const import DOMAIN, get_temp_step, is_expert_writes_enabled
 from .controllers import (
     DataType,
     NumberSpec,
@@ -32,9 +32,15 @@ async def async_setup_entry(
     coordinator = resolve_coordinator(hass, config_entry, DOMAIN)
     controller = resolve_controller(coordinator)
     temp_step = get_temp_step(config_entry, getattr(coordinator, "config_entry", None))
+    expert_enabled = is_expert_writes_enabled(
+        config_entry, getattr(coordinator, "config_entry", None)
+    )
+    specs = controller.get_numbers()
+    if expert_enabled:
+        specs = specs + controller.get_expert_numbers()
 
     entities = []
-    for spec in controller.get_numbers():
+    for spec in specs:
         initial_step = temp_step if spec.supports_temp_step_override else spec.step
         entities.append(
             SPRSUNNumber(
@@ -104,8 +110,13 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
         if not is_primary:
             self._attr_entity_category = EntityCategory.CONFIG
 
-        if device_class == "temperature":
-            self._attr_device_class = NumberDeviceClass.TEMPERATURE
+        if spec is not None and spec.is_expert:
+            self._attr_mode = NumberMode.BOX
+
+        if device_class in ("temperature", "pressure", "frequency"):
+            self._attr_device_class = getattr(
+                NumberDeviceClass, device_class.upper(), None
+            )
         else:
             self._attr_device_class = None
 
@@ -154,12 +165,47 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
                 self._spec.data_type,
                 scale=self._scale,
                 word_order=self._spec.word_order,
+                raw_offset=self._spec.raw_offset,
+                bit_mask=self._spec.bit_mask,
             )
             await self.coordinator.async_write_registers(
                 address=self._address,
                 registers=registers,
                 key=self._key,
                 value=value,
+            )
+        elif self._spec is not None and self._spec.bit_mask is not None:
+            raw_word = encode_registers(
+                value,
+                self._spec.data_type,
+                scale=self._scale,
+                word_order=self._spec.word_order,
+                raw_offset=self._spec.raw_offset,
+                bit_mask=self._spec.bit_mask,
+            )[0]
+            await self.coordinator.async_write_masked_register(
+                address=self._address,
+                raw_value=raw_word,
+                mask=self._spec.bit_mask,
+                key=self._key,
+                cached_value=value,
+            )
+        elif self._spec is not None and (
+            self._spec.raw_offset != 0 or self._spec.data_type == DataType.INT16
+        ):
+            raw_word = encode_registers(
+                value,
+                self._spec.data_type,
+                scale=self._scale,
+                word_order=self._spec.word_order,
+                raw_offset=self._spec.raw_offset,
+            )[0]
+            await self.coordinator.async_write_register(
+                address=self._address,
+                value=float(raw_word),
+                key=self._key,
+                scale=1,
+                cached_value=value,
             )
         else:
             await self.coordinator.async_write_register(

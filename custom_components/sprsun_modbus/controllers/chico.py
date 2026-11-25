@@ -10,7 +10,10 @@ from .chico_registers import (
     CHICO_BUTTONS,
     CHICO_BINARY_SENSORS,
     CHICO_CONTROL_REGISTER_KEYS,
+    CHICO_EXPERT_NUMBERS,
+    CHICO_EXPERT_SELECTS,
     CHICO_EXPERT_SENSORS,
+    CHICO_EXPERT_SWITCHES,
     CHICO_NUMBERS,
     CHICO_OPTIONAL_RW_BATCHES,
     CHICO_RO_BATCH,
@@ -91,6 +94,18 @@ class ChicoController(ControllerBase):
     def get_buttons(self) -> tuple[ButtonSpec, ...]:
         """Return CHICO momentary button specifications."""
         return CHICO_BUTTONS
+
+    def get_expert_numbers(self) -> tuple[NumberSpec, ...]:
+        """Return opt-in CHICO expert/factory read-write number specifications."""
+        return CHICO_EXPERT_NUMBERS
+
+    def get_expert_selects(self) -> tuple[SelectSpec, ...]:
+        """Return opt-in CHICO expert/factory read-write select specifications."""
+        return CHICO_EXPERT_SELECTS
+
+    def get_expert_switches(self) -> tuple[SwitchSpec, ...]:
+        """Return opt-in CHICO expert/factory read-write switch specifications."""
+        return CHICO_EXPERT_SWITCHES
 
     def has_rw_data(self, data: Mapping[str, Any]) -> bool:
         """Return True when primary RW setpoints have been loaded."""

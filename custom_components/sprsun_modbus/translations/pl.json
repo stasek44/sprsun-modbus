@@ -35,10 +35,12 @@
           "port": "Port",
           "device_address": "Adres Modbus (1-247)",
           "scan_interval": "Interwał skanowania (5-300 sekund)",
-          "temp_step": "Krok temperatury (°C)"
+          "temp_step": "Krok temperatury (°C)",
+          "enable_expert_writes": "Włącz zapis ustawień eksperckich (Zaawansowane / Ryzykowne)"
         },
         "data_description": {
-          "temp_step": "Domyślnie 1.0°C. Niektóre pompy pozwalają na bardziej precyzyjne sterowanie co 0.5°C, ale nie ma gwarancji, że będzie to działać na każdym oprogramowaniu."
+          "temp_step": "Domyślnie 1.0°C. Niektóre pompy pozwalają na bardziej precyzyjne sterowanie co 0.5°C, ale nie ma gwarancji, że będzie to działać na każdym oprogramowaniu.",
+          "enable_expert_writes": "OSTRZEŻENIE: Odblokowuje zapisywalne parametry inżynierskie/fabryczne CHICO (H/A/B/D/F/R, harmonogramy i bity sterujące) w sekcji Konfiguracja. Błędne wartości mogą uszkodzić sprężarkę lub zakłócić pracę pompy. Zostaw wyłączone, jeśli nie masz pewności."
         }
       }
     }

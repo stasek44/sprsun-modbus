@@ -353,7 +353,14 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
 
         return result
 
-    def _sync_write_register(self, address: int, value: int, key: str, scale: float = 1) -> bool:
+    def _sync_write_register(
+        self,
+        address: int,
+        value: int,
+        key: str,
+        scale: float = 1,
+        cached_value: float | None = None,
+    ) -> bool:
         """Write single 16-bit holding register synchronously with auto-reconnect."""
         val_to_write = value & 0xFFFF
         self._execute_with_reconnect(
@@ -368,9 +375,56 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         time.sleep(INTER_WRITE_DELAY)
 
         now = time.time()
-        float_val = value / scale if scale != 1 else float(value)
+        if cached_value is not None:
+            float_val = float(cached_value)
+        else:
+            float_val = value / scale if scale != 1 else float(value)
         self.data[key] = {"value": float_val, "updated_at": now}
         _LOGGER.info("Wrote register 0x%04X = %d, cached as %s = %.2f", address, val_to_write, key, float_val)
+        return True
+
+    def _sync_write_masked_register(
+        self,
+        address: int,
+        raw_value: int,
+        mask: int,
+        key: str,
+        cached_value: float,
+    ) -> bool:
+        """Read-modify-write selected bits of a holding register while preserving other bits."""
+        result = self._execute_with_reconnect(
+            lambda: self.client.read_holding_registers(
+                address=address,
+                count=1,
+                device_id=self.device_address,
+            ),
+            f"read before masked write on 0x{address:04X}",
+        )
+        current_val = result.registers[0]
+        new_val = (current_val & ~mask) | (raw_value & mask)
+
+        if new_val != current_val:
+            self._execute_with_reconnect(
+                lambda: self.client.write_register(
+                    address=address,
+                    value=new_val & 0xFFFF,
+                    device_id=self.device_address,
+                ),
+                f"masked write to 0x{address:04X}",
+            )
+
+        time.sleep(INTER_WRITE_DELAY)
+
+        self.data[key] = {"value": float(cached_value), "updated_at": time.time()}
+        _LOGGER.info(
+            "Masked write on 0x%04X (mask=0x%04X): was 0x%04X, now 0x%04X, cached as %s = %.2f",
+            address,
+            mask,
+            current_val,
+            new_val,
+            key,
+            float(cached_value),
+        )
         return True
 
     def _sync_write_registers(
@@ -466,7 +520,14 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         _LOGGER.info("Wrote coil 0x%04X = %s (key=%s)", address, bool_val, key)
         return True
 
-    async def async_write_register(self, address: int, value: float, key: str, scale: float = 1) -> None:
+    async def async_write_register(
+        self,
+        address: int,
+        value: float,
+        key: str,
+        scale: float = 1,
+        cached_value: float | None = None,
+    ) -> None:
         """Async thread-safe wrapper for single holding register write."""
         int_value = int(round(value * scale))
         async with self._lock:
@@ -476,6 +537,27 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 int_value,
                 key,
                 scale,
+                cached_value,
+            )
+        self.async_set_updated_data(self.data)
+
+    async def async_write_masked_register(
+        self,
+        address: int,
+        raw_value: int,
+        mask: int,
+        key: str,
+        cached_value: float,
+    ) -> None:
+        """Async thread-safe wrapper for read-modify-write masked holding register writes."""
+        async with self._lock:
+            await self.hass.async_add_executor_job(
+                self._sync_write_masked_register,
+                address,
+                raw_value,
+                mask,
+                key,
+                cached_value,
             )
         self.async_set_updated_data(self.data)
 
