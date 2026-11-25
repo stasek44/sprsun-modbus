@@ -80,6 +80,9 @@ class SPRSUNBinarySensor(CoordinatorEntity, BinarySensorEntity):
         if is_diagnostic:
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
 
+        if spec is not None and not spec.enabled_default:
+            self._attr_entity_registry_enabled_default = False
+
         if spec is not None and spec.device_class:
             dc_val = getattr(BinarySensorDeviceClass, spec.device_class.upper(), None)
             if dc_val is not None:

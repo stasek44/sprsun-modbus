@@ -5,11 +5,13 @@ from typing import Any
 from homeassistant.const import Platform
 
 from .controllers.chico_registers import (
-    CHICO_BINARY_SENSORS,
     CHICO_BUTTONS,
+    CHICO_CORE_BINARY_SENSORS,
+    CHICO_CORE_SENSORS,
+    CHICO_EXPERT_BINARY_SENSORS,
+    CHICO_EXPERT_SENSORS,
     CHICO_NUMBERS,
     CHICO_SELECTS,
-    CHICO_SENSORS,
     CHICO_SWITCHES,
 )
 
@@ -71,12 +73,23 @@ PLATFORMS: list[Platform] = [
 # Legacy CHICO register views derived from controllers.chico_registers for backward compatibility
 REGISTERS_READ_ONLY = {
     spec.address: (spec.key, spec.name, spec.scale, spec.unit, spec.device_class)
-    for spec in CHICO_SENSORS
+    for spec in CHICO_CORE_SENSORS
+}
+
+REGISTERS_EXPERT = {
+    spec.address: (spec.key, spec.name, spec.scale, spec.unit, spec.device_class)
+    for spec in CHICO_EXPERT_SENSORS
 }
 
 BINARY_SENSOR_BITS = {
     spec.key: (spec.address, spec.bit, spec.name)
-    for spec in CHICO_BINARY_SENSORS
+    for spec in CHICO_CORE_BINARY_SENSORS
+    if spec.bit is not None
+}
+
+EXPERT_BINARY_SENSOR_BITS = {
+    spec.key: (spec.address, spec.bit, spec.name)
+    for spec in CHICO_EXPERT_BINARY_SENSORS
     if spec.bit is not None
 }
 

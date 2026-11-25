@@ -192,13 +192,37 @@ Some bitfield registers support individual coil addressing:
 - 0x0340 = 0x0034 bit 0 (Antilegionella enable)
 - 0x0341 = 0x0034 bit 1 (Two/Three function)
 
+## Signed Integer Registers Summary (Expert / Engineering)
+
+In addition to the core telemetry (`0x0011`, `0x0015`, `0x0016`, `0x0022`, `0x0028`) and standard configuration (`E01–E12`, `G05`, `G07`, `G10`), the following expert holding registers use signed `INT16` encoding:
+- `0x00CD–0x00CF`: `F44–F46` temperature calibrations (`-30..30 °C`)
+- `0x00D4`, `0x00D9–0x00DB`: `H03`, `H09`, `H12`, `0x00DB` defrost coil/ambient setpoints (`-15..-1 °C` / `-30..30 °C`)
+- `0x00DC–0x00E7`: `A02–A13` Main EEV heating/cooling superheat curves (`-5..10 °C`)
+- `0x00EC–0x00F3`: `B11–B18` Aux EEV heating superheat curves (`-10..10 °C`)
+- `0x00F4–0x00F5`: `D21–D22` AC fan ambient thresholds (`-10..50 °C`)
+- `0x01A3`: `F41` air-too-low setpoint (`-40..0 °C`)
+- `0x01B2–0x01B3`: `F47–F48` HP/LP pressure sensor calibration (`-50..50`)
+
+## Expert & Engineering Registers (`0x0032–0x01BB`, Read-Only Diagnostic)
+
+All factory/engineering parameters below are exposed as **read-only** diagnostic entities (`EntityCategory.DIAGNOSTIC`) with underlying parameter metadata (`min_value`, `max_value`, `step`, `scale`, `raw_offset`, `bit_mask`, `options`, `coil_address`) preserved on each spec so selective opt-in write support can be added safely in the future.
+
+- **Control Bitfields (`0x0032–0x0035`):** Additional control bits (`A45`, Manual frequency flag, `B01`, `B93 adjust`, `R29`, `F01`, inverted `B74` where `0=use / 1=unused`, `B92`, `D01`, `D02`, Parameters reset flag, Timeband 1–3 enable `0x0035`). Unconfirmed bits (`0x0034` bits 2–4: Night clock, Load fast check, Forced defrost) are disabled by default.
+- **Defrost (`H01–H18`):** `0x0037–0x003D`, `0x00D4–0x00DB`, `0x01B0–0x01B1` (`H15` scaled `×5 min`, `H18` scaled `×10 rpm`; `0x00DB` PDF label repeats `H04`, mapped distinctly as ambient setpoint 3).
+- **Main EEV (`A01–A51`):** `0x003E–0x0061`, `0x00DC–0x00E8` (valve openings `×2 steps`, keep times `×2 s`; PDF repeats `A34` across `0x0053–0x005A`, mapped as `A34–A41`).
+- **Aux EEV (`B02–B93`):** `0x0062–0x0081`, `0x0098–0x00C5`, `0x00E9–0x00F3`, `0x01B5` (openings `×2 steps`). Gaps `0x006A–0x006F` (deduced `B21–B26`) and `0x0072–0x0077` (deduced `B29–B34`) are marked `Invalid` in V1.2 docs, disabled by default, and read via separate optional batches so unsupported firmware skips cleanly.
+- **Fan (`D03–D22`):** `0x0086–0x0097`, `0x00F4–0x00F5` (DC fan speeds `×10 rpm`; `D06/D07/D11–D13` exposed unscaled pending live firmware check of the PDF's `n*10bar` note).
+- **Protection & Factory (`F02–F56`):** `0x0082–0x0085` (`F02–F03` use `(n + 250) × 0.1 bar`; `F04–F05` use `n × 0.1 bar`), `0x00C7/0x00C9`, `0x00CD–0x00D3`, `0x0186–0x018F`, `0x0194–0x0199`, `0x019F–0x01A3`, `0x01B2–0x01BA`.
+- **Compressor Frequency Tables (`R00–R94` + Manual Freq):** `0x00F6–0x0117`, `0x012D–0x0168`, `0x01BB` (Normal, ECO, Night, and Test frequency curves plus R21–R28 limits and R94 oil return frequency).
+- **Timeband Schedules (`0x0119–0x0124`, `0x01A4–0x01AF`):** 3 schedule ON/OFF hour/minute registers, weekdays `0–6`, and lower-8-bit (`bit_mask=0xFF`) `× 0.5 °C` setpoints.
+
 ## Integration Implementation
 
 This Home Assistant integration reads:
-- **50 Read-Only registers** (0x0000-0x0031) in **one batch request** for optimal performance
-- **~45 Read-Write registers** individually (scattered addresses, read at startup only)
-- **11 Bitfield registers** decoded into **43 binary sensors**
+- **50 Read-Only registers** (`0x0000–0x0031`) in **one fast batch request** every `scan_interval` (default 10s), providing **49 sensors** and **49 binary sensors**
+- **373+ RW & Expert registers** (`0x0032–0x01BB`) in **10 contiguous batches** (max 62 registers/batch, skipping PDF `Invalid` gaps, 200ms turnaround delay) at startup and every 20 cycles (~200s), plus 2 optional deduced gap batches (`0x006A–0x006F`, `0x0072–0x0077`)
+- **Total exposed CHICO entities (current read-only release):** 49 core sensors + 336 expert diagnostic sensors + 66 binary sensors (49 core + 17 control/timeband bits)
 
-Write operations use device address **#1** only (per protocol specification).
+Write operations use device address **#1** only (per protocol specification). Do **not** blindly modify factory (`F*`), EEV (`A*`/`B*`), or compressor frequency (`R*`) parameters outside verified manufacturer limits.
 
-For detailed parameter explanations, see [PARAMETERS_GUIDE.md](PARAMETERS_GUIDE.md).
+For detailed parameter explanations, see [CHICO_PARAMETERS_GUIDE.md](CHICO_PARAMETERS_GUIDE.md).

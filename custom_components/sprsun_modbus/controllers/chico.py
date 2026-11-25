@@ -9,7 +9,10 @@ from .base import ControllerBase
 from .chico_registers import (
     CHICO_BUTTONS,
     CHICO_BINARY_SENSORS,
+    CHICO_CONTROL_REGISTER_KEYS,
+    CHICO_EXPERT_SENSORS,
     CHICO_NUMBERS,
+    CHICO_OPTIONAL_RW_BATCHES,
     CHICO_RO_BATCH,
     CHICO_RW_BATCHES,
     CHICO_SELECTS,
@@ -41,7 +44,8 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-_CHICO_RW_SPECS = CHICO_NUMBERS + CHICO_SELECTS + CHICO_SWITCHES
+_CHICO_RW_SPECS = CHICO_NUMBERS + CHICO_SELECTS + CHICO_SWITCHES + CHICO_EXPERT_SENSORS
+_CHICO_ALL_RW_BATCHES = CHICO_RW_BATCHES + CHICO_OPTIONAL_RW_BATCHES
 _CHICO_FAN_MODE_TO_RAW: dict[str, int] = {
     "normal": 0,
     "eco": 1,
@@ -150,7 +154,7 @@ class ChicoController(ControllerBase):
         if initial_read:
             _LOGGER.debug("CHICO: Reading RW registers in batches...")
             total_rw_read = 0
-            for batch in CHICO_RW_BATCHES:
+            for batch in _CHICO_ALL_RW_BATCHES:
                 try:
                     rw_registers = [
                         int(v)
@@ -168,6 +172,11 @@ class ChicoController(ControllerBase):
                         rw_registers,
                         data,
                     )
+                    batch_end = batch.start_address + len(rw_registers)
+                    for ctrl_addr, ctrl_key in CHICO_CONTROL_REGISTER_KEYS.items():
+                        if batch.start_address <= ctrl_addr < batch_end and ctrl_key not in data:
+                            data[ctrl_key] = rw_registers[ctrl_addr - batch.start_address]
+                            decoded += 1
                     total_rw_read += decoded
                     _LOGGER.debug("CHICO: Read batch %s (%d registers)", batch.description, batch.count)
                 except ModbusDesyncError as err:
@@ -194,7 +203,7 @@ class ChicoController(ControllerBase):
             _LOGGER.debug(
                 "CHICO: Batch RW read completed (%d registers in %d batches)",
                 total_rw_read,
-                len(CHICO_RW_BATCHES),
+                len(_CHICO_ALL_RW_BATCHES),
             )
 
         return data

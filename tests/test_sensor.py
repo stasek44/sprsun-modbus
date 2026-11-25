@@ -5,8 +5,9 @@ from unittest.mock import MagicMock, AsyncMock
 from tests.conftest import setup_mocks
 setup_mocks()
 
-from homeassistant.const import CONF_NAME
+from homeassistant.const import CONF_NAME, EntityCategory
 from custom_components.sprsun_modbus.const import DOMAIN, REGISTERS_READ_ONLY
+from custom_components.sprsun_modbus.controllers.chico_registers import CHICO_SENSORS
 from custom_components.sprsun_modbus.sensor import SPRSUNSensor, async_setup_entry
 
 
@@ -34,7 +35,7 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
         }
 
     async def test_async_setup_entry_creates_all_sensors(self):
-        """Test async_setup_entry adds all 49 sensors."""
+        """Test async_setup_entry adds all core (49) and expert (336) sensors."""
         hass = MagicMock()
         hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
         async_add_entities = MagicMock()
@@ -43,7 +44,18 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
 
         async_add_entities.assert_called_once()
         entities = async_add_entities.call_args[0][0]
-        self.assertEqual(len(entities), 49)
+        self.assertEqual(len(entities), len(CHICO_SENSORS))
+        self.assertEqual(len(entities), 385)
+
+        by_key = {entity._key: entity for entity in entities}
+        self.assertEqual(by_key["h01_defrost_freq"].entity_category, EntityCategory.DIAGNOSTIC)
+        self.assertIsNone(by_key["h01_defrost_freq"].state_class)
+        self.assertFalse(
+            getattr(by_key["b21_av_heat_initial_2"], "_attr_entity_registry_enabled_default", True)
+        )
+        self.assertTrue(
+            getattr(by_key["h01_defrost_freq"], "_attr_entity_registry_enabled_default", True)
+        )
 
     def test_sensor_creation_and_attributes(self):
         """Test sensor initialization and standard HA properties."""
@@ -142,6 +154,53 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(str(sensor.device_class), expected)
             self.assertEqual(str(sensor.state_class), "measurement")
+
+    def test_enum_options_and_static_state_class(self):
+        """Test options mapping for enum-style expert sensors and static state_class='none'."""
+        self.coordinator.data["f13_dc_pump_mode"] = {"value": 1, "updated_at": 1000.0}
+        self.coordinator.data["f56_model_selection"] = {"value": 99, "updated_at": 1000.0}
+        self.coordinator.data["h01_defrost_freq"] = {"value": 55, "updated_at": 1000.0}
+
+        pump_mode = SPRSUNSensor(
+            self.coordinator,
+            self.config_entry,
+            "f13_dc_pump_mode",
+            "F13 DC Pump Mode",
+            None,
+            None,
+            state_class="none",
+            diagnostic=True,
+            options={0: "Manual", 1: "Auto"},
+        )
+        self.assertEqual(pump_mode.native_value, "Auto")
+        self.assertIsNone(pump_mode.state_class)
+        self.assertEqual(pump_mode.entity_category, EntityCategory.DIAGNOSTIC)
+
+        model_sel = SPRSUNSensor(
+            self.coordinator,
+            self.config_entry,
+            "f56_model_selection",
+            "F56 Model Selection",
+            None,
+            None,
+            state_class="none",
+            diagnostic=True,
+            options={1: "A102508"},
+        )
+        self.assertEqual(model_sel.native_value, "Unknown (99)")
+
+        h01 = SPRSUNSensor(
+            self.coordinator,
+            self.config_entry,
+            "h01_defrost_freq",
+            "H01 Defrost Frequency",
+            "Hz",
+            "frequency",
+            state_class="none",
+            diagnostic=True,
+        )
+        self.assertEqual(str(h01.device_class), "frequency")
+        self.assertIsNone(h01.state_class)
 
 
 if __name__ == "__main__":

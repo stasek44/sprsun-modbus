@@ -553,6 +553,13 @@ def setup_mocks():
             button_mod.ButtonEntityDescription = ButtonEntityDescription
             sys.modules["homeassistant.components.button"] = button_mod
 
+            # Diagnostics
+            diag_mod = MagicMock()
+            diag_mod.async_redact_data = lambda data, to_redact: {
+                k: ("**REDACTED**" if k in to_redact else v) for k, v in dict(data).items()
+            }
+            sys.modules["homeassistant.components.diagnostics"] = diag_mod
+
             # Attach submodules to parent package so "from homeassistant import config_entries" works
             ha.config_entries = cfg
             ha.const = ha_const

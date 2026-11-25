@@ -48,7 +48,7 @@ class ModbusBatchSpec:
 
 @dataclass(frozen=True)
 class SensorSpec:
-    """Read-only sensor entity specification."""
+    """Read-only sensor entity specification (with optional metadata for future write enablement)."""
 
     key: str
     name: str
@@ -63,6 +63,61 @@ class SensorSpec:
     diagnostic: bool = False
     clamp_min: float | None = None
     clamp_max: float | None = None
+    raw_offset: float | int = 0
+    bit_mask: int | None = None
+    options: Mapping[int, str] | None = None
+    min_value: float | None = None
+    max_value: float | None = None
+    step: float | None = None
+    writable: bool = False
+    enabled_default: bool = True
+
+    def as_number_spec(
+        self,
+        *,
+        is_primary: bool = False,
+        enabled_default: bool | None = None,
+    ) -> NumberSpec:
+        """Convert a numeric parameter SensorSpec into a writable NumberSpec."""
+        if self.min_value is None or self.max_value is None:
+            raise ValueError(f"SensorSpec '{self.key}' lacks min_value/max_value metadata for NumberSpec")
+        return NumberSpec(
+            key=self.key,
+            name=self.name,
+            address=self.address,
+            space=self.space,
+            data_type=self.data_type,
+            word_order=self.word_order,
+            scale=self.scale,
+            unit=self.unit,
+            min_value=self.min_value,
+            max_value=self.max_value,
+            step=self.step if self.step is not None else 1.0,
+            device_class=self.device_class,
+            is_primary=is_primary,
+            raw_offset=self.raw_offset,
+            bit_mask=self.bit_mask,
+            enabled_default=self.enabled_default if enabled_default is None else enabled_default,
+        )
+
+    def as_select_spec(
+        self,
+        *,
+        is_config: bool = True,
+        enabled_default: bool | None = None,
+    ) -> SelectSpec:
+        """Convert an enum parameter SensorSpec into a writable SelectSpec."""
+        if not self.options:
+            raise ValueError(f"SensorSpec '{self.key}' lacks options metadata for SelectSpec")
+        return SelectSpec(
+            key=self.key,
+            name=self.name,
+            address=self.address,
+            options=dict(self.options),
+            space=self.space,
+            is_config=is_config,
+            enabled_default=self.enabled_default if enabled_default is None else enabled_default,
+        )
 
 
 @dataclass(frozen=True)
@@ -78,6 +133,30 @@ class BinarySensorSpec:
     inverted: bool = False
     diagnostic: bool = False
     device_class: str | None = None
+    coil_address: int | None = None
+    writable: bool = False
+    enabled_default: bool = True
+
+    def as_switch_spec(
+        self,
+        *,
+        cache_key: str | None = None,
+        is_config: bool = True,
+        enabled_default: bool | None = None,
+    ) -> SwitchSpec:
+        """Convert a binary parameter spec into a writable SwitchSpec."""
+        return SwitchSpec(
+            key=self.key,
+            name=self.name,
+            address=self.address,
+            bit=self.bit,
+            space=self.space,
+            coil_address=self.coil_address,
+            cache_key=cache_key if cache_key is not None else self.source_key,
+            is_config=is_config,
+            inverted=self.inverted,
+            enabled_default=self.enabled_default if enabled_default is None else enabled_default,
+        )
 
 
 @dataclass(frozen=True)
@@ -98,6 +177,9 @@ class NumberSpec:
     device_class: str | None = None
     supports_temp_step_override: bool = False
     is_primary: bool = False
+    raw_offset: float | int = 0
+    bit_mask: int | None = None
+    enabled_default: bool = True
 
 
 @dataclass(frozen=True)
@@ -110,6 +192,7 @@ class SelectSpec:
     options: dict[int, str]
     space: RegisterSpace = RegisterSpace.HOLDING_REGISTER
     is_config: bool = True
+    enabled_default: bool = True
 
 
 @dataclass(frozen=True)
@@ -125,6 +208,7 @@ class SwitchSpec:
     cache_key: str | None = None
     is_config: bool = False
     inverted: bool = False
+    enabled_default: bool = True
 
 
 @dataclass(frozen=True)
@@ -196,16 +280,26 @@ def decode_registers(
     word_order: WordOrder = WordOrder.BIG_ENDIAN,
     clamp_min: float | None = None,
     clamp_max: float | None = None,
+    raw_offset: float | int = 0,
+    bit_mask: int | None = None,
 ) -> float | int | bool:
     """Decode raw Modbus register word(s) or bit into a scaled Python value."""
     if data_type == DataType.BOOL:
         return bool(words[0])
 
     if data_type == DataType.UINT16:
-        raw: float | int = int(words[0]) & 0xFFFF
+        raw_u16 = int(words[0]) & 0xFFFF
+        if bit_mask is not None:
+            raw_u16 &= bit_mask
+        raw: float | int = raw_u16
     elif data_type == DataType.INT16:
         raw_u16 = int(words[0]) & 0xFFFF
-        raw = raw_u16 - 65536 if raw_u16 > 32767 else raw_u16
+        if bit_mask is not None:
+            raw_u16 &= bit_mask
+            sign_bit = (bit_mask + 1) >> 1
+            raw = raw_u16 - (bit_mask + 1) if (bit_mask & (bit_mask + 1) == 0 and raw_u16 >= sign_bit) else raw_u16
+        else:
+            raw = raw_u16 - 65536 if raw_u16 > 32767 else raw_u16
     elif data_type in (DataType.UINT32, DataType.INT32, DataType.FLOAT32):
         if len(words) < 2:
             raise ValueError(f"Expected 2 registers for {data_type}, got {len(words)}")
@@ -225,7 +319,9 @@ def decode_registers(
     else:
         raise ValueError(f"Unsupported data type: {data_type}")
 
-    value = raw * scale
+    value = (raw + raw_offset) * scale
+    if isinstance(value, float) and data_type != DataType.FLOAT32:
+        value = round(value, 6)
     if clamp_min is not None and value < clamp_min:
         value = clamp_min
     if clamp_max is not None and value > clamp_max:
@@ -238,6 +334,8 @@ def encode_registers(
     data_type: DataType,
     scale: float | int = 1,
     word_order: WordOrder = WordOrder.BIG_ENDIAN,
+    raw_offset: float | int = 0,
+    bit_mask: int | None = None,
 ) -> list[int]:
     """Encode a user-facing value into 16-bit Modbus register word(s)."""
     if data_type == DataType.BOOL:
@@ -246,13 +344,17 @@ def encode_registers(
     if scale == 0:
         raise ValueError("Scale must be non-zero")
 
-    scaled = float(value) / float(scale)
+    scaled = (float(value) / float(scale)) - float(raw_offset)
 
     if data_type == DataType.UINT16:
         raw_int = int(round(scaled))
+        if bit_mask is not None:
+            raw_int &= bit_mask
         return [raw_int & 0xFFFF]
     if data_type == DataType.INT16:
         raw_int = int(round(scaled))
+        if bit_mask is not None:
+            raw_int &= bit_mask
         return [raw_int & 0xFFFF]
     if data_type in (DataType.UINT32, DataType.INT32):
         raw_int = int(round(scaled)) & 0xFFFFFFFF

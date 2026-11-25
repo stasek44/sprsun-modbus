@@ -16,7 +16,9 @@ from custom_components.sprsun_modbus.const import (
     CONF_TEMP_STEP,
     PLATFORMS,
     REGISTERS_READ_ONLY,
+    REGISTERS_EXPERT,
     BINARY_SENSOR_BITS,
+    EXPERT_BINARY_SENSOR_BITS,
     REGISTERS_SWITCH,
     REGISTERS_BUTTON,
     REGISTERS_SELECT,
@@ -212,6 +214,16 @@ class TestSPRSUNConstants(unittest.TestCase):
         mock_fallback = MagicMock()
         mock_fallback.options = {CONF_TEMP_STEP: 1.0}
         self.assertEqual(get_temp_step(mock_coord_entry, mock_fallback), 1.0)
+
+    def test_expert_registers_and_bits_views(self):
+        """Test expert register and control bit legacy map views."""
+        self.assertEqual(len(REGISTERS_EXPERT), 336)
+        self.assertEqual(len(EXPERT_BINARY_SENSOR_BITS), 17)
+        self.assertEqual(REGISTERS_EXPERT[0x0037][0], "h01_defrost_freq")
+        self.assertEqual(REGISTERS_EXPERT[0x0082][0], "f02_hp_protect_value")
+        self.assertEqual(REGISTERS_EXPERT[0x01BB][0], "r94_oil_return_freq")
+        self.assertEqual(EXPERT_BINARY_SENSOR_BITS["b74_av_cool_enable"][:2], (0x0033, 2))
+        self.assertEqual(EXPERT_BINARY_SENSOR_BITS["timeband_1_enable"][:2], (0x0035, 0))
 
 
 if __name__ == "__main__":
