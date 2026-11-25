@@ -53,8 +53,11 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(
             getattr(by_key["b21_av_heat_initial_2"], "_attr_entity_registry_enabled_default", True)
         )
-        self.assertTrue(
+        self.assertFalse(
             getattr(by_key["h01_defrost_freq"], "_attr_entity_registry_enabled_default", True)
+        )
+        self.assertTrue(
+            getattr(by_key["inlet_temp"], "_attr_entity_registry_enabled_default", True)
         )
 
     def test_sensor_creation_and_attributes(self):

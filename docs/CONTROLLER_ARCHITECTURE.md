@@ -41,11 +41,12 @@ custom_components/sprsun_modbus/
 
 ## Expert Settings, Polling & Safety Architecture
 
-- **Single-Device Entity Categorization:** All core controls, sensors, read-only expert diagnostics (`EntityCategory.DIAGNOSTIC`), and opt-in writable expert controls (`EntityCategory.CONFIG`) remain under the single `SPRSUN Heat Pump` device.
+- **Single-Device Entity Categorization & Default Visibility:** All core controls, sensors, read-only expert diagnostics (`EntityCategory.DIAGNOSTIC`), and opt-in writable expert controls (`EntityCategory.CONFIG`) remain under the single `SPRSUN Heat Pump` device. All `353` RO expert entities (`336` sensors + `17` binary sensors) set `enabled_default=False` (`_attr_entity_registry_enabled_default = False`), hiding them by default in the Home Assistant entity registry while keeping all `149` core entities visible.
 - **Opt-In Expert Write Gating (`enable_expert_writes`):**
   - `ControllerBase` defines `get_expert_numbers()`, `get_expert_selects()`, and `get_expert_switches()`, returning `()` by default so non-CHICO drivers need no boilerplate.
+  - Confirmed CHICO expert promotion filters by `spec.writable` (independent of `spec.enabled_default`) so RO diagnostics stay hidden in HA by default while `enable_expert_writes=True` still promotes all `337` confirmed controls (`322` numbers, `2` selects, `13` switches).
   - `number.py`, `select.py`, and `switch.py` only register expert writable entities when `is_expert_writes_enabled(config_entry)` is `True` (default `False`).
-  - Expert numeric entities enforce `NumberMode.BOX` (preventing accidental slider drags in the UI), while dangerous registers/bits (e.g. `parameters_reset_flag` at `0x0033` bit 6) and unconfirmed PDF `Invalid` gaps are kept read-only.
+  - Expert numeric entities enforce `NumberMode.BOX` (preventing accidental slider drags in the UI), while dangerous registers/bits (e.g. `parameters_reset_flag` at `0x0033` bit 6) and unconfirmed PDF `Invalid` gaps (`writable=False`) are kept non-writable.
 - **Masked Read-Modify-Write & Offset Codecs:**
   - Registers sharing a word with adjacent fields (e.g. Timeband temperature setpoints `0x01A4–0x01AC` using `bit_mask=0x00FF`) route through `async_write_masked_register()` -> `_sync_write_masked_register()`, reading the live 16-bit word, masking only target bits, writing back with `INTER_WRITE_DELAY`, and storing the scaled `cached_value`.
   - Signed (`INT16`) and offset-encoded (`raw_offset`, such as `F02`/`F03` with `+250` raw offset) single-register writes encode via `encode_registers()` and pass explicit `cached_value`.

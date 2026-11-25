@@ -293,9 +293,10 @@ def _expert_sensor(
     raw_offset: float | int = 0,
     bit_mask: int | None = None,
     options: Mapping[int, str] | None = None,
-    enabled_default: bool = True,
+    enabled_default: bool = False,
+    writable: bool = True,
 ) -> SensorSpec:
-    """Create a read-only CHICO expert parameter SensorSpec ready for future write promotion."""
+    """Create a read-only CHICO expert parameter SensorSpec (hidden by default in HA)."""
     return SensorSpec(
         key=key,
         name=name,
@@ -313,7 +314,7 @@ def _expert_sensor(
         min_value=min_value,
         max_value=max_value,
         step=step,
-        writable=False,
+        writable=writable,
         enabled_default=enabled_default,
     )
 
@@ -333,7 +334,8 @@ def _ambient_curve(
     device_class: str | None = None,
     data_type: DataType = DataType.UINT16,
     start_index: int = 0,
-    enabled_default: bool = True,
+    enabled_default: bool = False,
+    writable: bool = True,
     address_offset: int = 0,
 ) -> tuple[SensorSpec, ...]:
     """Generate ambient-temperature indexed curve specs concisely."""
@@ -350,6 +352,7 @@ def _ambient_curve(
             device_class=device_class,
             data_type=data_type,
             enabled_default=enabled_default,
+            writable=writable,
         )
         for offset, code in enumerate(codes)
     )
@@ -464,9 +467,9 @@ CHICO_EXPERT_SENSORS: tuple[SensorSpec, ...] = (
     _expert_sensor(0x00EB, "b10_av_off_exh_stp", "B10 AV Off Exhaust Setpoint", 1, "°C", 40, 70, 1, "temperature"),
     *_ambient_curve(0x00EC, ("B11", "B12", "B13", "B14", "B15", "B16", "B17", "B18"), "av_heating_sh", "AV Heating Superheat", _HEATING_AMBIENT_BINS, scale=1, unit="°C", min_value=-10, max_value=10, device_class="temperature", data_type=DataType.INT16, start_index=1),
     *_ambient_curve(0x0068, ("B19", "B20"), "av_heat_initial", "AV Heat Initial", _HEATING_AMBIENT_BINS, scale=2, unit="steps", min_value=0, max_value=480, step=2),
-    *_ambient_curve(0x006A, ("B21", "B22", "B23", "B24", "B25", "B26"), "av_heat_initial", "AV Heat Initial", _HEATING_AMBIENT_BINS, scale=2, unit="steps", min_value=0, max_value=480, step=2, address_offset=2, enabled_default=False),
+    *_ambient_curve(0x006A, ("B21", "B22", "B23", "B24", "B25", "B26"), "av_heat_initial", "AV Heat Initial", _HEATING_AMBIENT_BINS, scale=2, unit="steps", min_value=0, max_value=480, step=2, address_offset=2, writable=False),
     *_ambient_curve(0x0070, ("B27", "B28"), "av_water_initial", "AV Water Initial", _HEATING_AMBIENT_BINS, scale=2, unit="steps", min_value=0, max_value=480, step=2),
-    *_ambient_curve(0x0072, ("B29", "B30", "B31", "B32", "B33", "B34"), "av_water_initial", "AV Water Initial", _HEATING_AMBIENT_BINS, scale=2, unit="steps", min_value=0, max_value=480, step=2, address_offset=2, enabled_default=False),
+    *_ambient_curve(0x0072, ("B29", "B30", "B31", "B32", "B33", "B34"), "av_water_initial", "AV Water Initial", _HEATING_AMBIENT_BINS, scale=2, unit="steps", min_value=0, max_value=480, step=2, address_offset=2, writable=False),
     *_ambient_curve(0x0078, ("B35", "B36", "B37", "B38", "B39", "B40", "B41", "B42"), "av_heat_lower", "AV Heat Lower", _HEATING_AMBIENT_BINS, scale=2, unit="steps", min_value=0, max_value=480, step=2),
     _expert_sensor(0x0080, "b43_av_defrost_open", "B43 AV Defrost Opening", 2, "steps", 0, 480, 2),
     _expert_sensor(0x0081, "b44_av_cool_open", "B44 AV Cool Opening", 2, "steps", 0, 480, 2),
@@ -662,9 +665,10 @@ def _expert_bit(
     name: str,
     *,
     inverted: bool = False,
-    enabled_default: bool = True,
+    enabled_default: bool = False,
+    writable: bool = True,
 ) -> BinarySensorSpec:
-    """Create a read-only CHICO control/schedule bitfield BinarySensorSpec."""
+    """Create a read-only CHICO control/schedule bitfield BinarySensorSpec (hidden by default in HA)."""
     return BinarySensorSpec(
         key=key,
         name=name,
@@ -675,7 +679,7 @@ def _expert_bit(
         inverted=inverted,
         diagnostic=True,
         coil_address=(address << 4) + bit,
-        writable=False,
+        writable=writable,
         enabled_default=enabled_default,
     )
 
@@ -694,11 +698,11 @@ CHICO_EXPERT_BINARY_SENSORS: tuple[BinarySensorSpec, ...] = (
     _expert_bit("b92_av_control_exhaust", 0x0033, 3, "B92 AV Exhaust Control Mode"),
     _expert_bit("d01_dcfan1_enable", 0x0033, 4, "D01 DC Fan 1 Enable"),
     _expert_bit("d02_dcfan2_enable", 0x0033, 5, "D02 DC Fan 2 Enable"),
-    _expert_bit("parameters_reset_flag", 0x0033, 6, "Parameters Reset Flag"),
+    _expert_bit("parameters_reset_flag", 0x0033, 6, "Parameters Reset Flag", writable=False),
     # Control Mark 2 deduced bits (0x0034; bits 0-1 are switches; bits 2-4 Invalid in V1.2 PDF)
-    _expert_bit("night_clock_mode", 0x0034, 2, "Night Clock Mode (Unconfirmed)", enabled_default=False),
-    _expert_bit("load_fast_check", 0x0034, 3, "Load Fast Check (Unconfirmed)", enabled_default=False),
-    _expert_bit("forced_defrost", 0x0034, 4, "Forced Defrost Flag (Unconfirmed)", enabled_default=False),
+    _expert_bit("night_clock_mode", 0x0034, 2, "Night Clock Mode (Unconfirmed)", writable=False),
+    _expert_bit("load_fast_check", 0x0034, 3, "Load Fast Check (Unconfirmed)", writable=False),
+    _expert_bit("forced_defrost", 0x0034, 4, "Forced Defrost Flag (Unconfirmed)", writable=False),
     # Timeband Enable Flags (0x0035)
     _expert_bit("timeband_1_enable", 0x0035, 0, "Timeband 1 Enable"),
     _expert_bit("timeband_2_enable", 0x0035, 1, "Timeband 2 Enable"),
@@ -880,7 +884,7 @@ CHICO_NUMBERS: tuple[NumberSpec, ...] = (
 CHICO_EXPERT_NUMBERS: tuple[NumberSpec, ...] = tuple(
     spec.as_number_spec(is_expert=True)
     for spec in CHICO_EXPERT_SENSORS
-    if spec.enabled_default
+    if spec.writable
     and not spec.options
     and spec.min_value is not None
     and spec.max_value is not None
@@ -889,11 +893,11 @@ CHICO_EXPERT_NUMBERS: tuple[NumberSpec, ...] = tuple(
 CHICO_EXPERT_SELECTS: tuple[SelectSpec, ...] = tuple(
     spec.as_select_spec(is_config=True, is_expert=True)
     for spec in CHICO_EXPERT_SENSORS
-    if spec.enabled_default and spec.options
+    if spec.writable and spec.options
 )
 
 CHICO_EXPERT_SWITCHES: tuple[SwitchSpec, ...] = tuple(
     spec.as_switch_spec(is_config=True, is_expert=True)
     for spec in CHICO_EXPERT_BINARY_SENSORS
-    if spec.enabled_default and spec.key != "parameters_reset_flag"
+    if spec.writable and spec.key != "parameters_reset_flag"
 )

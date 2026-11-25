@@ -384,9 +384,9 @@ If your installation uses a variable-speed DC pump connected to the controller:
 ### Smart Grid Status (0x0025)
 - Indicates demand-response status from utility contacts (peak shaving / PV surplus boost).
 
-### Expert / Engineering Parameter Series (Read-Only Diagnostic by Default)
+### Expert / Engineering Parameter Series (Hidden Read-Only Diagnostic by Default)
 
-> ⚠️ **Safety Notice:** By default, all CHICO engineering/factory parameters below are exposed as **read-only `Diagnostic` sensors/binary sensors**. Writing to them requires explicitly enabling **Enable Expert Settings Writes** (`enable_expert_writes`) in the integration's **Configure** dialog, which adds `337` writable **Configuration** controls (`322` numbers in `box` mode, `2` selects, `13` switches) under the same `SPRSUN Heat Pump` device. Incorrect values can compromise defrosting, refrigerant superheat, or compressor envelope protection.
+> ⚠️ **Safety & Visibility Notice:** Expert settings cover the newly mapped CHICO registers (`0x0032–0x01BB`, excluding core user/E/G/Antilegionella controls that were already present in `v5.1.x`). By default, all `353` read-only expert entities (`336` `sensor` + `17` `binary_sensor` under `Diagnostic`) are **disabled by default (`entity_registry_enabled_default = False`)** so they remain hidden in the Home Assistant UI until individually enabled. Writing to them requires explicitly enabling **Enable Expert Settings Writes** (`enable_expert_writes`) in the integration's **Configure** dialog, which adds `337` writable **Configuration** controls (`322` numbers in `box` mode, `2` selects, `13` switches) under the same `SPRSUN Heat Pump` device. Incorrect values can compromise defrosting, refrigerant superheat, or compressor envelope protection.
 
 - **Defrost & Defrost Fan (`H01–H18`, `0x0037–0x0046`, `0x00D4–0x00DB`, `0x01B0–0x01B1`):** Entry/exit coil temperature thresholds (`H03`, `H04`), cycle intervals and durations (`H01`, `H02`, `H05–H16`), and defrost fan pressure/speed limits (`H17`, `H18`).
 - **Main Electronic Expansion Valve (`A01–A51`, `0x0047–0x0056`, `0x008A–0x00A1`, `0x00DC–0x00E7`, `0x00BD–0x00BF`):** Target superheat steps, PI PID coefficients, heating/cooling curve ambient steps, and manual vs automatic EEV position (`A45`).
@@ -420,7 +420,7 @@ If your installation uses a variable-speed DC pump connected to the controller:
   - `1 = Three Function (Heating + Cooling + DHW)`: Standard installation with a 3-way diverting valve and DHW cylinder.
 
 ### Expert Control Bits (`0x0032`, `0x0033`, `0x0035`)
-- **Read-Only Always (`17` binary sensors):** Always visible under Diagnostics (`0x0032` bits 1–6, `0x0033` bits 0–6 including inverted `B74 AV Cool Enable` on bit 2, and `0x0035` bits 0–2).
+- **Read-Only Always (`17` binary sensors, hidden by default):** Created with `entity_registry_enabled_default = False` under Diagnostics (`0x0032` bits 1–6, `0x0033` bits 0–6 including inverted `B74 AV Cool Enable` on bit 2, `0x0034` unconfirmed bits 2–4, and `0x0035` bits 0–2) and can be enabled individually in HA if needed.
 - **Opt-In Switches (`13` switches when `enable_expert_writes = true`):** Exposes confirmed working switches (`a45_mv_mode_manual`, `manual_freq_selection`, `b01_av_mode_manual`, `b93_av_init_outlet_adjustable`, `r29_constant_freq_adj`, `f01_pressure_switch_enable`, `b74_av_cool_enable`, `b92_av_control_exhaust`, `d01_dcfan1_enable`, `d02_dcfan2_enable`, `timeband_1..3_enable`).
 - **Safety Exclusion:** `parameters_reset_flag` (`0x0033` bit 6) is intentionally **never** exposed as a writable switch to prevent accidental factory resets.
 

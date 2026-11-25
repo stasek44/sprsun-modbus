@@ -70,6 +70,13 @@ class TestExpertWritesConfigAndSpecs(unittest.TestCase):
         # Dangerous factory reset flag (0x0033 bit 6) must NOT be exposed as a switch
         self.assertFalse(any(spec.key == "parameters_reset_flag" for spec in sws))
 
+        # All RO expert sensors (336) and binary sensors (17) must be hidden (disabled by default) in HA,
+        # while all core telemetry/alarm sensors remain enabled by default.
+        self.assertTrue(all(spec.enabled_default for spec in controller.get_sensors()[:49]))
+        self.assertTrue(all(not spec.enabled_default for spec in controller.get_sensors()[49:]))
+        self.assertTrue(all(spec.enabled_default for spec in controller.get_binary_sensors()[:49]))
+        self.assertTrue(all(not spec.enabled_default for spec in controller.get_binary_sensors()[49:]))
+
         # No key collisions across core and expert entities
         core_keys = (
             {s.key for s in controller.get_numbers()}

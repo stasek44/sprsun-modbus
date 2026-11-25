@@ -60,8 +60,11 @@ class TestSPRSUNBinarySensor(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(
             getattr(by_key["night_clock_mode"], "_attr_entity_registry_enabled_default", True)
         )
-        self.assertTrue(
+        self.assertFalse(
             getattr(by_key["r29_constant_freq_adj"], "_attr_entity_registry_enabled_default", True)
+        )
+        self.assertTrue(
+            getattr(by_key["hotwater_demand"], "_attr_entity_registry_enabled_default", True)
         )
 
     def test_binary_sensor_attributes(self):
