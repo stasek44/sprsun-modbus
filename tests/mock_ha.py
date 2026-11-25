@@ -84,7 +84,17 @@ def setup_mocks():
                     self.connected = False
                 def read_holding_registers(self, *args, **kwargs):
                     return MagicMock(isError=lambda: False, registers=[])
+                def read_input_registers(self, *args, **kwargs):
+                    return MagicMock(isError=lambda: False, registers=[])
+                def read_discrete_inputs(self, *args, **kwargs):
+                    return MagicMock(isError=lambda: False, bits=[])
+                def read_coils(self, *args, **kwargs):
+                    return MagicMock(isError=lambda: False, bits=[])
                 def write_register(self, *args, **kwargs):
+                    return MagicMock(isError=lambda: False)
+                def write_registers(self, *args, **kwargs):
+                    return MagicMock(isError=lambda: False)
+                def write_coil(self, *args, **kwargs):
                     return MagicMock(isError=lambda: False)
 
             pm.exceptions.ModbusException = ModbusException
@@ -268,6 +278,22 @@ def setup_mocks():
                 def native_max_value(self):
                     return getattr(self, "_attr_native_max_value", None)
 
+                @property
+                def hvac_modes(self):
+                    return getattr(self, "_attr_hvac_modes", [])
+
+                @property
+                def fan_modes(self):
+                    return getattr(self, "_attr_fan_modes", [])
+
+                @property
+                def preset_modes(self):
+                    return getattr(self, "_attr_preset_modes", [])
+
+                @property
+                def supported_features(self):
+                    return getattr(self, "_attr_supported_features", 0)
+
                 def async_write_ha_state(self):
                     pass
 
@@ -444,6 +470,8 @@ def setup_mocks():
                 CURRENT = "current"
                 FREQUENCY = "frequency"
                 VOLTAGE = "voltage"
+                ENERGY = "energy"
+                VOLUME_FLOW_RATE = "volume_flow_rate"
 
             class SensorStateClass(StrEnum):
                 MEASUREMENT = "measurement"

@@ -39,34 +39,41 @@ async def validate_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict
     
     def _test_connection_and_detect():
         """Test connection and detect controller type in executor."""
-        from .controllers import detect_controller_type
-        
+        from .controllers import detect_controller_type, get_controller
+
         client = ModbusTcpClient(host=host, port=port, timeout=5)
         try:
             if not client.connect():
                 raise ConnectionError("Cannot connect to Modbus device")
-            
-            # Try to read first register as test
+
+            requested_type = data.get(CONF_CONTROLLER_TYPE)
+            if requested_type and requested_type != "auto":
+                controller = get_controller(requested_type)
+                if not controller.probe_connection(client, device_address):
+                    raise ConnectionError(
+                        f"Modbus probe failed for controller {requested_type}"
+                    )
+                return controller.name.lower()
+
+            # Auto-detect controller type across registered drivers first
+            controller_type = detect_controller_type(client, device_address)
+            if controller_type is not None:
+                return controller_type
+
+            # Fallback probe on holding register 0x0000 for legacy/unknown CHICO units
             result = client.read_holding_registers(
                 address=0x0000,
                 count=1,
-                device_id=device_address
+                device_id=device_address,
             )
-            
             if result.isError():
                 raise ConnectionError(f"Modbus read error: {result}")
-            
-            # Auto-detect controller type
-            controller_type = detect_controller_type(client, device_address)
-            
-            if controller_type is None:
-                _LOGGER.warning(
-                    "Could not auto-detect controller type, defaulting to CHICO"
-                )
-                controller_type = "chico"
-            
-            return controller_type
-            
+
+            _LOGGER.warning(
+                "Could not auto-detect controller type, defaulting to CHICO"
+            )
+            return "chico"
+
         finally:
             client.close()
     

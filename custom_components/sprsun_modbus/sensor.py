@@ -2,41 +2,47 @@
 from __future__ import annotations
 
 from homeassistant.components.sensor import (
-    SensorEntity,
     SensorDeviceClass,
+    SensorEntity,
     SensorStateClass,
 )
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, EntityCategory
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, REGISTERS_READ_ONLY
+from .const import DOMAIN
+from .controllers import (
+    build_device_info,
+    extract_cache_value,
+    resolve_controller,
+    resolve_coordinator,
+)
+from .controllers.chico_registers import CHICO_DIAGNOSTIC_SENSOR_KEYS
 
-DIAGNOSTIC_SENSOR_KEYS = {
-    "software_version_year",
-    "software_version_month_day",
-    "controller_version",
-    "display_version",
-    "switching_input_symbol",
-    "working_status_mark",
-    "output_symbol_1",
-    "output_symbol_2",
-    "output_symbol_3",
-    "failure_symbol_1",
-    "failure_symbol_2",
-    "failure_symbol_3",
-    "failure_symbol_4",
-    "failure_symbol_5",
-    "failure_symbol_6",
-    "failure_symbol_7",
-    "freq_conversion_failure_1",
-    "freq_conversion_failure_2",
-    "freq_conversion_fault_high",
-    "freq_conversion_fault_low",
+DIAGNOSTIC_SENSOR_KEYS = set(CHICO_DIAGNOSTIC_SENSOR_KEYS)
+
+_DEVICE_CLASS_MAP: dict[str, str] = {
+    "temperature": "TEMPERATURE",
+    "pressure": "PRESSURE",
+    "power": "POWER",
+    "current": "CURRENT",
+    "frequency": "FREQUENCY",
+    "voltage": "VOLTAGE",
+    "energy": "ENERGY",
+    "volume_flow_rate": "VOLUME_FLOW_RATE",
 }
+
+_MEASUREMENT_DEVICE_CLASSES = frozenset({
+    "temperature",
+    "pressure",
+    "power",
+    "current",
+    "frequency",
+    "voltage",
+    "volume_flow_rate",
+})
 
 
 async def async_setup_entry(
@@ -45,29 +51,31 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SPRSUN sensors."""
-    coordinator = getattr(config_entry, "runtime_data", None) or hass.data[DOMAIN][config_entry.entry_id]
-    
-    entities = []
-    for address, (key, name, scale, unit, device_class) in REGISTERS_READ_ONLY.items():
-        entities.append(
-            SPRSUNSensor(
-                coordinator,
-                config_entry,
-                key,
-                name,
-                unit,
-                device_class,
-            )
+    coordinator = resolve_coordinator(hass, config_entry, DOMAIN)
+    controller = resolve_controller(coordinator)
+
+    entities = [
+        SPRSUNSensor(
+            coordinator,
+            config_entry,
+            spec.key,
+            spec.name,
+            spec.unit,
+            spec.device_class,
+            state_class=spec.state_class,
+            diagnostic=spec.diagnostic,
         )
-    
+        for spec in controller.get_sensors()
+    ]
+
     async_add_entities(entities)
 
 
 class SPRSUNSensor(CoordinatorEntity, SensorEntity):
     """Representation of a SPRSUN sensor."""
-    
+
     _attr_has_entity_name = True
-    
+
     def __init__(
         self,
         coordinator,
@@ -76,58 +84,44 @@ class SPRSUNSensor(CoordinatorEntity, SensorEntity):
         name: str,
         unit: str | None,
         device_class: str | None,
+        state_class: str | None = None,
+        diagnostic: bool | None = None,
     ) -> None:
         """Initialize the sensor."""
         super().__init__(coordinator)
-        
+
         self._key = key
         self._attr_name = name
         self._attr_unique_id = f"{config_entry.entry_id}_{key}"
         self._attr_native_unit_of_measurement = unit
-        
-        if key in DIAGNOSTIC_SENSOR_KEYS:
+
+        is_diagnostic = diagnostic if diagnostic is not None else (key in DIAGNOSTIC_SENSOR_KEYS)
+        if is_diagnostic:
             self._attr_entity_category = EntityCategory.DIAGNOSTIC
-        
-        # Set device class
-        if device_class == "temperature":
-            self._attr_device_class = SensorDeviceClass.TEMPERATURE
-        elif device_class == "pressure":
-            self._attr_device_class = SensorDeviceClass.PRESSURE
-        elif device_class == "power":
-            self._attr_device_class = SensorDeviceClass.POWER
-        elif device_class == "current":
-            self._attr_device_class = SensorDeviceClass.CURRENT
-        elif device_class == "frequency":
-            self._attr_device_class = SensorDeviceClass.FREQUENCY
-        elif device_class == "voltage":
-            self._attr_device_class = SensorDeviceClass.VOLTAGE
-        
-        # Set state class for statistical sensors
-        if device_class in ["temperature", "pressure", "power", "current", "frequency", "voltage"]:
+
+        if device_class and device_class in _DEVICE_CLASS_MAP:
+            dc_attr = _DEVICE_CLASS_MAP[device_class]
+            dc_val = getattr(SensorDeviceClass, dc_attr, None)
+            if dc_val is not None:
+                self._attr_device_class = dc_val
+
+        if state_class == "total_increasing":
+            self._attr_state_class = SensorStateClass.TOTAL_INCREASING
+        elif state_class == "total":
+            self._attr_state_class = SensorStateClass.TOTAL
+        elif state_class == "measurement" or (
+            state_class is None and device_class in _MEASUREMENT_DEVICE_CLASSES
+        ):
             self._attr_state_class = SensorStateClass.MEASUREMENT
-        
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, config_entry.entry_id)},
-            name=config_entry.data[CONF_NAME],
-            manufacturer="SPRSUN",
-            model="Heat Pump",
-        )
-    
+
+        controller = resolve_controller(coordinator)
+        self._attr_device_info = build_device_info(controller, config_entry)
+
     @property
     def native_value(self):
         """Return the state of the sensor."""
-        if not self.coordinator.data:
-            return None
-        cache_entry = self.coordinator.data.get(self._key)
-        if cache_entry is not None:
-            # Handle new format (dict with value/timestamp)
-            if isinstance(cache_entry, dict):
-                return cache_entry.get("value")
-            # Handle old format (raw value) for backwards compatibility
-            return cache_entry
-        return None
-    
+        return extract_cache_value(self.coordinator.data, self._key)
+
     @property
     def available(self) -> bool:
         """Return if entity is available."""

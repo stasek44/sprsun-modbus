@@ -1,15 +1,24 @@
 """Number platform for SPRSUN Heat Pump."""
 from __future__ import annotations
 
-from homeassistant.components.number import NumberEntity, NumberDeviceClass
+from homeassistant.components.number import NumberDeviceClass, NumberEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import CONF_NAME, EntityCategory
+from homeassistant.const import EntityCategory
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN, REGISTERS_NUMBER, get_temp_step
+from .const import DOMAIN, get_temp_step
+from .controllers import (
+    DataType,
+    NumberSpec,
+    build_device_info,
+    encode_registers,
+    extract_cache_value,
+    resolve_controller,
+    resolve_coordinator,
+)
+from .controllers.models import registers_per_value
 
 PRIMARY_SETPOINTS = {"heating_setpoint", "cooling_setpoint", "hotwater_setpoint"}
 
@@ -20,30 +29,31 @@ async def async_setup_entry(
     async_add_entities: AddEntitiesCallback,
 ) -> None:
     """Set up SPRSUN numbers."""
-    coordinator = getattr(config_entry, "runtime_data", None) or hass.data[DOMAIN][config_entry.entry_id]
+    coordinator = resolve_coordinator(hass, config_entry, DOMAIN)
+    controller = resolve_controller(coordinator)
     temp_step = get_temp_step(config_entry, getattr(coordinator, "config_entry", None))
-    
+
     entities = []
-    for address, config in REGISTERS_NUMBER.items():
-        key, name, scale, unit, min_val, max_val, step, device_class = config
-        initial_step = temp_step if (device_class == "temperature" and step == 0.5) else step
+    for spec in controller.get_numbers():
+        initial_step = temp_step if spec.supports_temp_step_override else spec.step
         entities.append(
             SPRSUNNumber(
                 coordinator,
                 config_entry,
-                key,
-                name,
-                address,
-                scale,
-                unit,
-                min_val,
-                max_val,
+                spec.key,
+                spec.name,
+                spec.address,
+                spec.scale,
+                spec.unit,
+                spec.min_value,
+                spec.max_value,
                 initial_step,
-                device_class,
-                orig_step=step,
+                spec.device_class,
+                orig_step=spec.step,
+                spec=spec,
             )
         )
-    
+
     async_add_entities(entities)
 
 
@@ -56,9 +66,9 @@ def _round_to_step(value: float, step: float) -> float:
 
 class SPRSUNNumber(CoordinatorEntity, NumberEntity):
     """Representation of a SPRSUN number."""
-    
+
     _attr_has_entity_name = True
-    
+
     def __init__(
         self,
         coordinator,
@@ -73,10 +83,12 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
         step: float,
         device_class: str | None,
         orig_step: float | None = None,
+        spec: NumberSpec | None = None,
     ) -> None:
         """Initialize the number."""
         super().__init__(coordinator)
         self._config_entry = config_entry
+        self._spec = spec
         self._orig_step = orig_step if orig_step is not None else step
         self._key = key
         self._address = address
@@ -87,46 +99,39 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
         self._attr_native_min_value = min_val
         self._attr_native_max_value = max_val
         self._attr_native_step = step
-        
-        # All non-primary setpoints are configuration entities
-        if key not in PRIMARY_SETPOINTS:
+
+        is_primary = spec.is_primary if spec is not None else (key in PRIMARY_SETPOINTS)
+        if not is_primary:
             self._attr_entity_category = EntityCategory.CONFIG
-        
-        # Set device class
+
         if device_class == "temperature":
             self._attr_device_class = NumberDeviceClass.TEMPERATURE
         else:
             self._attr_device_class = None
-        
-        # Device info
-        self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, config_entry.entry_id)},
-            name=config_entry.data[CONF_NAME],
-            manufacturer="SPRSUN",
-            model="Heat Pump",
-        )
-    
+
+        controller = resolve_controller(coordinator)
+        self._attr_device_info = build_device_info(controller, config_entry)
+
     @property
     def native_step(self) -> float:
         """Return the step for the number value."""
-        if getattr(self, "_attr_device_class", None) == NumberDeviceClass.TEMPERATURE and self._orig_step == 0.5:
+        supports_override = (
+            self._spec.supports_temp_step_override
+            if self._spec is not None
+            else (
+                getattr(self, "_attr_device_class", None) == NumberDeviceClass.TEMPERATURE
+                and self._orig_step == 0.5
+            )
+        )
+        if supports_override:
             return get_temp_step(self._config_entry, getattr(self.coordinator, "config_entry", None))
         return self._attr_native_step
 
     @property
     def native_value(self) -> float | None:
         """Return the current value."""
-        if not self.coordinator.data:
-            return None
-        cache_entry = self.coordinator.data.get(self._key)
-        if cache_entry is not None:
-            # Handle new format (dict with value/timestamp)
-            if isinstance(cache_entry, dict):
-                return cache_entry.get("value")
-            # Handle old format (raw float) for backwards compatibility
-            return cache_entry
-        return None
-    
+        return extract_cache_value(self.coordinator.data, self._key)
+
     @property
     def available(self) -> bool:
         """Return if entity is available."""
@@ -135,18 +140,33 @@ class SPRSUNNumber(CoordinatorEntity, NumberEntity):
             and self.coordinator.data is not None
             and self._key in self.coordinator.data
         )
-    
+
     async def async_set_native_value(self, value: float) -> None:
         """Set new value."""
         value = _round_to_step(float(value), self.native_step)
 
-        # Use coordinator's write helper (handles cache + timestamp automatically)
-        await self.coordinator.async_write_register(
-            address=self._address,
-            value=value,
-            key=self._key,
-            scale=(1 / self._scale)  # Convert scale factor for coordinator
-        )
-        
-        # Trigger UI update immediately
+        if self._spec is not None and (
+            registers_per_value(self._spec.data_type) > 1
+            or self._spec.data_type == DataType.FLOAT32
+        ):
+            registers = encode_registers(
+                value,
+                self._spec.data_type,
+                scale=self._scale,
+                word_order=self._spec.word_order,
+            )
+            await self.coordinator.async_write_registers(
+                address=self._address,
+                registers=registers,
+                key=self._key,
+                value=value,
+            )
+        else:
+            await self.coordinator.async_write_register(
+                address=self._address,
+                value=value,
+                key=self._key,
+                scale=(1 / self._scale),
+            )
+
         self.async_write_ha_state()
