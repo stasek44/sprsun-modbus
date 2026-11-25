@@ -33,11 +33,23 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _normalize_flow_input(data: dict[str, Any]) -> None:
+    """Coerce numeric selector fields from HA NumberSelector floats to expected types."""
+    if CONF_PORT in data:
+        data[CONF_PORT] = int(data[CONF_PORT])
+    if CONF_DEVICE_ADDRESS in data:
+        data[CONF_DEVICE_ADDRESS] = int(data[CONF_DEVICE_ADDRESS])
+    if CONF_SCAN_INTERVAL in data:
+        data[CONF_SCAN_INTERVAL] = int(data[CONF_SCAN_INTERVAL])
+    if CONF_TEMP_STEP in data:
+        data[CONF_TEMP_STEP] = float(data[CONF_TEMP_STEP])
+
+
 async def validate_connection(hass: HomeAssistant, data: dict[str, Any]) -> dict[str, Any]:
     """Validate the user input allows us to connect."""
     host = data[CONF_HOST]
-    port = data[CONF_PORT]
-    device_address = data[CONF_DEVICE_ADDRESS]
+    port = int(data[CONF_PORT])
+    device_address = int(data[CONF_DEVICE_ADDRESS])
     
     def _test_connection_and_detect():
         """Test connection and detect controller type in executor."""
@@ -149,6 +161,7 @@ class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         errors = {}
         
         if user_input is not None:
+            _normalize_flow_input(user_input)
             try:
                 info = await validate_connection(self.hass, user_input)
                 
@@ -160,9 +173,7 @@ class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 
                 # Add controller type to user input
                 user_input[CONF_CONTROLLER_TYPE] = info["controller_type"]
-                if CONF_TEMP_STEP in user_input:
-                    user_input[CONF_TEMP_STEP] = float(user_input[CONF_TEMP_STEP])
-                else:
+                if CONF_TEMP_STEP not in user_input:
                     user_input[CONF_TEMP_STEP] = DEFAULT_TEMP_STEP
                 
                 _LOGGER.info(
@@ -232,8 +243,7 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
     ) -> ConfigFlowResult:
         """Manage the options."""
         if user_input is not None:
-            if CONF_TEMP_STEP in user_input:
-                user_input[CONF_TEMP_STEP] = float(user_input[CONF_TEMP_STEP])
+            _normalize_flow_input(user_input)
             return self.async_create_entry(title="", data=user_input)
         
         temp_step_default = _format_temp_step(

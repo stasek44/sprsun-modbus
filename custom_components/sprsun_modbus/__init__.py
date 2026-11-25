@@ -85,9 +85,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             _configure_prerelease_logging(await res)
 
     host = entry.options.get(CONF_HOST, entry.data.get(CONF_HOST))
-    port = entry.options.get(CONF_PORT, entry.data.get(CONF_PORT))
-    device_address = entry.options.get(CONF_DEVICE_ADDRESS, entry.data.get(CONF_DEVICE_ADDRESS))
-    scan_interval = entry.options.get(CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL))
+    port = int(entry.options.get(CONF_PORT, entry.data.get(CONF_PORT)))
+    device_address = int(
+        entry.options.get(CONF_DEVICE_ADDRESS, entry.data.get(CONF_DEVICE_ADDRESS))
+    )
+    scan_interval = int(
+        entry.options.get(
+            CONF_SCAN_INTERVAL, entry.data.get(CONF_SCAN_INTERVAL, DEFAULT_SCAN_INTERVAL)
+        )
+    )
     controller_type = entry.options.get(CONF_CONTROLLER_TYPE, entry.data.get(CONF_CONTROLLER_TYPE, "chico"))
 
     _LOGGER.info(
@@ -156,8 +162,9 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
     ) -> None:
         """Initialize."""
         self.host = host
-        self.port = port
-        self.device_address = device_address
+        self.port = int(port)
+        self.device_address = int(device_address)
+        scan_interval = int(scan_interval)
 
         # Async lock to guarantee atomic, thread-safe access to Modbus connection
         self._lock = asyncio.Lock()

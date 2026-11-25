@@ -124,15 +124,30 @@ class TestExpertWritesAsyncPlatforms(unittest.IsolatedAsyncioTestCase):
         res_save = await flow.async_step_init(
             user_input={
                 CONF_HOST: "192.168.10.150",
-                CONF_PORT: 502,
-                CONF_DEVICE_ADDRESS: 1,
-                CONF_SCAN_INTERVAL: 10,
-                CONF_TEMP_STEP: 1.0,
+                CONF_PORT: 502.0,
+                CONF_DEVICE_ADDRESS: 1.0,
+                CONF_SCAN_INTERVAL: 10.0,
+                CONF_TEMP_STEP: "1.0",
                 CONF_ENABLE_EXPERT_WRITES: True,
             }
         )
         self.assertEqual(res_save["type"], "create_entry")
         self.assertTrue(res_save["data"][CONF_ENABLE_EXPERT_WRITES])
+        self.assertIs(type(res_save["data"][CONF_PORT]), int)
+        self.assertIs(type(res_save["data"][CONF_DEVICE_ADDRESS]), int)
+        self.assertIs(type(res_save["data"][CONF_SCAN_INTERVAL]), int)
+        self.assertEqual(res_save["data"][CONF_DEVICE_ADDRESS], 1)
+
+    def test_coordinator_coerces_float_connection_args_to_int(self):
+        """Coordinator coerces legacy float options (e.g. 1.0) to int for pymodbus."""
+        coord = SPRSUNDataUpdateCoordinator(
+            MagicMock(), "192.168.10.150", 502.0, 1.0, 10.0, "chico"
+        )
+        self.assertIs(type(coord.port), int)
+        self.assertIs(type(coord.device_address), int)
+        self.assertEqual(coord.port, 502)
+        self.assertEqual(coord.device_address, 1)
+        self.assertEqual(coord.cache_staleness_seconds, 20)
 
     async def test_platforms_gate_expert_entities_by_option(self):
         """Disabled by default (42/3/3), enabled adds 322/2/13 Config entities."""
