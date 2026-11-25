@@ -73,15 +73,29 @@ In Home Assistant, go to **Settings** → **Devices & Services** → **Add Integ
 | **Device Address** | `integer` | `1` | Modbus slave ID |
 | **Scan Interval** | `integer` | `10` | Polling interval in seconds (recommended: `10`–`30`) |
 | **Temperature Step** | `float` | `1.0` | Step size for target temperatures (`1.0°C` or `0.5°C`). `1.0°C` is default and recommended; `0.5°C` can be set if supported by your firmware |
+| **Enable Expert Settings Writes** | `boolean` | `False` | **Advanced / Risky (Opt-in):** Exposes writable CHICO engineering/factory parameters (`H`/`A`/`B`/`D`/`F`/`R`, Timebands, control bits) under **Configuration** (`box` input mode). Keep disabled unless you understand each parameter |
 
-> Settings such as **Scan Interval** and **Temperature Step** can also be adjusted at any time via **Configure** on the integration card.
+> Settings such as **Scan Interval**, **Temperature Step**, and **Enable Expert Settings Writes** can also be adjusted at any time via **Configure** on the integration card (changes trigger an automatic integration reload).
+
+---
+
+## Features & Entity Organization
+
+- **Single Home Assistant Device (`SPRSUN Heat Pump`):** All controls, telemetry sensors, diagnostics, and optional expert configuration entities are grouped under one device.
+- **Polling Architecture:**
+  - **Fast Telemetry (`0x0000–0x0031`):** 1 contiguous read every `scan_interval` (49 sensors + 49 binary status/alarm sensors).
+  - **RW & Expert Batches (`0x0032–0x01BB`):** Read at startup and refreshed every 20 poll cycles using batched reads that skip unmapped `Invalid` gaps.
+- **Read-Only Expert Diagnostics by Default:** Exposes `336` diagnostic `sensor` entities (`H`, `A`, `B`, `D`, `F`, `R`, Timebands) and `17` `binary_sensor` control flags, plus integration diagnostics download support (`diagnostics.py`), without enabling risky writes.
+- **Opt-In Expert Writes (`enable_expert_writes`):** When enabled in **Configure**, adds `337` writable **Configuration** entities (`322` numeric parameters in `box` mode, `2` selects, `13` switches with read-modify-write masking). Dangerous factory reset bits (such as `parameters_reset_flag`, `0x0033` bit 6) remain read-only.
+- **Pre-release Debug Logging:** Beta/test versions (`alpha`/`beta`/`rc`/`dev`) automatically default the integration logger level to `DEBUG` for diagnostics.
 
 ---
 
 ## Documentation
 
-- 📖 **[CHICO Parameters & Settings Guide](docs/CHICO_PARAMETERS_GUIDE.md)**: Detailed explanations of all parameters (P, E, G series), weather curves, safety limits, and practical tips.
-- 📚 **[CHICO Modbus Protocol Reference](docs/CHICO_MODBUS_REFERENCE.md)**: Complete register map, data types, scales, and bitfield definitions.
+- 📖 **[CHICO Parameters & Settings Guide](docs/CHICO_PARAMETERS_GUIDE.md)**: Detailed explanations of all parameters (`P`, `E`, `G`, and `H`/`A`/`B`/`D`/`F`/`R`/Timeband expert series), weather curves, safety limits, and practical tips.
+- 📚 **[CHICO Modbus Protocol Reference](docs/CHICO_MODBUS_REFERENCE.md)**: Complete `0x0000–0x01BB` register map with live hardware observations, data types, scales, batching layout, and bitfield definitions.
+- 🧩 **[Multi-Controller Architecture Guide](docs/CONTROLLER_ARCHITECTURE.md)**: Package layout, `ControllerBase` driver interface, polling/batching model, masked writes, and safety architecture.
 
 ---
 

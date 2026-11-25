@@ -58,9 +58,11 @@ For all bug fixes, features, or configuration modifications:
   ```
 - **Requirement:** 100% of tests must pass (0 failures, 0 errors) and Ruff checks must be clean.
 
-### 3. Documentation & Localization
-- If configuration options, register behaviors, or features change, update `README.md` and relevant guides in `docs/`.
-- If new user-facing strings are added, update `strings.json`, `translations/en.json`, and `translations/pl.json`.
+### 3. Documentation & Localization (Mandatory Step)
+- **Mandatory before commit / handoff / release:** Updating documentation is a required standard step for every change, not an optional follow-up. Before finishing a task or committing a new version, always verify and update:
+  - `README.md` (options, features, entity organization, setup notes, documentation links).
+  - Relevant guides in `docs/` (`docs/CHICO_MODBUS_REFERENCE.md`, `docs/CHICO_PARAMETERS_GUIDE.md`, `docs/CONTROLLER_ARCHITECTURE.md`) whenever configuration options, register mappings, polling/batching behavior, safety gates, or architecture change.
+  - Localization files (`strings.json`, `translations/en.json`, `translations/pl.json`) whenever user-facing strings or options are added or modified.
 
 ---
 
@@ -70,6 +72,7 @@ Only repository maintainers (or authorized automated release agents) publish tag
 
 1. **Pre-release Staging from Feature Branch (Beta):**
    - Stage and test risky/functional changes **on the feature branch** so `main` stays untouched during testing.
+   - Ensure unit tests, Ruff/AST checks, localizations, and documentation updates (`README.md`, `docs/`) are included in the branch commits.
    - Bump `custom_components/sprsun_modbus/manifest.json` to a beta version (e.g. `5.2.0b1`).
    - Commit on the feature branch, create a pre-release tag (e.g. `v5.2.0-beta.1`), and push branch + tag to GitHub.
    - GitHub Actions (`release.yaml`) runs full unit tests (Python 3.12/3.13), Hassfest, HACS validation, and Ruff on the tag, then publishes a **Pre-release** (hidden from standard HACS users).
