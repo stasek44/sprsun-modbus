@@ -6,8 +6,15 @@ from tests.conftest import setup_mocks
 setup_mocks()
 
 from homeassistant.const import CONF_NAME, EntityCategory
-from custom_components.sprsun_modbus.const import DOMAIN, BINARY_SENSOR_BITS
-from custom_components.sprsun_modbus.controllers.chico_registers import CHICO_BINARY_SENSORS
+from custom_components.sprsun_modbus.const import (
+    BINARY_SENSOR_BITS,
+    CONF_ENABLE_EXPERT_WRITES,
+    DOMAIN,
+)
+from custom_components.sprsun_modbus.controllers.chico_registers import (
+    CHICO_CORE_BINARY_SENSORS,
+    CHICO_EXPERT_BINARY_SENSORS,
+)
 from custom_components.sprsun_modbus.binary_sensor import (
     SPRSUNBinarySensor,
     async_setup_entry,
@@ -41,9 +48,10 @@ class TestSPRSUNBinarySensor(unittest.IsolatedAsyncioTestCase):
         self.config_entry.data = {
             CONF_NAME: "SPRSUN Heat Pump",
         }
+        self.config_entry.options = {}
 
-    async def test_async_setup_entry_creates_all_binary_sensors(self):
-        """Test async_setup_entry creates all binary sensor entities (49 core + 17 expert)."""
+    async def test_async_setup_entry_creates_core_by_default_and_expert_when_enabled(self):
+        """Test default setup creates 49 core binary sensors, and opt-in adds 17 expert."""
         hass = MagicMock()
         hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
         async_add_entities = MagicMock()
@@ -52,10 +60,21 @@ class TestSPRSUNBinarySensor(unittest.IsolatedAsyncioTestCase):
 
         async_add_entities.assert_called_once()
         entities = async_add_entities.call_args[0][0]
-        self.assertEqual(len(entities), len(CHICO_BINARY_SENSORS))
-        self.assertEqual(len(entities), len(BINARY_SENSOR_BITS) + 17)
+        self.assertEqual(len(entities), len(CHICO_CORE_BINARY_SENSORS))
+        self.assertEqual(len(entities), len(BINARY_SENSOR_BITS))
+        self.assertEqual(len(entities), 49)
 
-        by_key = {entity._key: entity for entity in entities}
+        # With expert option enabled, all 49 core + 17 expert = 66 binary sensors are added
+        self.config_entry.options = {CONF_ENABLE_EXPERT_WRITES: True}
+        added_expert = []
+        await async_setup_entry(hass, self.config_entry, added_expert.extend)
+        self.assertEqual(
+            len(added_expert),
+            len(CHICO_CORE_BINARY_SENSORS) + len(CHICO_EXPERT_BINARY_SENSORS),
+        )
+        self.assertEqual(len(added_expert), 66)
+
+        by_key = {entity._key: entity for entity in added_expert}
         self.assertEqual(by_key["r29_constant_freq_adj"].entity_category, EntityCategory.DIAGNOSTIC)
         self.assertFalse(
             getattr(by_key["night_clock_mode"], "_attr_entity_registry_enabled_default", True)

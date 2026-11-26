@@ -36,7 +36,9 @@ class TestChicoDerivedSensors(unittest.TestCase):
 
         hardware_keys = (
             {s.key for s in controller.get_sensors()}
+            | {s.key for s in controller.get_expert_sensors()}
             | {s.key for s in controller.get_binary_sensors()}
+            | {s.key for s in controller.get_expert_binary_sensors()}
             | {s.key for s in controller.get_numbers()}
             | {s.key for s in controller.get_selects()}
             | {s.key for s in controller.get_switches()}
@@ -45,7 +47,7 @@ class TestChicoDerivedSensors(unittest.TestCase):
             | set(CHICO_CONTROL_REGISTER_KEYS.values())
         )
         self.assertFalse(set(derived_keys) & hardware_keys)
-        self.assertTrue(all(not s.enabled_default for s in controller.get_derived_sensors()))
+        self.assertTrue(all(s.enabled_default for s in controller.get_derived_sensors()))
 
     def test_ambient_temp_filtered_during_and_after_defrost(self):
         """Hold pre-defrost ambient during defrost and post-defrost cooldown until cooled."""
@@ -243,7 +245,7 @@ class TestChicoDerivedSensors(unittest.TestCase):
         delta_ent = SPRSUNDerivedSensor(coordinator, config_entry, by_key["water_delta_t"])
         self.assertTrue(delta_ent.available)
         self.assertEqual(delta_ent.native_value, 4.0)
-        self.assertFalse(getattr(delta_ent, "_attr_entity_registry_enabled_default", True))
+        self.assertTrue(getattr(delta_ent, "_attr_entity_registry_enabled_default", True))
         self.assertIn("description", delta_ent.extra_state_attributes)
         self.assertIn("formula", delta_ent.extra_state_attributes)
         self.assertNotIn("experimental", delta_ent.extra_state_attributes)

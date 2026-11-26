@@ -82,7 +82,11 @@ class ControllerBase(ABC):
     # ------------------------------------------------------------------
 
     def get_sensors(self) -> tuple[SensorSpec, ...]:
-        """Return read-only sensor specifications for this controller."""
+        """Return core read-only sensor specifications for this controller."""
+        return ()
+
+    def get_expert_sensors(self) -> tuple[SensorSpec, ...]:
+        """Return opt-in expert read-only sensor specifications."""
         return ()
 
     def get_derived_sensors(self) -> tuple[DerivedSensorSpec, ...]:
@@ -98,7 +102,11 @@ class ControllerBase(ABC):
         return {}
 
     def get_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
-        """Return read-only binary sensor specifications for this controller."""
+        """Return core read-only binary sensor specifications for this controller."""
+        return ()
+
+    def get_expert_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
+        """Return opt-in expert read-only binary sensor specifications."""
         return ()
 
     def get_numbers(self) -> tuple[NumberSpec, ...]:

@@ -14,7 +14,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, is_derived_sensors_enabled, is_expert_writes_enabled
 from .controllers import (
     DerivedSensorSpec,
     build_device_info,
@@ -91,6 +91,11 @@ async def async_setup_entry(
     """Set up SPRSUN sensors."""
     coordinator = resolve_coordinator(hass, config_entry, DOMAIN)
     controller = resolve_controller(coordinator)
+    fallback_entry = getattr(coordinator, "config_entry", None)
+
+    specs = controller.get_sensors()
+    if is_expert_writes_enabled(config_entry, fallback_entry):
+        specs = specs + controller.get_expert_sensors()
 
     entities: list[SensorEntity] = [
         SPRSUNSensor(
@@ -105,12 +110,14 @@ async def async_setup_entry(
             options=spec.options,
             enabled_default=spec.enabled_default,
         )
-        for spec in controller.get_sensors()
+        for spec in specs
     ]
-    entities.extend(
-        SPRSUNDerivedSensor(coordinator, config_entry, spec)
-        for spec in controller.get_derived_sensors()
-    )
+
+    if is_derived_sensors_enabled(config_entry, fallback_entry):
+        entities.extend(
+            SPRSUNDerivedSensor(coordinator, config_entry, spec)
+            for spec in controller.get_derived_sensors()
+        )
 
     async_add_entities(entities)
 

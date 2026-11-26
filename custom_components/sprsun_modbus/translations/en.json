@@ -36,11 +36,13 @@
           "device_address": "Modbus Device Address (1-247)",
           "scan_interval": "Scan Interval (5-300 seconds)",
           "temp_step": "Temperature Step (°C)",
-          "enable_expert_writes": "Enable Expert Settings Writes (Advanced / Risky)"
+          "enable_derived_sensors": "Enable Derived / Calculated Sensors",
+          "enable_expert_writes": "Enable Expert Settings (Diagnostics + Writes — Advanced / Risky)"
         },
         "data_description": {
           "temp_step": "Default 1.0°C. Some heat pump models allow finer 0.5°C control, but it is not guaranteed to work on all firmware versions.",
-          "enable_expert_writes": "WARNING: Exposes writable CHICO engineering/factory parameters (H/A/B/D/F/R, Timebands, and control bits) under Config. Incorrect values can damage the compressor or disrupt operation. Keep disabled unless you know what each parameter does."
+          "enable_derived_sensors": "Exposes 10 optional calculated sensors (filtered ambient temperature without defrost spikes, operating state, ECO curve setpoint, cycle durations, water delta T, condenser approach, superheats, and experimental estimated power).",
+          "enable_expert_writes": "WARNING: Exposes CHICO engineering/factory parameters (H/A/B/D/F/R, Timebands, and control bits) as both read-only Diagnostic sensors and writable Config controls. Incorrect values can damage the compressor or disrupt operation. Keep disabled unless you know what each parameter does."
         }
       }
     }

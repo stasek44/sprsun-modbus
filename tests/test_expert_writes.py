@@ -9,18 +9,23 @@ from homeassistant.const import CONF_HOST, CONF_PORT, EntityCategory
 
 from custom_components.sprsun_modbus import SPRSUNDataUpdateCoordinator
 from custom_components.sprsun_modbus.config_flow import SPRSUNOptionsFlowHandler
+from custom_components.sprsun_modbus.binary_sensor import async_setup_entry as binary_sensor_setup_entry
 from custom_components.sprsun_modbus.const import (
     CONF_DEVICE_ADDRESS,
+    CONF_ENABLE_DERIVED_SENSORS,
     CONF_ENABLE_EXPERT_WRITES,
     CONF_SCAN_INTERVAL,
     CONF_TEMP_STEP,
+    DEFAULT_ENABLE_DERIVED_SENSORS,
     DEFAULT_ENABLE_EXPERT_WRITES,
+    is_derived_sensors_enabled,
     is_expert_writes_enabled,
 )
 from custom_components.sprsun_modbus.controllers.chico import ChicoController
 from custom_components.sprsun_modbus.controllers.models import decode_registers, encode_registers
 from custom_components.sprsun_modbus.number import NumberMode, async_setup_entry as number_setup_entry
 from custom_components.sprsun_modbus.select import async_setup_entry as select_setup_entry
+from custom_components.sprsun_modbus.sensor import async_setup_entry as sensor_setup_entry
 from custom_components.sprsun_modbus.switch import async_setup_entry as switch_setup_entry
 
 
@@ -43,18 +48,28 @@ class TestExpertWritesConfigAndSpecs(unittest.TestCase):
     def test_is_expert_writes_enabled_defaults_and_overrides(self):
         """Option defaults to False and options take precedence over data."""
         self.assertFalse(DEFAULT_ENABLE_EXPERT_WRITES)
+        self.assertFalse(DEFAULT_ENABLE_DERIVED_SENSORS)
 
         entry_default, _ = _make_entry()
         self.assertFalse(is_expert_writes_enabled(entry_default))
+        self.assertFalse(is_derived_sensors_enabled(entry_default))
 
-        entry_data, _ = _make_entry(data=types.MappingProxyType({CONF_ENABLE_EXPERT_WRITES: True}))
+        entry_data, _ = _make_entry(
+            data=types.MappingProxyType(
+                {CONF_ENABLE_EXPERT_WRITES: True, CONF_ENABLE_DERIVED_SENSORS: True}
+            )
+        )
         self.assertTrue(is_expert_writes_enabled(entry_data))
+        self.assertTrue(is_derived_sensors_enabled(entry_data))
 
         entry_override, _ = _make_entry(
-            data={CONF_ENABLE_EXPERT_WRITES: True},
-            options=types.MappingProxyType({CONF_ENABLE_EXPERT_WRITES: False}),
+            data={CONF_ENABLE_EXPERT_WRITES: True, CONF_ENABLE_DERIVED_SENSORS: True},
+            options=types.MappingProxyType(
+                {CONF_ENABLE_EXPERT_WRITES: False, CONF_ENABLE_DERIVED_SENSORS: False}
+            ),
         )
         self.assertFalse(is_expert_writes_enabled(entry_override))
+        self.assertFalse(is_derived_sensors_enabled(entry_override))
 
     def test_chico_expert_specs_safety_and_roundtrip(self):
         """All CHICO expert specs exclude dangerous reset bits and round-trip cleanly."""
@@ -70,12 +85,16 @@ class TestExpertWritesConfigAndSpecs(unittest.TestCase):
         # Dangerous factory reset flag (0x0033 bit 6) must NOT be exposed as a switch
         self.assertFalse(any(spec.key == "parameters_reset_flag" for spec in sws))
 
-        # All RO expert sensors (336) and binary sensors (17) must be hidden (disabled by default) in HA,
-        # while all core telemetry/alarm sensors remain enabled by default.
-        self.assertTrue(all(spec.enabled_default for spec in controller.get_sensors()[:49]))
-        self.assertTrue(all(not spec.enabled_default for spec in controller.get_sensors()[49:]))
-        self.assertTrue(all(spec.enabled_default for spec in controller.get_binary_sensors()[:49]))
-        self.assertTrue(all(not spec.enabled_default for spec in controller.get_binary_sensors()[49:]))
+        # Core sensors (49) and core binary sensors (49) are enabled by default;
+        # RO expert sensors (336) and binary sensors (17) are gated behind opt-in and hidden by default.
+        self.assertEqual(len(controller.get_sensors()), 49)
+        self.assertEqual(len(controller.get_expert_sensors()), 336)
+        self.assertEqual(len(controller.get_binary_sensors()), 49)
+        self.assertEqual(len(controller.get_expert_binary_sensors()), 17)
+        self.assertTrue(all(spec.enabled_default for spec in controller.get_sensors()))
+        self.assertTrue(all(not spec.enabled_default for spec in controller.get_expert_sensors()))
+        self.assertTrue(all(spec.enabled_default for spec in controller.get_binary_sensors()))
+        self.assertTrue(all(not spec.enabled_default for spec in controller.get_expert_binary_sensors()))
 
         # No key collisions across core and expert entities
         core_keys = (
@@ -126,7 +145,9 @@ class TestExpertWritesAsyncPlatforms(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(res_form["type"], "form")
         schema_keys = {k.schema: k for k in res_form["data_schema"].schema}
         self.assertIn(CONF_ENABLE_EXPERT_WRITES, schema_keys)
+        self.assertIn(CONF_ENABLE_DERIVED_SENSORS, schema_keys)
         self.assertFalse(schema_keys[CONF_ENABLE_EXPERT_WRITES].default())
+        self.assertFalse(schema_keys[CONF_ENABLE_DERIVED_SENSORS].default())
 
         res_save = await flow.async_step_init(
             user_input={
@@ -135,10 +156,12 @@ class TestExpertWritesAsyncPlatforms(unittest.IsolatedAsyncioTestCase):
                 CONF_DEVICE_ADDRESS: 1.0,
                 CONF_SCAN_INTERVAL: 10.0,
                 CONF_TEMP_STEP: "1.0",
+                CONF_ENABLE_DERIVED_SENSORS: True,
                 CONF_ENABLE_EXPERT_WRITES: True,
             }
         )
         self.assertEqual(res_save["type"], "create_entry")
+        self.assertTrue(res_save["data"][CONF_ENABLE_DERIVED_SENSORS])
         self.assertTrue(res_save["data"][CONF_ENABLE_EXPERT_WRITES])
         self.assertIs(type(res_save["data"][CONF_PORT]), int)
         self.assertIs(type(res_save["data"][CONF_DEVICE_ADDRESS]), int)
@@ -157,21 +180,29 @@ class TestExpertWritesAsyncPlatforms(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(coord.cache_staleness_seconds, 20)
 
     async def test_platforms_gate_expert_entities_by_option(self):
-        """Disabled by default (42/3/3), enabled adds 322/2/13 Config entities."""
+        """Disabled by default (49/49/42/3/3), enabled adds 336/17 RO + 322/2/13 Config entities."""
         entry_off, _ = _make_entry(options={CONF_ENABLE_EXPERT_WRITES: False})
-        nums_off, sels_off, sws_off = [], [], []
+        sens_off, bins_off, nums_off, sels_off, sws_off = [], [], [], [], []
+        await sensor_setup_entry(MagicMock(), entry_off, sens_off.extend)
+        await binary_sensor_setup_entry(MagicMock(), entry_off, bins_off.extend)
         await number_setup_entry(MagicMock(), entry_off, nums_off.extend)
         await select_setup_entry(MagicMock(), entry_off, sels_off.extend)
         await switch_setup_entry(MagicMock(), entry_off, sws_off.extend)
+        self.assertEqual(len(sens_off), 49)
+        self.assertEqual(len(bins_off), 49)
         self.assertEqual(len(nums_off), 42)
         self.assertEqual(len(sels_off), 3)
         self.assertEqual(len(sws_off), 3)
 
         entry_on, _ = _make_entry(options={CONF_ENABLE_EXPERT_WRITES: True})
-        nums_on, sels_on, sws_on = [], [], []
+        sens_on, bins_on, nums_on, sels_on, sws_on = [], [], [], [], []
+        await sensor_setup_entry(MagicMock(), entry_on, sens_on.extend)
+        await binary_sensor_setup_entry(MagicMock(), entry_on, bins_on.extend)
         await number_setup_entry(MagicMock(), entry_on, nums_on.extend)
         await select_setup_entry(MagicMock(), entry_on, sels_on.extend)
         await switch_setup_entry(MagicMock(), entry_on, sws_on.extend)
+        self.assertEqual(len(sens_on), 385)
+        self.assertEqual(len(bins_on), 66)
         self.assertEqual(len(nums_on), 364)
         self.assertEqual(len(sels_on), 5)
         self.assertEqual(len(sws_on), 16)

@@ -28,6 +28,8 @@ from .const import (
     DEFAULT_TEMP_STEP,
     CONF_ENABLE_EXPERT_WRITES,
     DEFAULT_ENABLE_EXPERT_WRITES,
+    CONF_ENABLE_DERIVED_SENSORS,
+    DEFAULT_ENABLE_DERIVED_SENSORS,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -289,6 +291,16 @@ class SPRSUNOptionsFlowHandler(config_entries.OptionsFlow):
                     CONF_TEMP_STEP,
                     default=temp_step_default,
                 ): _temp_step_selector(),
+                vol.Optional(
+                    CONF_ENABLE_DERIVED_SENSORS,
+                    default=self.config_entry.options.get(
+                        CONF_ENABLE_DERIVED_SENSORS,
+                        self.config_entry.data.get(
+                            CONF_ENABLE_DERIVED_SENSORS,
+                            DEFAULT_ENABLE_DERIVED_SENSORS,
+                        ),
+                    ),
+                ): bool,
                 vol.Optional(
                     CONF_ENABLE_EXPERT_WRITES,
                     default=self.config_entry.options.get(

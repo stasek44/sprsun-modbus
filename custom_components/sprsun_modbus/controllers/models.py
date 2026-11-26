@@ -136,7 +136,7 @@ class DerivedSensorSpec:
     state_class: str | None = None
     options: tuple[str, ...] | None = None
     diagnostic: bool = False
-    enabled_default: bool = False
+    enabled_default: bool = True
     suggested_display_precision: int | None = None
     description: str = ""
     formula: str = ""

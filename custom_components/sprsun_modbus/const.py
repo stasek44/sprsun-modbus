@@ -24,7 +24,8 @@ DEFAULT_DEVICE_ADDRESS = 1
 DEFAULT_SCAN_INTERVAL = 10  # seconds - balance between responsiveness and load
 DEFAULT_TIMEOUT = 30  # seconds - Elfin W11 timeout (must be >= scan_interval + cycle_time)
 DEFAULT_TEMP_STEP = 1.0  # °C - temperature step for target temperature setpoints (1.0°C default for compatibility)
-DEFAULT_ENABLE_EXPERT_WRITES = False  # Gate engineering/factory writes behind opt-in option
+DEFAULT_ENABLE_EXPERT_WRITES = False  # Gate engineering/factory diagnostics and writes behind opt-in option
+DEFAULT_ENABLE_DERIVED_SENSORS = False  # Gate calculated/derived virtual sensors behind opt-in option
 INTER_WRITE_DELAY = 0.08  # seconds - safe turnaround delay for heat pump MCU EEPROM commit
 
 # Configuration keys
@@ -33,6 +34,7 @@ CONF_SCAN_INTERVAL = "scan_interval"
 CONF_CONTROLLER_TYPE = "controller_type"
 CONF_TEMP_STEP = "temp_step"
 CONF_ENABLE_EXPERT_WRITES = "enable_expert_writes"
+CONF_ENABLE_DERIVED_SENSORS = "enable_derived_sensors"
 
 
 def _extract_entry_option(entry: Any, fallback_entry: Any, key: str) -> Any:
@@ -63,11 +65,19 @@ def get_temp_step(entry: Any, fallback_entry: Any = None) -> float:
 
 
 def is_expert_writes_enabled(entry: Any, fallback_entry: Any = None) -> bool:
-    """Return True when writable expert/factory parameter entities are opted in."""
+    """Return True when expert diagnostic and writable engineering entities are opted in."""
     raw = _extract_entry_option(entry, fallback_entry, CONF_ENABLE_EXPERT_WRITES)
     if raw is not None:
         return bool(raw)
     return DEFAULT_ENABLE_EXPERT_WRITES
+
+
+def is_derived_sensors_enabled(entry: Any, fallback_entry: Any = None) -> bool:
+    """Return True when optional calculated/derived sensors are enabled."""
+    raw = _extract_entry_option(entry, fallback_entry, CONF_ENABLE_DERIVED_SENSORS)
+    if raw is not None:
+        return bool(raw)
+    return DEFAULT_ENABLE_DERIVED_SENSORS
 
 
 # Platforms
