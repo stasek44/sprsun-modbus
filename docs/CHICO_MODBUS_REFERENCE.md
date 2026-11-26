@@ -24,7 +24,7 @@
 5. **Observed Parameter Values Outside OEM PDF Min (`0x005C` `A44`, `0x00C9` `F40`):** Live unit holds `A44 = 46 steps` (`raw 23`, PDF min `50`) and `F40 = 0 °C` (PDF min `1`).
 6. **OEM Label Typos:** `0x0053–0x005A` all print `A34` in the PDF (logically `A34–A41` heat lower limits, live `46 steps`); `0x00DB` repeats `H04 Defrost ambi stp` (live `10 °C`, upper defrost ambient threshold alongside `H09=-2 °C`, `H12=-10 °C`).
 7. **Reserved Gaps Marked `Invalid` in OEM PDF:** `0x006A–0x006F` (`B21–B26` deduced) responded with raw `[0, 0, 2, 2, 0, 0]` (`0,0,4,4,0,0 steps`); `0x0072–0x0077` (`B29–B34` deduced) responded with `[65, 5, 5, 5, 1, 2]` (`130,10,10,10,2,4 steps`). Exposed disabled-by-default via optional batches so unsupported firmware skips cleanly.
-8. **Signed `INT16` Registers:** All registers with negative ranges (`0x0011`, `0x0015`, `0x0016`, `0x0022`, `0x0028`, `0x00CD–0x00CF`, `0x00D4`, `0x00D9–0x00E7`, `0x00EC–0x00F5`, `0x0169–0x0174`, `0x0183–0x0184`, `0x0192`, `0x01A3`, `0x01B2–0x01B3`) verified live without unsigned `65xxx` wraparound (e.g. `h03 = -4 °C`, `f41 = -30 °C`, `evap_temp = -4.5 °C`).
+8. **Signed `INT16` Registers:** All registers with negative ranges (`0x0011`, `0x0015`, `0x0016`, `0x001D`, `0x0022`, `0x0028`, `0x0029`, `0x00CD–0x00CF`, `0x00D4`, `0x00D9–0x00E7`, `0x00EC–0x00F5`, `0x0169–0x0174`, `0x0183–0x0184`, `0x0192`, `0x01A3`, `0x01B2–0x01B3`) verified live without unsigned `65xxx` wraparound (e.g. `h03 = -4 °C`, `f41 = -30 °C`, `evap_temp = -4.5 °C`, `cond_temp = -0.4 °C`, `eev2_step = -40 steps`).
 
 ## Complete CHICO Register Map (`0x0000–0x01BB`)
 

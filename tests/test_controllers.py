@@ -427,6 +427,25 @@ class TestControllers(unittest.TestCase):
         self.assertEqual(data["cooling_setpoint"], 18.0)
         self.assertEqual(data["heating_setpoint"], 28.5)
 
+    def test_chico_signed_cond_temp_and_eev2_step(self):
+        """Test negative INT16 values on 0x0029 (cond_temp) and 0x001D (eev2_step) decode cleanly."""
+        controller = ChicoController()
+        client = MagicMock()
+        ro_regs = [0] * 50
+        ro_regs[0x002C] = 590
+        ro_regs[0x000E] = 250
+        ro_regs[0x0029] = 0xFFFC  # -4 -> -0.4 °C
+        ro_regs[0x001D] = 0xFFD8  # -40 steps
+
+        res = MagicMock()
+        res.isError.return_value = False
+        res.registers = ro_regs
+        client.read_holding_registers.return_value = res
+
+        data = controller.read_all_registers(client, device_address=1, initial_read=False)
+        self.assertEqual(data["cond_temp"], -0.4)
+        self.assertEqual(data["eev2_step"], -40)
+
 
 if __name__ == "__main__":
     unittest.main()
