@@ -21,6 +21,7 @@ async def async_get_config_entry_diagnostics(
     coordinator = resolve_coordinator(hass, entry, DOMAIN)
     controller = resolve_controller(coordinator)
     data = getattr(coordinator, "data", None) or {}
+    update_interval = getattr(coordinator, "update_interval", None)
 
     return {
         "entry": {
@@ -41,6 +42,10 @@ async def async_get_config_entry_diagnostics(
             "last_update_success": getattr(coordinator, "last_update_success", None),
             "rw_loaded": getattr(coordinator, "_rw_loaded", None),
             "poll_count": getattr(coordinator, "_poll_count", None),
+            "consecutive_failures": getattr(coordinator, "_consecutive_failures", None),
+            "current_update_interval_seconds": (
+                update_interval.total_seconds() if update_interval is not None else None
+            ),
         },
         "values": {
             key: extract_cache_value(data, key)

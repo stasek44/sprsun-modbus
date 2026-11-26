@@ -518,6 +518,7 @@ def setup_mocks():
             climate_mod.HVACAction = HVACAction
             climate_mod.PRESET_NONE = "none"
             climate_mod.PRESET_ECO = "eco"
+            climate_mod.PRESET_SLEEP = "sleep"
             climate_mod.PRESET_BOOST = "boost"
             sys.modules["homeassistant.components.climate"] = climate_mod
 

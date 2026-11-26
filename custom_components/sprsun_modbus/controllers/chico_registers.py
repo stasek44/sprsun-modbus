@@ -229,7 +229,7 @@ CHICO_CORE_SENSORS: tuple[SensorSpec, ...] = (
     _ro_sensor(0x0024, "target_frequency", "Target Frequency", 1, "Hz", "frequency"),
     _ro_sensor(0x0026, "dc_fan1_speed", "DC Fan 1 Speed", 1, "rpm"),
     _ro_sensor(0x0027, "dc_fan2_speed", "DC Fan 2 Speed", 1, "rpm"),
-    _ro_sensor(0x002E, "dc_pump_speed", "DC Pump Speed", 1, "rpm"),
+    _ro_sensor(0x002E, "dc_pump_speed", "DC Pump Speed", 1, "%"),
     # Pressure sensors: swapped in manufacturer's docs (0x002F=discharge, 0x0030=suction)
     _ro_sensor(0x002F, "discharge_pressure", "Discharge Pressure", 0.0069, "bar", "pressure"),
     _ro_sensor(0x0030, "suction_pressure", "Suction Pressure", 0.0069, "bar", "pressure"),
@@ -809,6 +809,7 @@ def _num(
     device_class: str | None = None,
     data_type: DataType = DataType.UINT16,
     is_primary: bool = False,
+    bit_mask: int | None = None,
 ) -> NumberSpec:
     """Create a CHICO NumberSpec with consistent metadata."""
     return NumberSpec(
@@ -825,14 +826,15 @@ def _num(
         device_class=device_class,
         supports_temp_step_override=(device_class == "temperature" and step == 0.5),
         is_primary=is_primary,
+        bit_mask=bit_mask,
     )
 
 
 CHICO_NUMBERS: tuple[NumberSpec, ...] = (
-    # Basic Configuration - P parameters
-    _num(0x00CC, "heating_setpoint", "Heating Setpoint", 0.5, "°C", 10, 55, 0.5, "temperature", is_primary=True),
-    _num(0x00CB, "cooling_setpoint", "Cooling Setpoint", 0.5, "°C", 12, 30, 0.5, "temperature", is_primary=True),
-    _num(0x00CA, "hotwater_setpoint", "Hot Water Setpoint", 0.5, "°C", 10, 55, 0.5, "temperature", is_primary=True),
+    # Basic Configuration - P parameters (0x00CA-0x00CC store setpoint in lower 8 bits)
+    _num(0x00CC, "heating_setpoint", "Heating Setpoint", 0.5, "°C", 10, 55, 0.5, "temperature", is_primary=True, bit_mask=0xFF),
+    _num(0x00CB, "cooling_setpoint", "Cooling Setpoint", 0.5, "°C", 12, 30, 0.5, "temperature", is_primary=True, bit_mask=0xFF),
+    _num(0x00CA, "hotwater_setpoint", "Hot Water Setpoint", 0.5, "°C", 10, 55, 0.5, "temperature", is_primary=True, bit_mask=0xFF),
     _num(0x00C6, "temp_diff_heating_cooling", "Heating/Cooling Temp Diff", 1, "°C", 2, 18, 1, "temperature"),
     _num(0x00C8, "temp_diff_hotwater", "Hot Water Temp Diff", 1, "°C", 2, 18, 1, "temperature"),
     # Economic Mode - Heating (E01-E04 signed, E13-E16)

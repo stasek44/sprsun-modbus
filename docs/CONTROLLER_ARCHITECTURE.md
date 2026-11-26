@@ -48,11 +48,13 @@ custom_components/sprsun_modbus/
   - `number.py`, `select.py`, and `switch.py` only register expert writable entities when `is_expert_writes_enabled(config_entry)` is `True` (default `False`).
   - Expert numeric entities enforce `NumberMode.BOX` (preventing accidental slider drags in the UI), while dangerous registers/bits (e.g. `parameters_reset_flag` at `0x0033` bit 6) and unconfirmed PDF `Invalid` gaps (`writable=False`) are kept non-writable.
 - **Masked Read-Modify-Write & Offset Codecs:**
-  - Registers sharing a word with adjacent fields (e.g. Timeband temperature setpoints `0x01A4–0x01AC` using `bit_mask=0x00FF`) route through `async_write_masked_register()` -> `_sync_write_masked_register()`, reading the live 16-bit word, masking only target bits, writing back with `INTER_WRITE_DELAY`, and storing the scaled `cached_value`.
+  - Registers sharing a word with adjacent fields or upper-byte flags — including primary setpoints `P01`/`P02`/`P04` (`0x00CA–0x00CC`) and Timeband temperature setpoints (`0x01A4–0x01AC`) using `bit_mask=0xFF` (`0x00FF`) — route through `async_write_masked_register()` -> `_sync_write_masked_register()`, reading the live 16-bit word, masking only target bits, writing back with `INTER_WRITE_DELAY`, and storing the scaled `cached_value`.
   - Signed (`INT16`) and offset-encoded (`raw_offset`, such as `F02`/`F03` with `+250` raw offset) single-register writes encode via `encode_registers()` and pass explicit `cached_value`.
-- **Two-Tier Batched Polling (`ChicoController`):**
-  - Fast RO telemetry (`0x0000–0x0031`) runs every `scan_interval`.
+- **Two-Tier Batched Polling & Failure Backoff (`ChicoController` / Coordinator):**
+  - Fast RO telemetry (`0x0000–0x0031`) runs every `scan_interval`. Repeated poll failures apply exponential backoff up to `300s` (`max(300, scan_interval)`) and reset immediately to `scan_interval` upon recovery.
   - RW & expert registers run at startup and every 20 cycles (`_rw_refresh_interval = 20`) across `CHICO_RW_BATCHES` (`<= 62` registers/batch, skipping PDF `Invalid` gaps; `optional=True` skips undocumented gaps cleanly if a firmware variant rejects them).
+- **Climate Preset & HVAC Separation (`ChicoController`):**
+  - `HVACMode.HEAT_COOL` exclusively controls `G09` ambient changeover (`0x0191`, `mode_control_enable`), while `preset_mode` (`none`/`eco`/`sleep`) maps bijectively to `P07` (`0x0190` `fan_mode`: `Normal`/`Economic`/`Night`).
 - **Pre-release Logging & Selector Normalization:**
   - `_configure_prerelease_logging()` checks `manifest.json` asynchronously and sets package logger level to `DEBUG` automatically on pre-release builds (`alpha`/`beta`/`rc`/`dev`).
   - `_normalize_flow_input()` in `config_flow.py` and `int(...)` coercions in `SPRSUNDataUpdateCoordinator.__init__` ensure `NumberSelector` floats (`1.0`, `10.0`) never reach `pymodbus` as non-integers.

@@ -83,7 +83,8 @@ In Home Assistant, go to **Settings** → **Devices & Services** → **Add Integ
 
 - **Single Home Assistant Device (`SPRSUN Heat Pump`):** All controls, telemetry sensors, diagnostics, and optional expert configuration entities are grouped under one device.
 - **Polling Architecture:**
-  - **Fast Telemetry (`0x0000–0x0031`):** 1 contiguous read every `scan_interval` (49 sensors + 49 binary status/alarm sensors).
+  - **Polling Architecture:**
+  - **Fast Telemetry (`0x0000–0x0031`):** 1 contiguous read every `scan_interval` (49 sensors + 49 binary status/alarm sensors), with automatic exponential backoff up to `300s` when the gateway/unit is offline and instant recovery on the first successful poll.
   - **RW & Expert Batches (`0x0032–0x01BB`):** Read at startup and refreshed every 20 poll cycles using batched reads that skip unmapped `Invalid` gaps.
 - **Read-Only Expert Diagnostics (Hidden by Default):** Registers `336` diagnostic `sensor` entities (`H`, `A`, `B`, `D`, `F`, `R`, Timebands) and `17` `binary_sensor` control flags (`353` total RO expert entities) with `entity_registry_enabled_default = False` so fresh setups keep a clean `149`-entity core device view (`49` sensors, `49` binary sensors, `42` numbers, `3` selects, `3` switches, `1` button, `2` climate entities). Individual diagnostic entities can be enabled in the Home Assistant UI on demand, and integration diagnostics download (`diagnostics.py`) remains available regardless.
 - **Opt-In Expert Writes (`enable_expert_writes`):** When enabled in **Configure**, adds `337` writable **Configuration** entities (`322` numeric parameters in `box` mode, `2` selects, `13` switches with read-modify-write masking). Previously existing `CORE` controls (`P01–P07`, `E01–E24`, `G01–G11`, Antilegionella, `Power Switch`, `Failure Reset`, `2x Climate`) remain enabled and untouched. Dangerous factory reset bits (`parameters_reset_flag`, `0x0033` bit 6) and unconfirmed registers stay read-only.

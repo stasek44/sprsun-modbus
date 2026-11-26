@@ -23,6 +23,7 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
         self.coordinator = MagicMock()
         self.coordinator.last_update_success = True
         self.coordinator.async_write_register = AsyncMock()
+        self.coordinator.async_write_masked_register = AsyncMock()
         self.coordinator.data = {
             "heating_setpoint": {"value": 38.5, "updated_at": 1000.0},
             "econ_heat_ambi_1": {"value": -15.0, "updated_at": 1000.0},  # Signed negative
@@ -209,6 +210,43 @@ class TestSPRSUNNumber(unittest.IsolatedAsyncioTestCase):
             value=43.0,
             key="heating_setpoint",
             scale=2.0,
+        )
+
+    async def test_primary_setpoints_use_masked_write_with_spec(self):
+        """Test P01/P02/P04 setup via async_setup_entry route writes with 0x00FF mask."""
+        hass = MagicMock()
+        self.config_entry.options = {CONF_TEMP_STEP: 0.5}
+        hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
+        entities = []
+
+        await async_setup_entry(hass, self.config_entry, entities.extend)
+        by_key = {e._key: e for e in entities}
+
+        await by_key["heating_setpoint"].async_set_native_value(28.5)
+        self.coordinator.async_write_masked_register.assert_called_with(
+            address=0x00CC,
+            raw_value=57,
+            mask=0xFF,
+            key="heating_setpoint",
+            cached_value=28.5,
+        )
+
+        await by_key["cooling_setpoint"].async_set_native_value(18.0)
+        self.coordinator.async_write_masked_register.assert_called_with(
+            address=0x00CB,
+            raw_value=36,
+            mask=0xFF,
+            key="cooling_setpoint",
+            cached_value=18.0,
+        )
+
+        await by_key["hotwater_setpoint"].async_set_native_value(48.5)
+        self.coordinator.async_write_masked_register.assert_called_with(
+            address=0x00CA,
+            raw_value=97,
+            mask=0xFF,
+            key="hotwater_setpoint",
+            cached_value=48.5,
         )
 
 

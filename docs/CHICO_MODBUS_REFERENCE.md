@@ -16,7 +16,8 @@
 
 ## Hardware Verification Highlights vs OEM PDF
 
-1. **Pressure Sensors Swap (`0x002F` / `0x0030`):** OEM PDF swaps Suction vs Discharge labels. Live values (`13.87 bar` vs `4.15 bar`) confirm `0x002F` = Discharge, `0x0030` = Suction (`raw × 0.0069 bar`).
+1. **Pressure Sensors Swap (`0x002F` / `0x0030`):** OEM PDF swaps Suction vs Discharge labels and prints `n*0.1bar`. Live values (`13.87 bar` vs `4.15 bar`, matching `cond_temp`/`evap_temp`) confirm `0x002F` = Discharge, `0x0030` = Suction, and raw sensor units are `0.1 psi` (`0.1 × 0.0689476 ≈ 0.0069 bar/raw`).
+2. **DC Pump Speed Unit (`0x002E`):** OEM PDF omits unit. Multi-day live history (`Ctrl v590`: values `0, 30, 65, 80..100`, matching `F15–F17` in `%`) confirms `0x002E` is PWM modulation percentage (**`%`**), not `rpm`.
 2. **Fan Pressure Diff Units (`D05–D07`, `D11–D13`):** OEM PDF writes `n*10bar` (`20–100 bar`!), whereas live unit holds `23, 4, 3, 9, 4, 2` — raw values are directly in **bar**.
 3. **Fan Step Gains (`D16–D20`):** Live values `20, 15, 10, 5, 2` confirm step size is in **rpm**.
 4. **Timeband Weekday (`0x01AD–0x01AF`):** OEM PDF says `0~6`, whereas live `timeband_1_weekday = 126` (`0b01111110`) proves this is a **7-bit Mon–Sat bitmask (`0–127`)**.
@@ -75,7 +76,7 @@
 | `0x002B` | `R` | Frequency Conversion Failure 8 | bits lower | `0` | `freq_conversion_fault_low` |
 | `0x002C` | `R` | Controller Version | Controller Version | Observed `590` (Controller v590) | `controller_version` |
 | `0x002D` | `R` | Display Version | Display Version | Observed `660` (Display v660) | `display_version` |
-| `0x002E` | `R` | DC Pump Speed | DC pump speed | `80 rpm` | `dc_pump_speed` |
+| `0x002E` | `R` | DC Pump Speed | DC pump speed | `80 %` (PWM modulation, `0–100%`) | `dc_pump_speed` |
 | `0x002F` | `R` | Suct.press | n*0.1bar | Observed `13.869 bar` — **Swapped in OEM PDF**: actually Discharge Pressure (`n × 0.0069 bar`) | `discharge_pressure` |
 | `0x0030` | `R` | Disch.press | n*0.1bar | Observed `4.1469 bar` — **Swapped in OEM PDF**: actually Suction Pressure (`n × 0.0069 bar`) | `suction_pressure` |
 | `0x0031` | `R` | DC Fan Target | DC fan target | `659 rpm` | `dc_fan_target` |
@@ -476,9 +477,9 @@
 
 ## Integration Batching & Polling Architecture
 
-- **Fast Telemetry Poll (every `scan_interval`, default `10s`):** 1 contiguous read `0x0000–0x0031` (`50` registers → `49` core sensors + `49` core binary sensors), measured at **`0.146–0.186 s`** live.
+- **Fast Telemetry Poll (every `scan_interval`, default `10s`, with exponential backoff up to `300s` on repeated failures):** 1 contiguous read `0x0000–0x0031` (`50` registers → `49` core sensors + `49` core binary sensors), measured at **`0.146–0.186 s`** live. Backoff resets immediately to `scan_interval` on the first successful poll.
 - **RW & Expert Batch Poll (startup + every `20` cycles / `~200 s`):** `10` confirmed batches (`<= 62` registers/batch, skipping PDF `Invalid` gaps, `0.20 s` inter-batch turnaround) + `2` optional batches (`0x006A–0x006F`, `0x0072–0x0077`), measured at **`4.084–4.384 s`** live across `385` decoded entries with zero errors.
-- **Opt-in Expert Visibility & Writes (`enable_expert_writes`, default `false`):** Core telemetry/alarms (`0x0000–0x0031`) plus core controls (`P01–P07`, `E01–E24`, `G01–G11`, Antilegionella, `Power`, `Failure Reset`, `2x Climate`) total **`149`** enabled-by-default entities. All **`353` RO expert diagnostic entities** (`336` `sensor` + `17` `binary_sensor` across the newly mapped `0x0032–0x01BB` expert ranges) are created with **`entity_registry_enabled_default = False`** (hidden by default in HA until manually enabled). Enabling `enable_expert_writes` in **Configure** adds **`337`** writable CHICO `Config` entities (`322` `number` entities in `box` mode supporting `INT16`, `raw_offset`, and masked `0x01A4–0x01AC` Timeband low-byte RMW writes; `2` `select` entities; `13` `switch` entities), while keeping dangerous `parameters_reset_flag` (`0x0033` bit 6) and unconfirmed gaps non-writable.
+- **Opt-in Expert Visibility & Writes (`enable_expert_writes`, default `false`):** Core telemetry/alarms (`0x0000–0x0031`) plus core controls (`P01–P07`, `E01–E24`, `G01–G11`, Antilegionella, `Power`, `Failure Reset`, `2x Climate`) total **`149`** enabled-by-default entities. Primary setpoints `P01`/`P02`/`P04` (`0x00CA–0x00CC`) mask the lower 8 bits (`0x00FF`) on both read and RMW write to preserve upper-byte flags on firmware variants. All **`353` RO expert diagnostic entities** (`336` `sensor` + `17` `binary_sensor` across the newly mapped `0x0032–0x01BB` expert ranges) are created with **`entity_registry_enabled_default = False`** (hidden by default in HA until manually enabled). Enabling `enable_expert_writes` in **Configure** adds **`337`** writable CHICO `Config` entities (`322` `number` entities in `box` mode supporting `INT16`, `raw_offset`, and masked `0x01A4–0x01AC` Timeband low-byte RMW writes; `2` `select` entities; `13` `switch` entities), while keeping dangerous `parameters_reset_flag` (`0x0033` bit 6) and unconfirmed gaps non-writable.
 - **Diagnostics & Logging:** Pre-release builds (`alpha`/`beta`/`rc`/`dev`) default the integration log level to `DEBUG`, and [diagnostics.py](../custom_components/sprsun_modbus/diagnostics.py) exports redacted coordinator/entity diagnostics.
 
 For detailed user parameter descriptions, see [CHICO_PARAMETERS_GUIDE.md](CHICO_PARAMETERS_GUIDE.md).

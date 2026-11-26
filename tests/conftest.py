@@ -111,7 +111,7 @@ def mock_modbus_response_ro():
         0,           # 0x002B: freq_conversion_fault_low
         105,         # 0x002C: controller_version = 105
         102,         # 0x002D: display_version = 102
-        1200,        # 0x002E: dc_pump_speed = 1200 rpm
+        80,          # 0x002E: dc_pump_speed = 80 %
         3500,        # 0x002F: discharge_pressure = 3500 * 0.0069 = 24.15 bar (swapped!)
         800,         # 0x0030: suction_pressure = 800 * 0.0069 = 5.52 bar (swapped!)
         700,         # 0x0031: dc_fan_target = 700 rpm
