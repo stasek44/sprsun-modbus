@@ -12,6 +12,7 @@ from custom_components.sprsun_modbus.controllers.chico import ChicoController
 from custom_components.sprsun_modbus.controllers.chico_derived import (
     CHICO_DERIVED_SENSORS,
     DEFROST_AMBIENT_HOLD_SECONDS,
+    DEFROST_AMBIENT_MAX_HOLD_SECONDS,
     ChicoDerivedTracker,
     compute_eco_curve_setpoint,
     compute_estimated_power,
@@ -31,7 +32,7 @@ class TestChicoDerivedSensors(unittest.TestCase):
         """Ensure derived sensor keys never collide with physical CHICO keys."""
         controller = ChicoController()
         derived_keys = [s.key for s in controller.get_derived_sensors()]
-        self.assertEqual(len(derived_keys), 10)
+        self.assertEqual(len(derived_keys), 13)
         self.assertEqual(len(derived_keys), len(set(derived_keys)))
 
         hardware_keys = (
@@ -89,6 +90,106 @@ class TestChicoDerivedSensors(unittest.TestCase):
             )["ambient_temp_filtered"],
             4.5,
         )
+
+    def test_ambient_temp_filtered_fan_aware_idle_hold(self):
+        """Pause post-defrost 7m cooldown while fan is OFF, release after 7m fan runtime or 45m cap."""
+        tracker = ChicoDerivedTracker()
+
+        # Pre-defrost heating with fan ON (output_symbol_1 bit 5)
+        self.assertEqual(
+            tracker.compute(
+                {"ambient_temp": -1.5, "working_status_register": 0, "output_symbol_1": 1 << 5},
+                now=1000.0,
+            )["ambient_temp_filtered"],
+            -1.5,
+        )
+
+        # Defrost active -> held at -1.5°C
+        self.assertEqual(
+            tracker.compute(
+                {"ambient_temp": 4.0, "working_status_register": 1 << 7, "output_symbol_1": 0},
+                now=1200.0,
+            )["ambient_temp_filtered"],
+            -1.5,
+        )
+
+        # Defrost finishes at t=1300 and pump goes IDLE (fan OFF); > 420s pass -> still held!
+        self.assertEqual(
+            tracker.compute(
+                {"ambient_temp": 3.5, "working_status_register": 0, "output_symbol_1": 0},
+                now=1300.0,
+            )["ambient_temp_filtered"],
+            -1.5,
+        )
+        self.assertEqual(
+            tracker.compute(
+                {"ambient_temp": 4.0, "working_status_register": 0, "output_symbol_1": 0},
+                now=1300.0 + DEFROST_AMBIENT_HOLD_SECONDS + 300.0,  # 720s idle, fan OFF
+            )["ambient_temp_filtered"],
+            -1.5,
+        )
+
+        # Fan turns back ON at t=2100 -> accumulates fan runtime, releases after 420s fan ON
+        self.assertEqual(
+            tracker.compute(
+                {"ambient_temp": 3.0, "working_status_register": 0, "output_symbol_1": 1 << 5},
+                now=2100.0,
+            )["ambient_temp_filtered"],
+            -1.5,
+        )
+        self.assertEqual(
+            tracker.compute(
+                {"ambient_temp": 2.5, "working_status_register": 0, "output_symbol_1": 1 << 5},
+                now=2100.0 + DEFROST_AMBIENT_HOLD_SECONDS + 10.0,
+            )["ambient_temp_filtered"],
+            2.5,
+        )
+
+        # Hard 45m wall-clock cap releases hold even if fan never turns back on
+        tracker_cap = ChicoDerivedTracker()
+        tracker_cap.compute(
+            {"ambient_temp": -2.0, "working_status_register": 0, "output_symbol_1": 1 << 5},
+            now=100.0,
+        )
+        tracker_cap.compute(
+            {"ambient_temp": 5.0, "working_status_register": 1 << 7, "output_symbol_1": 0},
+            now=200.0,
+        )
+        tracker_cap.compute(
+            {"ambient_temp": 4.0, "working_status_register": 0, "output_symbol_1": 0},
+            now=300.0,
+        )
+        self.assertEqual(
+            tracker_cap.compute(
+                {"ambient_temp": 3.8, "working_status_register": 0, "output_symbol_1": 0},
+                now=300.0 + DEFROST_AMBIENT_MAX_HOLD_SECONDS + 1.0,
+            )["ambient_temp_filtered"],
+            3.8,
+        )
+
+    def test_coil_ambient_delta_non_negative_and_defrost_clamped(self):
+        """Ensure coil_ambient_delta reports 0.0 during defrost or when coil >= outdoor."""
+        tracker = ChicoDerivedTracker()
+        # Heating with frosted coil -> positive frost load
+        res_heat = tracker.compute(
+            {"ambient_temp": 1.0, "coil_temp": -6.5, "working_status_register": 1 << 1},
+            now=100.0,
+        )
+        self.assertEqual(res_heat["coil_ambient_delta"], 7.5)
+
+        # Active defrost heats coil to +43°C -> must clamp to 0.0 (never negative)
+        res_def = tracker.compute(
+            {"ambient_temp": 4.0, "coil_temp": 43.0, "working_status_register": 1 << 7},
+            now=200.0,
+        )
+        self.assertEqual(res_def["coil_ambient_delta"], 0.0)
+
+        # Post-defrost still-warm coil (coil > ambient) -> clamped to 0.0
+        res_post = tracker.compute(
+            {"ambient_temp": 1.0, "coil_temp": 12.0, "working_status_register": 0},
+            now=300.0,
+        )
+        self.assertEqual(res_post["coil_ambient_delta"], 0.0)
 
     def test_operating_state_priority_and_modes(self):
         """Verify operating_state priority across alarm, off, defrost, antilegionella, demands."""
@@ -170,27 +271,42 @@ class TestChicoDerivedSensors(unittest.TestCase):
         res0 = tracker.compute({"working_status_register": 0, "output_symbol_1": 0}, now=1000.0)
         self.assertEqual(res0["compressor_last_run_duration"], 0.0)
         self.assertEqual(res0["defrost_last_duration"], 0.0)
+        self.assertEqual(res0["defrost_last_interval"], 0.0)
 
         # Compressor starts at t=1000, defrost starts at t=1300
         res1 = tracker.compute({"working_status_register": 0, "output_symbol_1": 1}, now=1000.0)
         self.assertEqual(res1["compressor_last_run_duration"], 0.0)
+        self.assertEqual(res1["defrost_last_interval"], 0.0)
 
         res2 = tracker.compute({"working_status_register": 1 << 7, "output_symbol_1": 1}, now=1300.0)
         self.assertEqual(res2["compressor_last_run_duration"], 5.0)
         self.assertEqual(res2["defrost_last_duration"], 0.0)
+        self.assertEqual(res2["defrost_last_interval"], 0.0)
 
         # Defrost ends at t=1540 (4.0 min), compressor stops at t=1900 (15.0 min)
         res3 = tracker.compute({"working_status_register": 0, "output_symbol_1": 1}, now=1540.0)
         self.assertEqual(res3["defrost_last_duration"], 4.0)
+        self.assertEqual(res3["defrost_last_interval"], 0.0)
         self.assertEqual(res3["compressor_last_run_duration"], 9.0)
 
         res4 = tracker.compute({"working_status_register": 0, "output_symbol_1": 0}, now=1900.0)
         self.assertEqual(res4["compressor_last_run_duration"], 15.0)
         self.assertEqual(res4["defrost_last_duration"], 4.0)
+        self.assertEqual(res4["defrost_last_interval"], 6.0)
 
-        # Remains held while idle
+        # Remains held while idle for compressor, while defrost_last_interval continues counting live
         res5 = tracker.compute({"working_status_register": 0, "output_symbol_1": 0}, now=2500.0)
         self.assertEqual(res5["compressor_last_run_duration"], 15.0)
+        self.assertEqual(res5["defrost_last_interval"], 16.0)
+
+        # Second defrost starts at t=5500 (66.0 min after t=1540) -> interval freezes at 66.0
+        res6 = tracker.compute({"working_status_register": 1 << 7, "output_symbol_1": 1}, now=5500.0)
+        self.assertEqual(res6["defrost_last_interval"], 66.0)
+        res7 = tracker.compute({"working_status_register": 1 << 7, "output_symbol_1": 1}, now=5620.0)
+        self.assertEqual(res7["defrost_last_interval"], 66.0)
+        res8 = tracker.compute({"working_status_register": 0, "output_symbol_1": 1}, now=5740.0)
+        self.assertEqual(res8["defrost_last_duration"], 4.0)
+        self.assertEqual(res8["defrost_last_interval"], 0.0)
 
     def test_thermodynamic_diffs_and_estimated_power(self):
         """Verify delta T, condenser approach, superheats, and experimental power estimate."""
@@ -203,16 +319,29 @@ class TestChicoDerivedSensors(unittest.TestCase):
             "evap_temp": -5.0,
             "exhaust_temp": 68.0,
             "ambient_temp": 0.5,
+            "coil_temp": -4.5,
             "compressor_frequency": 29,
-            "working_status_register": 0,
+            "working_status_register": 1 << 1,
             "output_symbol_1": 1,
             "output_symbol_2": 1,  # chassis_heater ON
+            "unit_mode": 1,
+            "econ_heat_ambi_1": -15,
+            "econ_heat_ambi_2": 18,
+            "econ_heat_ambi_3": 7,
+            "econ_heat_ambi_4": -5,
+            "econ_heat_temp_1": 50.0,
+            "econ_heat_temp_2": 32.0,
+            "econ_heat_temp_3": 38.0,
+            "econ_heat_temp_4": 44.0,
         }
         res = controller.compute_derived_data(data, now=1000.0)
         self.assertEqual(res["water_delta_t"], 2.1)
         self.assertEqual(res["condenser_approach_temp"], 1.8)
         self.assertEqual(res["suction_superheat"], 2.0)
         self.assertEqual(res["discharge_superheat"], 34.2)
+        self.assertEqual(res["coil_ambient_delta"], 5.0)
+        self.assertEqual(res["eco_active_setpoint"], 41.2)
+        self.assertEqual(res["eco_setpoint_delta"], -9.2)
         self.assertGreater(res["estimated_power"], 900.0)
         self.assertLess(res["estimated_power"], 1100.0)
 

@@ -1,0 +1,107 @@
+# ==============================================================================
+# SPRSUN Heat Pump - Kompaktowa Karta Sterowania (100% Natywny Home Assistant)
+# ==============================================================================
+# Idealna do wklejenia na istniejący pulpit (np. obok innych urządzeń w domu).
+# Jeśli nazwa Twojego urządzenia to nie "SPRSUN Heat Pump", zamień (Ctrl+H)
+# prefiks "sprsun_heat_pump" na własny.
+# ==============================================================================
+
+type: vertical-stack
+title: Pompa Ciepła SPRSUN
+cards:
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: binary_sensor.sprsun_heat_pump_alarm_stop
+        state: "on"
+    card:
+      type: tile
+      entity: button.sprsun_heat_pump_failure_reset
+      name: "⚠️ AWARIA POMPY! Kliknij, aby zresetować błąd"
+      icon: mdi:alert-octagon
+      color: red
+
+  - type: horizontal-stack
+    cards:
+      - type: tile
+        entity: switch.sprsun_heat_pump_power
+        name: Zasilanie
+        icon: mdi:power
+        color: green
+      - type: tile
+        entity: select.sprsun_heat_pump_unit_mode
+        name: Tryb pracy (P06)
+        icon: mdi:heat-pump
+
+  - type: horizontal-stack
+    cards:
+      - type: tile
+        entity: select.sprsun_heat_pump_fan_mode
+        name: Profil (P07)
+        icon: mdi:fan
+        color: teal
+      - type: tile
+        entity: sensor.sprsun_heat_pump_operating_state
+        name: Aktualny stan
+        icon: mdi:state-machine
+
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: tile
+        entity: number.sprsun_heat_pump_heating_setpoint
+        name: Zadana CO (P01)
+        icon: mdi:radiator
+        color: orange
+        features:
+          - type: numeric-input
+            style: buttons
+
+      - type: tile
+        entity: number.sprsun_heat_pump_heating_cooling_temp_diff
+        name: Histereza CO (P03)
+        icon: mdi:arrow-expand-vertical
+        color: deep-orange
+        features:
+          - type: numeric-input
+            style: buttons
+
+      - type: tile
+        entity: number.sprsun_heat_pump_hot_water_setpoint
+        name: Zadana CWU (P04)
+        icon: mdi:water-boiler
+        color: red
+        features:
+          - type: numeric-input
+            style: buttons
+
+      - type: tile
+        entity: number.sprsun_heat_pump_hot_water_temp_diff
+        name: Histereza CWU (P05)
+        icon: mdi:arrow-expand-vertical
+        color: deep-orange
+        features:
+          - type: numeric-input
+            style: buttons
+
+  - type: glance
+    title: Temperatury i praca na żywo
+    show_name: true
+    show_state: true
+    entities:
+      - entity: sensor.sprsun_heat_pump_outlet_water_temperature
+        name: Zasilanie CO
+        icon: mdi:water-arrow-right
+      - entity: sensor.sprsun_heat_pump_inlet_water_temperature
+        name: Powrót CO
+        icon: mdi:water-arrow-left
+      - entity: sensor.sprsun_heat_pump_hot_water_temperature
+        name: Zasobnik CWU
+        icon: mdi:water-boiler
+      - entity: sensor.sprsun_heat_pump_ambient_temperature
+        name: Zewnętrzna
+        icon: mdi:thermometer
+      - entity: sensor.sprsun_heat_pump_compressor_frequency
+        name: Sprężarka
+        icon: mdi:sine-wave
