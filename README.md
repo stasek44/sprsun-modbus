@@ -102,11 +102,12 @@ In Home Assistant, go to **Settings** → **Devices & Services** → **Add Integ
 ## Development & Testing
 
 ```bash
-# Run unit tests locally
-python3 -m unittest discover tests
+# Run full local verification (pytest + ruff + syntax/JSON checks)
+./.agents/skills/sprsun-beta-staging/scripts/verify.sh
 
-# Or run with pytest and coverage
+# Or run individual tools
 pytest tests/ -v
+ruff check custom_components/
 ```
 
 See **[AGENTS.md](AGENTS.md)** for architecture principles and contribution guidelines.

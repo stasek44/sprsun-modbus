@@ -1,0 +1,20 @@
+{
+  "sprsun-session-context": {
+    "SessionStart": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/session_start.py",
+        "timeout": 10
+      }
+    ]
+  },
+  "sprsun-verify-on-stop": {
+    "Stop": [
+      {
+        "type": "command",
+        "command": "python3 ./hooks/stop_verify.py",
+        "timeout": 60
+      }
+    ]
+  }
+}
