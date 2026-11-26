@@ -80,7 +80,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               {% set st = states('sensor.sprsun_heat_pump_operating_state') %}
               {% set power = states('switch.sprsun_heat_pump_power') %}
               {% set heat_h = is_state('binary_sensor.sprsun_heat_pump_heating_heater', 'on') %}
@@ -148,7 +148,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Przyciski **[-]** i **[+]** zmieniają temperaturę docelową. **Histereza** oznacza, o ile stopni woda musi ostygnąć, zanim pompa ponownie się włączy (większa = rzadsze włączanie sprężarki).
 
           - type: tile
@@ -298,7 +298,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               **Delta T wody** to różnica między wodą wychodzącą a wracającą do pompy. Zdrowa wartość podczas grzania to **3–5°C** (podłogówka) lub **5–8°C** (grzejniki). Jeśli *Przepływ* pokazuje `0`, Twój model nie ma fabrycznego przepływomierza — obserwuj *Deltę T* i *Prędkość pompy DC*.
 
           - type: tile
@@ -365,7 +365,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Krzywa ECO automatycznie dobiera temperaturę wody do pogody: im cieplej na dworze, tym chłodniejsza woda idzie w instalację (duża oszczędność prądu!). Poniżej widać cel wyliczony z krzywej vs rzeczywista temperatura wody.
 
           - type: tile
@@ -504,7 +504,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Pokazuje z jaką prędkością kręci się sprężarka (**Hz**) i wentylator (**rpm**) oraz jakie temperatury panują wewnątrz czynnika chłodniczego.
 
           - type: tile
@@ -716,7 +716,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               {% set errors = [
                 'binary_sensor.sprsun_heat_pump_hot_water_temp_sensor_error',
                 'binary_sensor.sprsun_heat_pump_ambient_temp_sensor_error',
@@ -783,7 +783,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               **Jak czytać te liczby (dla laika)?**
               - **Approach skraplacza:** różnica między czynnikiem a wodą. Norma: **1–4°C**. Powyżej **6°C** przy pracy = słaby przepływ lub zabrudzony wymiennik.
               - **Przegrzanie ssania:** ile czynnik odparował przed sprężarką. Norma: **2–7°C**. Blisko **0°C** lub ujemne = ryzyko zalania sprężarki; **> 10°C** = możliwy ubytek czynnika lub problem z EEV.
@@ -834,7 +834,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Tutaj widzisz dokładnie, które podzespoły fizycznie pracują. **Zawór 3-drogowy** `ON` kieruje wodę do zasobnika CWU, a `OFF` na ogrzewanie domu. **Zawór 4-drogowy** `ON` oznacza chłodzenie lub defrost.
 
           - type: entities
@@ -993,7 +993,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               {% set cycle = states('sensor.sprsun_heat_pump_compressor_last_run_duration') %}
               {% set def_dur = states('sensor.sprsun_heat_pump_last_defrost_duration') %}
               {% set def_int = states('sensor.sprsun_heat_pump_defrost_interval') %}
@@ -1098,7 +1098,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               **Największe oszczędności bez ryzyka:**
               1. **Obniż zadaną CO (P01) i CWU (P04):** CWU 46–48°C zamiast 55°C daje ogromny skok sprawności (COP).
               2. **Zwiększ histerezę CO (P03) do 3–5°C**, jeśli sprężarka robi krótkie cykle (< 15 min).
@@ -1195,7 +1195,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Każdy defrost odbiera ciepło z domu, aby roztopić szron na zewnątrz. Cel: **odszraniać tylko wtedy, gdy lamel faktycznie zarasta, i kończyć zaraz po spłynięciu lodu**.
               - **Kiedy wchodzi defrost (częstotliwość)?** Sterownik sprawdza 3 warunki naraz: minął czas **H08/H11/H14** (np. 45 min), temp. lamel spadła poniżej **H03** (np. -4°C) ORAZ różnica `Zewn. - Lamele` przekroczyła **H07/H10/H13** (np. 10°C).
               - **Jak długo trwa (czas i strata ciepła)?** Kończy się, gdy lamel osiągnie **H04** (np. 15°C) lub po czasie **H05** (maks. 8 min), pracując z mocą **H01** (np. 70 Hz). Jeśli po defroście lamel strzela na 35–45°C i para bucha długo po stopieniu lodu, **H04** lub **H01** mogą być za wysokie.
@@ -1343,7 +1343,7 @@ views:
             text_only: true
             grid_options:
               columns: full
-            content: >-
+            content: |-
               ⚠️ **Strefa parametrów fabrycznych (EEPROM):** Zmiany wprowadzaj **pojedynczo o mały krok** (np. ±1°C lub ±10 min) i obserwuj wykresy przez 24h. Zbyt rzadki lub zbyt krótki defrost przy dużej wilgotności może całkowicie zalodzić parownik!
               - **Rzadszy defrost (mniej strat):** delikatnie zwiększ `H08/H11/H14` (np. 45 -> 60 min) lub `H07/H10/H13` (np. 10 -> 11–12°C), jeśli na wykresie `Zewn. - Lamele` wchodzi zbyt wcześnie na czystych lamelach.
               - **Krótszy / łagodniejszy defrost:** sprawdź czy po stopieniu lodu `Lamele` nie przegrzewają się powyżej `30–40°C` — wówczas można lekko obniżyć `H04` (np. 15 -> 12–13°C) lub `H01` (np. 70 -> 55–60 Hz).

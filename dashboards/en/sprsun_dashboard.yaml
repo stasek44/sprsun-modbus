@@ -80,7 +80,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               {% set st = states('sensor.sprsun_heat_pump_operating_state') %}
               {% set power = states('switch.sprsun_heat_pump_power') %}
               {% set heat_h = is_state('binary_sensor.sprsun_heat_pump_heating_heater', 'on') %}
@@ -148,7 +148,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Use **[-]** and **[+]** to adjust targets directly. **Hysteresis** sets how many degrees the water must cool down before the compressor restarts (higher = fewer starts).
 
           - type: tile
@@ -295,7 +295,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               **Water Delta T** is the temperature rise across the heat exchanger (Supply minus Return). Healthy heating values are **3–5°C** (underfloor) or **5–8°C** (radiators). If *Pump Flow* reads `0`, your hardware lacks the optional internal flow meter — watch *Delta T* and *DC Pump Speed* instead.
 
           - type: tile
@@ -359,7 +359,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Weather compensation automatically lowers supply water temperature on milder days, saving electricity without sacrificing comfort. Below is the curve-calculated target compared to your current supply water.
 
           - type: tile
@@ -495,7 +495,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Shows inverter compressor speed (**Hz**), outdoor fan RPM, electronic expansion valves (**EEV**), and refrigerant pressures/temperatures.
 
           - type: tile
@@ -701,7 +701,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               {% set errors = [
                 'binary_sensor.sprsun_heat_pump_hot_water_temp_sensor_error',
                 'binary_sensor.sprsun_heat_pump_ambient_temp_sensor_error',
@@ -768,7 +768,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               **Plain-language guide:**
               - **Condenser Approach:** temperature gap from refrigerant to water. Healthy: **1–4°C**. Above **6°C** under load = low flow or fouled heat exchanger.
               - **Suction Superheat:** healthy EEV control is **2–7°C**. Near **0°C** or negative = liquid floodback risk; **> 10°C** = possible undercharge or EEV issue.
@@ -816,7 +816,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Live hardware states. **3-Way Valve** `ON` directs flow to the DHW tank (`OFF` = space heating). **4-Way Valve** `ON` means cooling or defrost mode.
 
           - type: entities
@@ -969,7 +969,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               {% set cycle = states('sensor.sprsun_heat_pump_compressor_last_run_duration') %}
               {% set def_dur = states('sensor.sprsun_heat_pump_last_defrost_duration') %}
               {% set def_int = states('sensor.sprsun_heat_pump_defrost_interval') %}
@@ -1071,7 +1071,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               **Safest energy wins:**
               1. **Lower P01 & P04:** Setting DHW to 46–48°C instead of 55°C boosts COP significantly.
               2. **Tune P03 (3–5°C):** Prevents short-cycling without hurting comfort.
@@ -1165,7 +1165,7 @@ views:
 
           - type: markdown
             text_only: true
-            content: >-
+            content: |-
               Every defrost steals heat from your home to melt outdoor frost. Goal: **defrost only when genuinely frosted, and stop as soon as ice is clear**.
               - **Frequency (entry):** Requires **H08/H11/H14** min interval elapsed, coil <= **H03** (e.g. -4°C), AND `Outdoor - Coil` >= **H07/H10/H13** (e.g. 10°C).
               - **Duration & cost (exit):** Stops when coil reaches **H04** (e.g. 15°C) or **H05** max time (8 min), running at **H01** Hz. If coil spikes to 35–45°C well after ice melts, **H04** or **H01** may be higher than needed.
@@ -1306,7 +1306,7 @@ views:
             text_only: true
             grid_options:
               columns: full
-            content: >-
+            content: |-
               ⚠️ **Factory EEPROM Parameters:** Adjust **one parameter at a time in small steps** (e.g., ±1°C or ±10 min) and observe 24h graphs. Overly rare or short defrosts in humid freezing weather can ice up the coil solid!
               - **Reduce frequency:** Carefully raise `H08/H11/H14` (e.g. 45 -> 60 min) or `H07/H10/H13` (e.g. 10 -> 11–12°C) if defrost triggers prematurely on a clean coil.
               - **Shorten / soften defrost:** If coil temp shoots past `30–40°C` long after ice melts, slightly lower `H04` (e.g. 15 -> 12–13°C) or `H01` (e.g. 70 -> 55–60 Hz).
