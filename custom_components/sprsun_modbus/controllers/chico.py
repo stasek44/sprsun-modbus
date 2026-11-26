@@ -56,6 +56,11 @@ _CHICO_FAN_MODE_TO_RAW: dict[str, int] = {
     "test": 3,
 }
 _CHICO_RAW_TO_FAN_MODE: dict[int, str] = {v: k for k, v in _CHICO_FAN_MODE_TO_RAW.items()}
+_CHICO_PRESET_TO_FAN_MODE: dict[str, str] = {
+    "none": "normal",
+    "eco": "eco",
+    "sleep": "night",
+}
 
 
 class ChicoController(ControllerBase):
@@ -309,7 +314,7 @@ class ChicoController(ControllerBase):
             enabled=True,
             hvac_modes=("off", "heat", "cool", "heat_cool"),
             fan_modes=("normal", "eco", "night", "test"),
-            preset_modes=("none", "eco", "boost"),
+            preset_modes=("none", "eco", "sleep"),
             supports_target_temperature=True,
             supports_fan_mode=True,
             supports_preset_mode=True,
@@ -394,13 +399,14 @@ class ChicoController(ControllerBase):
         return _CHICO_RAW_TO_FAN_MODE.get(fan_mode_value, "normal")
 
     def get_space_preset_mode(self, data: Mapping[str, Any] | None) -> str:
-        """Return current preset mode."""
-        from homeassistant.components.climate import PRESET_BOOST, PRESET_ECO, PRESET_NONE
+        """Return current preset mode mapped directly from P07 fan/compressor profile."""
+        from homeassistant.components.climate import PRESET_ECO, PRESET_NONE, PRESET_SLEEP
 
-        if extract_cache_value(data, "mode_control_enable", 0) == 1:
+        fan_mode = self.get_space_fan_mode(data)
+        if fan_mode == "eco":
             return PRESET_ECO
-        if int(extract_cache_value(data, "fan_mode", 0)) == 0:
-            return PRESET_BOOST
+        if fan_mode == "night":
+            return PRESET_SLEEP
         return PRESET_NONE
 
     async def async_write_power(self, coordinator: Any, state: bool) -> None:
@@ -453,22 +459,20 @@ class ChicoController(ControllerBase):
         temperature: float,
         data: Mapping[str, Any] | None,
     ) -> None:
-        """Write CHICO heating or cooling setpoint (scale 0.5°C -> x2)."""
+        """Write CHICO heating or cooling setpoint (scale 0.5°C -> x2, lower 8 bits masked)."""
         unit_mode = int(extract_cache_value(data, "unit_mode", 1))
         if unit_mode in (1, 3):
-            await coordinator.async_write_register(
-                address=0x00CC,
-                value=temperature,
-                key="heating_setpoint",
-                scale=2,
-            )
+            address, key = 0x00CC, "heating_setpoint"
         else:
-            await coordinator.async_write_register(
-                address=0x00CB,
-                value=temperature,
-                key="cooling_setpoint",
-                scale=2,
-            )
+            address, key = 0x00CB, "cooling_setpoint"
+        raw_value = int(round(temperature * 2)) & 0xFF
+        await coordinator.async_write_masked_register(
+            address=address,
+            raw_value=raw_value,
+            mask=0x00FF,
+            key=key,
+            cached_value=float(temperature),
+        )
 
     async def async_set_space_fan_mode(self, coordinator: Any, fan_mode: str) -> None:
         """Write CHICO P07 fan mode."""
@@ -482,25 +486,12 @@ class ChicoController(ControllerBase):
             )
 
     async def async_set_space_preset_mode(self, coordinator: Any, preset_mode: str) -> None:
-        """Write CHICO preset mode."""
-        from homeassistant.components.climate import PRESET_BOOST, PRESET_ECO
-
-        if preset_mode == PRESET_ECO:
-            await coordinator.async_write_register(
-                address=0x0191,
-                value=1,
-                key="mode_control_enable",
-                scale=1,
-            )
-        elif preset_mode == PRESET_BOOST:
-            await self.async_set_space_fan_mode(coordinator, "normal")
-        else:
-            await coordinator.async_write_register(
-                address=0x0191,
-                value=0,
-                key="mode_control_enable",
-                scale=1,
-            )
+        """Write CHICO preset mode via P07 fan/compressor profile (0x0190)."""
+        fan_mode = _CHICO_PRESET_TO_FAN_MODE.get(preset_mode)
+        if fan_mode is None:
+            _LOGGER.warning("Unsupported CHICO preset mode: %s", preset_mode)
+            return
+        await self.async_set_space_fan_mode(coordinator, fan_mode)
 
     def get_dhw_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode:
         """Return current DHW HVAC mode for CHICO."""
@@ -577,10 +568,12 @@ class ChicoController(ControllerBase):
                 )
 
     async def async_set_dhw_temperature(self, coordinator: Any, temperature: float) -> None:
-        """Write CHICO DHW setpoint (P04 at 0x00CA, scale 0.5°C -> x2)."""
-        await coordinator.async_write_register(
+        """Write CHICO DHW setpoint (P04 at 0x00CA, scale 0.5°C -> x2, lower 8 bits masked)."""
+        raw_value = int(round(temperature * 2)) & 0xFF
+        await coordinator.async_write_masked_register(
             address=0x00CA,
-            value=temperature,
+            raw_value=raw_value,
+            mask=0x00FF,
             key="hotwater_setpoint",
-            scale=2,
+            cached_value=float(temperature),
         )

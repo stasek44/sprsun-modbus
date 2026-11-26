@@ -385,12 +385,40 @@ class TestControllers(unittest.TestCase):
             self.assertIn(spec.address, covered, f"Address 0x{spec.address:04X} ({spec.key}) not covered by batch")
 
         by_key = {spec.key: spec for spec in controller.get_sensors()}
+        self.assertEqual(by_key["dc_pump_speed"].unit, "%")
         self.assertEqual(by_key["d05_cool_dcfan_high_press"].unit, "bar")
         self.assertEqual(by_key["d06_cool_dcfan_open_diff"].device_class, "pressure")
         self.assertEqual(by_key["d16_dcfan_adjust_speed_1"].unit, "rpm")
         self.assertEqual(by_key["a44_mv_water_lower"].min_value, 0)
         self.assertEqual(by_key["f40_wt_constant_temp_diff"].min_value, 0)
         self.assertEqual(by_key["timeband_1_weekday"].max_value, 127)
+
+    def test_chico_primary_setpoints_mask_upper_byte_on_read(self):
+        """Test P01/P02/P04 decode only the lower 8 bits even when upper byte is non-zero."""
+        controller = ChicoController()
+        client = MagicMock()
+
+        def mock_read(address, count, device_id):
+            res = MagicMock()
+            res.isError.return_value = False
+            regs = [0] * count
+            if address == 0x0000:
+                regs[0x002C] = 590
+                regs[0x000E] = 250
+            elif address == 0x00B6:
+                regs[0x00CA - address] = 0x8160  # upper byte 0x81 ignored, low byte 0x60=96 -> 48.0 C
+                regs[0x00CB - address] = 0x0424  # upper byte 0x04 ignored, low byte 0x24=36 -> 18.0 C
+                regs[0x00CC - address] = 0xFF39  # upper byte 0xFF ignored, low byte 0x39=57 -> 28.5 C
+            res.registers = regs
+            return res
+
+        client.read_holding_registers.side_effect = mock_read
+        with patch("time.sleep"):
+            data = controller.read_all_registers(client, device_address=1, initial_read=True)
+
+        self.assertEqual(data["hotwater_setpoint"], 48.0)
+        self.assertEqual(data["cooling_setpoint"], 18.0)
+        self.assertEqual(data["heating_setpoint"], 28.5)
 
 
 if __name__ == "__main__":

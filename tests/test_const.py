@@ -69,6 +69,13 @@ class TestSPRSUNConstants(unittest.TestCase):
 
     def test_pressure_sensors_scaling_and_swap(self):
         """Test pressure sensors use 0.0069 bar scaling and swapped registers."""
+        # 0x002E DC pump speed is PWM percentage (%)
+        pump_key, pump_name, pump_scale, pump_unit, pump_dev_class = REGISTERS_READ_ONLY[0x002E]
+        self.assertEqual(pump_key, "dc_pump_speed")
+        self.assertEqual(pump_scale, 1)
+        self.assertEqual(pump_unit, "%")
+        self.assertIsNone(pump_dev_class)
+
         # 0x002F is labeled suction in manual, but actually discharge
         dis_key, dis_name, dis_scale, dis_unit, dis_dev_class = REGISTERS_READ_ONLY[0x002F]
         self.assertEqual(dis_key, "discharge_pressure")

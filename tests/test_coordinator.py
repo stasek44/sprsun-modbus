@@ -39,6 +39,8 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.coordinator.controller_type, "chico")
         self.assertEqual(self.coordinator.cache_staleness_seconds, 20)  # 2 * scan_interval
         self.assertEqual(self.coordinator.controller.name, "CHICO")
+        self.assertEqual(self.coordinator._consecutive_failures, 0)
+        self.assertEqual(self.coordinator.update_interval.total_seconds(), 10)
 
     def test_create_and_close_modbus_client(self):
         """Test creating and safely closing modbus client."""
@@ -469,6 +471,47 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         self.coordinator._sync_write_masked_register.assert_called_once_with(
             0x01AB, 70, 0x00FF, "timeband_3_heat_setp", 35.0
         )
+
+    async def test_exponential_backoff_and_reset_on_recovery(self):
+        """Test _async_update_data applies exponential backoff up to 300s and resets on success."""
+        self.coordinator._sync_update = MagicMock(
+            side_effect=[
+                UpdateFailed("offline 1"),
+                UpdateFailed("offline 2"),
+                ConnectionError("offline 3"),
+                UpdateFailed("offline 4"),
+                UpdateFailed("offline 5"),
+                UpdateFailed("offline 6"),
+                {"inlet_temp": {"value": 25.0, "updated_at": 1000.0}},
+            ]
+        )
+
+        expected_intervals = [20, 40, 80, 160, 300, 300]
+        for idx, expected in enumerate(expected_intervals, start=1):
+            with self.assertRaises(UpdateFailed):
+                await self.coordinator._async_update_data()
+            self.assertEqual(self.coordinator._consecutive_failures, idx)
+            self.assertEqual(self.coordinator.update_interval.total_seconds(), expected)
+
+        data = await self.coordinator._async_update_data()
+        self.assertEqual(data["inlet_temp"]["value"], 25.0)
+        self.assertEqual(self.coordinator._consecutive_failures, 0)
+        self.assertEqual(self.coordinator.update_interval.total_seconds(), 10)
+
+    async def test_backoff_respects_large_base_scan_interval(self):
+        """Test configured scan_interval >= 300s is never shrunk by backoff cap."""
+        coord = SPRSUNDataUpdateCoordinator(
+            hass=self.hass,
+            host="192.168.1.100",
+            port=502,
+            device_address=1,
+            scan_interval=300,
+            controller_type="chico",
+        )
+        coord._sync_update = MagicMock(side_effect=UpdateFailed("offline"))
+        with self.assertRaises(UpdateFailed):
+            await coord._async_update_data()
+        self.assertEqual(coord.update_interval.total_seconds(), 300)
 
 
 if __name__ == "__main__":

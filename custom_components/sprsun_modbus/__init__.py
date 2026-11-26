@@ -35,6 +35,8 @@ from .controllers import ControllerBase, get_controller
 
 _LOGGER = logging.getLogger(__name__)
 
+MAX_BACKOFF_SECONDS = 300
+
 type SPRSUNConfigEntry = ConfigEntry[SPRSUNDataUpdateCoordinator]
 
 
@@ -165,6 +167,9 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         self.port = int(port)
         self.device_address = int(device_address)
         scan_interval = int(scan_interval)
+        self._base_scan_interval = scan_interval
+        self._max_backoff_seconds = max(MAX_BACKOFF_SECONDS, scan_interval)
+        self._consecutive_failures = 0
 
         # Async lock to guarantee atomic, thread-safe access to Modbus connection
         self._lock = asyncio.Lock()
@@ -272,13 +277,52 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 return False
         return True
 
+    def _record_poll_success(self) -> None:
+        """Reset consecutive failure counter and restore base scan interval."""
+        if self._consecutive_failures > 0:
+            _LOGGER.info(
+                "Modbus communication recovered after %d failed poll(s); restoring scan interval to %ds",
+                self._consecutive_failures,
+                self._base_scan_interval,
+            )
+        self._consecutive_failures = 0
+        self.update_interval = timedelta(seconds=self._base_scan_interval)
+
+    def _record_poll_failure(self, err: Exception) -> None:
+        """Increment failure counter and apply exponential backoff to update_interval."""
+        self._consecutive_failures += 1
+        backoff_seconds = min(
+            self._max_backoff_seconds,
+            self._base_scan_interval * (2 ** self._consecutive_failures),
+        )
+        self.update_interval = timedelta(seconds=backoff_seconds)
+        if self._consecutive_failures == 1:
+            _LOGGER.warning(
+                "Modbus poll failed (%s); backing off next poll to %ds",
+                err,
+                backoff_seconds,
+            )
+        else:
+            _LOGGER.debug(
+                "Modbus poll failure #%d (%s); next poll in %ds",
+                self._consecutive_failures,
+                err,
+                backoff_seconds,
+            )
+
     async def _async_update_data(self):
         """Fetch data from Modbus under mutex lock."""
         async with self._lock:
             try:
-                return await self.hass.async_add_executor_job(self._sync_update)
+                data = await self.hass.async_add_executor_job(self._sync_update)
+            except UpdateFailed as err:
+                self._record_poll_failure(err)
+                raise
             except (ModbusException, ConnectionError, TimeoutError, OSError, ValueError) as err:
+                self._record_poll_failure(err)
                 raise UpdateFailed(f"Error communicating with Modbus: {err}") from err
+            self._record_poll_success()
+            return data
 
     def _sync_update(self):
         """Synchronous update (runs in executor)."""

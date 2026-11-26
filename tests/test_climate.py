@@ -10,7 +10,7 @@ from homeassistant.components.climate import (
     HVACAction,
     PRESET_NONE,
     PRESET_ECO,
-    PRESET_BOOST,
+    PRESET_SLEEP,
 )
 from homeassistant.const import CONF_NAME, ATTR_TEMPERATURE, UnitOfTemperature
 from custom_components.sprsun_modbus.const import DOMAIN, CONF_TEMP_STEP
@@ -29,6 +29,7 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         self.coordinator = MagicMock()
         self.coordinator.device_address = 1
         self.coordinator.async_write_register = AsyncMock()
+        self.coordinator.async_write_masked_register = AsyncMock()
         self.coordinator.data = {
             "_control_0032": {"value": 1, "updated_at": 1000.0},  # Power ON (bit 0 = 1)
             "unit_mode": {"value": 3, "updated_at": 1000.0},       # Heating + DHW
@@ -121,39 +122,77 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.climate.target_temperature, 18.0)
 
     def test_climate_fan_and_preset_modes(self):
-        """Test fan mode and preset mode properties."""
-        # Fan mode 0 -> normal
+        """Test fan mode and preset mode properties map cleanly to P07 without G09 interference."""
+        # Fan mode 0 -> normal / PRESET_NONE (even when mode_control_enable == 1)
         self.assertEqual(self.climate.fan_mode, "normal")
-        self.assertEqual(self.climate.preset_mode, PRESET_BOOST)
-
-        # Mode control enable 1 -> eco preset
+        self.assertEqual(self.climate.preset_mode, PRESET_NONE)
         self.coordinator.data["mode_control_enable"]["value"] = 1
+        self.assertEqual(self.climate.preset_mode, PRESET_NONE)
+
+        # Fan mode 1 -> eco / PRESET_ECO
+        self.coordinator.data["fan_mode"]["value"] = 1
+        self.assertEqual(self.climate.fan_mode, "eco")
         self.assertEqual(self.climate.preset_mode, PRESET_ECO)
 
+        # Fan mode 2 -> night / PRESET_SLEEP
+        self.coordinator.data["fan_mode"]["value"] = 2
+        self.assertEqual(self.climate.fan_mode, "night")
+        self.assertEqual(self.climate.preset_mode, PRESET_SLEEP)
+
+        # Fan mode 3 -> test / falls back to PRESET_NONE
+        self.coordinator.data["fan_mode"]["value"] = 3
+        self.assertEqual(self.climate.fan_mode, "test")
+        self.assertEqual(self.climate.preset_mode, PRESET_NONE)
+
+    async def test_async_set_preset_mode(self):
+        """Test setting preset mode writes P07 (0x0190) without touching G09."""
+        await self.climate.async_set_preset_mode(PRESET_ECO)
+        self.coordinator.async_write_register.assert_called_once_with(
+            address=0x0190, value=1, key="fan_mode", scale=1
+        )
+
+        self.coordinator.async_write_register.reset_mock()
+        await self.climate.async_set_preset_mode(PRESET_SLEEP)
+        self.coordinator.async_write_register.assert_called_once_with(
+            address=0x0190, value=2, key="fan_mode", scale=1
+        )
+
+        self.coordinator.async_write_register.reset_mock()
+        await self.climate.async_set_preset_mode(PRESET_NONE)
+        self.coordinator.async_write_register.assert_called_once_with(
+            address=0x0190, value=0, key="fan_mode", scale=1
+        )
+
+        self.coordinator.async_write_register.reset_mock()
+        await self.climate.async_set_preset_mode("unsupported_preset")
+        self.coordinator.async_write_register.assert_not_called()
+
     async def test_async_set_temperature_heating(self):
-        """Test setting temperature in heating mode writes P01 (0x00CC)."""
+        """Test setting temperature in heating mode writes P01 (0x00CC) with 0x00FF mask."""
         self.coordinator.data["unit_mode"]["value"] = 3
 
         await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 41.0})
 
-        self.coordinator.async_write_register.assert_called_once_with(
+        self.coordinator.async_write_masked_register.assert_called_once_with(
             address=0x00CC,
-            value=41.0,
+            raw_value=82,
+            mask=0x00FF,
             key="heating_setpoint",
-            scale=2,
+            cached_value=41.0,
         )
 
     async def test_async_set_temperature_cooling(self):
-        """Test setting temperature in cooling mode writes P02 (0x00CB)."""
+        """Test setting temperature in cooling mode writes P02 (0x00CB) with 0x00FF mask."""
         self.coordinator.data["unit_mode"]["value"] = 2
 
         await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 21.0})
 
-        self.coordinator.async_write_register.assert_called_once_with(
+        self.coordinator.async_write_masked_register.assert_called_once_with(
             address=0x00CB,
-            value=21.0,
+            raw_value=42,
+            mask=0x00FF,
             key="cooling_setpoint",
-            scale=2,
+            cached_value=21.0,
         )
 
     async def test_async_set_hvac_mode_heat_and_cool(self):
@@ -202,13 +241,14 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.dhw_climate.hvac_mode, HVACMode.OFF)
 
     async def test_dhw_climate_set_temperature(self):
-        """Test setting DHW setpoint writes P04 (0x00CA)."""
+        """Test setting DHW setpoint writes P04 (0x00CA) with 0x00FF mask."""
         await self.dhw_climate.async_set_temperature(**{ATTR_TEMPERATURE: 52.0})
-        self.coordinator.async_write_register.assert_called_once_with(
+        self.coordinator.async_write_masked_register.assert_called_once_with(
             address=0x00CA,
-            value=52.0,
+            raw_value=104,
+            mask=0x00FF,
             key="hotwater_setpoint",
-            scale=2,
+            cached_value=52.0,
         )
 
     async def test_dhw_climate_set_hvac_mode(self):
@@ -296,20 +336,22 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
 
         # Space heating setpoint rounding: 28.5 -> 29.0
         await climate.async_set_temperature(**{ATTR_TEMPERATURE: 28.5})
-        self.coordinator.async_write_register.assert_called_with(
+        self.coordinator.async_write_masked_register.assert_called_with(
             address=0x00CC,
-            value=29.0,
+            raw_value=58,
+            mask=0x00FF,
             key="heating_setpoint",
-            scale=2,
+            cached_value=29.0,
         )
 
         # DHW setpoint rounding: 48.4 -> 48.0
         await dhw.async_set_temperature(**{ATTR_TEMPERATURE: 48.4})
-        self.coordinator.async_write_register.assert_called_with(
+        self.coordinator.async_write_masked_register.assert_called_with(
             address=0x00CA,
-            value=48.0,
+            raw_value=96,
+            mask=0x00FF,
             key="hotwater_setpoint",
-            scale=2,
+            cached_value=48.0,
         )
 
     async def test_set_temperature_half_step_with_step_05(self):
@@ -321,11 +363,12 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         climate = SPRSUNClimate(self.coordinator, entry)
 
         await climate.async_set_temperature(**{ATTR_TEMPERATURE: 28.5})
-        self.coordinator.async_write_register.assert_called_with(
+        self.coordinator.async_write_masked_register.assert_called_with(
             address=0x00CC,
-            value=28.5,
+            raw_value=57,
+            mask=0x00FF,
             key="heating_setpoint",
-            scale=2,
+            cached_value=28.5,
         )
 
 
