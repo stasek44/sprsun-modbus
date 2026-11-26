@@ -75,3 +75,10 @@ Every defrost reverses the cycle and pulls heat **out of your house** to melt ic
 | **Coil Temp shoots to `+35..+45°C`** well after steam/water stopped dripping (`Defrost Duration > 5 min`) | Defrost keeps heating an already-clean outdoor coil | Slightly lower `H04` Exit Coil Temp (e.g. `15°C -> 12–13°C`) or lower `H01` Defrost Freq (e.g. `70 -> 55–60 Hz`) |
 | **Ice remains on coil after defrost** (`Defrost Duration` hits `H05` max time) | Defrost ends too early or lacks heat | Raise `H04` (e.g. `15 -> 18°C`), check `H05` max time (`8–10 min`), and ensure good water flow during defrost (keep enough heating loops open) |
 | **Chassis Heater ON continuously** | Draws ~`43 W` (`~1 kWh/day`) to prevent drain pan freezing | Normal in freezing conditions; monitor 24h runtime via helpers |
+
+### C. Understanding Sensor Filtering & Normal Defrost Transients
+
+- **Filtered Outdoor Temp (`ambient_temp_filtered`):** Holds the pre-defrost outdoor reading during defrost and keeps holding post-defrost until `7 minutes` of **outdoor fan runtime** accumulate (or a `45-minute` wall-clock cap if the unit stays idle), so warm stagnant air around the casing does not trigger fake positive temperature spikes.
+- **Frost Buildup (`coil_ambient_delta`):** Clamped to `0.0 °C` during active defrost and whenever `coil_temp >= ambient_temp_filtered` (preventing negative `-40 °C` spikes when defrost heats the coil). Rising values `4 -> 10 °C` during heating reflect real frost buildup and are charted separately from raw `Coil Temp`.
+- **Negative `Water Delta T` & `Condenser Approach` during Defrost:** Kept raw for true telemetry — negative values during reverse-cycle defrost are expected (heat is drawn from heating water to melt frost), and the Live Assistant suppresses low-delta warnings automatically during defrost/startup transients.
+- **Optional Smoothing in HA:** Raw Modbus values (`±1 Hz` compressor steps, `±0.1 °C` sensor quantization, defrost-cycle `Estimated Power` peaks) are intentionally left unfiltered; if you want smoother trend lines, add Home Assistant's built-in `filter` or `statistics` helper (`time_simple_moving_average`, 1–3 min) on the UI side.

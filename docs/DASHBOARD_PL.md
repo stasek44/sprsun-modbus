@@ -75,3 +75,10 @@ Każdy defrost odwraca obieg i **odbiera ciepło z domu**, żeby roztopić szron
 | **Temp. lamel skacze pod `+35..+45°C`**, a para leci długo po stopieniu lodu | Defrost grzeje na zewnątrz powietrze zamiast kończyć się po spłynięciu lodu | Lekko obniż `H04` (np. `15°C -> 12–13°C`) lub obniż moc defrostu `H01` (np. `70 -> 55–60 Hz`) |
 | **Po defroście lód nie spływa do końca** (czas dochodzi do limitu `H05`) | Defrost kończy się za wcześnie lub ma za mało ciepła z instalacji | Podnieś `H04` (np. `15 -> 18°C`), sprawdź `H05` (`8–10 min`) i pilnuj dobrego przepływu wody CO podczas defrostu |
 | **Grzałka tacy ociekowej stale aktywna** | Pobiera ok. `43 W` (`~1 kWh/dobę`), chroniąc odpływ skroplin przed zamarznięciem | Zjawisko normalne przy mrozach; czas pracy sprawdzisz w pomocnikach 24h |
+
+### C. Jak czytać odfiltrowane sensory i zachowanie w trakcie defrostu
+
+- **Zewnętrzna odfiltrowana (`ambient_temp_filtered`):** Zamraża temperaturę sprzed defrostu i trzyma blokadę po defroście przez `7 minut` **pracy wentylatora zewnętrznego** (lub maks. `45 minut` na postoju), aby nagrzane w obudowie powietrze po odszranianiu nie powodowało fałszywych skoków `+4°C`.
+- **Obciążenie szronem (`coil_ambient_delta`):** Zawsze nieujemne — w trakcie aktywnego defrostu i gdy lamele są cieplejsze od powietrza przyjmuje `0.0 °C` (bez mylących skoków do `-40°C`). Wzrost w zakresie `4 -> 10 °C` w trakcie grzania pokazuje realne narastanie szronu na osobnym wykresie od `Temp. lamel`.
+- **Ujemna `Delta T wody` i `Approach skraplacza` w defroście:** Pozostają surowe diagnostycznie — w trakcie defrostu obieg jest odwrócony (pompa pobiera chwilowo ciepło z wody), więc ujemna Delta T jest normalna, a Asystent nie podnosi już wtedy alarmu przepływu.
+- **Opcjonalne wygładzanie w HA:** Pozostałe encje (`Obroty Hz`, `Water Delta T`, `Przegrzania`, `Szacowana moc`) nie są uśredniane w integracji, aby nie ukrywać prawdziwej dynamiki i nie opóźniać automatyzacji; drobne skoki `±1 Hz` / `±0.1°C` można wygładzić pomocnikiem HA `filter` lub `statistics` (np. średnia z `2–3 min`).

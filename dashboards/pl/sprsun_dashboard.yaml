@@ -1000,6 +1000,9 @@ views:
               {% set coil_d = states('sensor.sprsun_heat_pump_coil_ambient_temperature_delta') %}
               {% set water_d = states('sensor.sprsun_heat_pump_water_delta_t') %}
               {% set eco_d = states('sensor.sprsun_heat_pump_eco_curve_setpoint_delta') %}
+              {% set op = states('sensor.sprsun_heat_pump_operating_state') %}
+              {% set defrost = is_state('binary_sensor.sprsun_heat_pump_defrost_active', 'on') or op == 'defrost' %}
+              {% set heating_run = op in ['heating', 'hot_water', 'heating_hot_water'] %}
               {% set hz = states('sensor.sprsun_heat_pump_compressor_frequency') | float(0) %}
               {% set heat_h = is_state('binary_sensor.sprsun_heat_pump_heating_heater', 'on') %}
               {% set hw_h = is_state('binary_sensor.sprsun_heat_pump_hot_water_heater', 'on') %}
@@ -1012,9 +1015,13 @@ views:
               - 🟢 **Długość cyklu sprężarki ({{ cycle }} min):** Stabilna, długa praca (mało strat rozruchowych).
               {% endif %}
               {% endif %}
-              {% if is_number(water_d) and hz > 0 %}
-              {% if water_d | float < 2.0 %}
-              - 🟡 **Mała Delta T wody ({{ water_d }} °C):** Pompa obiegowa kręci wodą bardzo szybko lub woda nie oddaje ciepła. Sprawdź *G04 (Docelowa Delta T)* i prędkość pompy DC.
+              {% if defrost %}
+              - ❄️ **Trwa odszranianie (defrost):** Pompa odwróciła obieg i pobiera chwilowo ciepło z wody (`Delta T wody` ujemna — to normalne). Ocena przepływu wróci po zakończeniu defrostu.
+              {% elif is_number(water_d) and hz > 0 and heating_run %}
+              {% if water_d | float < 0 %}
+              - 🔄 **Stabilizacja po defroście / rozruchu (Delta T {{ water_d }} °C):** Chłodniejsza woda wraca jeszcze przez wymiennik po starcie lub odszranianiu.
+              {% elif water_d | float < 2.0 %}
+              - 🟡 **Mała Delta T wody ({{ water_d }} °C):** Pompa obiegowa kręci wodą bardzo szybko lub woda słabo odbiera ciepło. Sprawdź *G04 (Docelowa Delta T)* i prędkość pompy DC.
               {% elif water_d | float > 7.5 %}
               - 🟡 **Duża Delta T wody ({{ water_d }} °C):** Słaby przepływ — wyczyść filtr siatkowy lub zwiększ przepływ, inaczej spada sprawność (COP).
               {% else %}
@@ -1033,7 +1040,7 @@ views:
               - 📊 **Woda vs krzywa ECO:** różnica wynosi **{{ eco_d }} °C** (każdy 1°C niżej na zasilaniu CO obniża pobór prądu o ok. 2–3%).
               {% endif %}
               {% if is_number(coil_d) %}
-              - ❄️ **Obciążenie szronem (Zewn. - Lamele):** **{{ coil_d }} °C** (gdy zbliża się do 9–10°C w trybie grzania, wymiennik jest już oszroniony i może wejść defrost).
+              - ❄️ **Obciążenie szronem (Zewn. - Lamele):** **{{ coil_d }} °C** (0 °C = czyste lamele / defrost; wartości rosnące w stronę 8–10 °C oznaczają narastający szron).
               {% endif %}
               {% if is_number(def_dur) and def_dur | float > 0 %}
               - ⏱️ **Ostatni defrost:** trwał **{{ def_dur }} min**{% if is_number(def_int) and def_int | float > 0 %}, odstęp od poprzedniego: **{{ def_int }} min**{% endif %}. Zdrowy defrost trwa zwykle 3–5 min.
@@ -1279,32 +1286,43 @@ views:
             icon: mdi:chart-line
 
           - type: history-graph
-            title: Analiza defrostu — Temp. lamel, Zewnętrzna, Przyrost szronu (Zewn.-Lamel) i Defrost
+            title: Narastanie szronu (Zewn. - Lamele), Temp. zewn. i Defrost (24h)
+            hours_to_show: 24
+            grid_options:
+              columns: 12
+            entities:
+              - entity: sensor.sprsun_heat_pump_coil_ambient_temperature_delta
+                name: Obciążenie szronem (Zewn. - Lamele °C)
+              - entity: sensor.sprsun_heat_pump_filtered_ambient_temperature
+                name: Zewnętrzna odfiltr. (°C)
+              - entity: binary_sensor.sprsun_heat_pump_defrost_active
+                name: Defrost aktywny
+
+          - type: history-graph
+            title: Temp. lamel parownika (Cewka), Obroty (Hz) i Defrost (24h)
             hours_to_show: 24
             grid_options:
               columns: 12
             entities:
               - entity: sensor.sprsun_heat_pump_coil_temperature
-                name: Lamele / Cewka (°C)
-              - entity: sensor.sprsun_heat_pump_filtered_ambient_temperature
-                name: Zewnętrzna odfiltr. (°C)
-              - entity: sensor.sprsun_heat_pump_coil_ambient_temperature_delta
-                name: Zewn. - Lamele (°C)
+                name: Temp. lamel / cewki (°C)
+              - entity: sensor.sprsun_heat_pump_compressor_frequency
+                name: Sprężarka (Hz)
               - entity: binary_sensor.sprsun_heat_pump_defrost_active
                 name: Defrost aktywny
 
           - type: history-graph
-            title: Praca sprężarki (Hz), Szacowana moc (W) i Odstęp defrostu (min)
+            title: Szacowana moc (W), Delta T wody (°C) i Odstęp defrostu (min) (24h)
             hours_to_show: 24
             grid_options:
-              columns: 12
+              columns: full
             entities:
-              - entity: sensor.sprsun_heat_pump_compressor_frequency
-                name: Sprężarka (Hz)
               - entity: sensor.sprsun_heat_pump_estimated_electrical_power_experimental
                 name: Szacowana moc (W)
               - entity: sensor.sprsun_heat_pump_water_delta_t
                 name: Delta T wody (°C)
+              - entity: sensor.sprsun_heat_pump_defrost_interval
+                name: Odstęp defrostu (min)
 
       # ------------------------------------------------------------------------
       # Sekcja 5 (Ekspercka — ukryta dopóki enable_expert_writes == False)

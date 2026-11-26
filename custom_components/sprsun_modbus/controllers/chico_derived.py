@@ -8,6 +8,7 @@ from typing import Any
 from .models import DerivedSensorSpec, extract_cache_value
 
 DEFROST_AMBIENT_HOLD_SECONDS = 420.0
+DEFROST_AMBIENT_MAX_HOLD_SECONDS = 2700.0
 
 OPERATING_STATE_OPTIONS: tuple[str, ...] = (
     "off",
@@ -78,14 +79,16 @@ def _compute_diff(data: Mapping[str, Any] | None, minuend_key: str, subtrahend_k
 
 
 def compute_coil_ambient_delta(data: Mapping[str, Any] | None) -> float | None:
-    """Return filtered outdoor-to-coil temperature difference (ambient - coil) for frost tracking."""
+    """Return non-negative outdoor-to-coil frost delta (ambient - coil), 0.0 during defrost."""
+    if _get_bit(data, "working_status_register", 7):
+        return 0.0
     amb = _get_float(data, "ambient_temp_filtered")
     if amb is None:
         amb = _get_float(data, "ambient_temp")
     coil = _get_float(data, "coil_temp")
     if amb is None or coil is None:
         return None
-    return round(amb - coil, 2)
+    return round(max(0.0, amb - coil), 2)
 
 
 def compute_operating_state(data: Mapping[str, Any] | None) -> str | None:
@@ -287,14 +290,16 @@ class ChicoDerivedTracker:
         """Initialize trackers for ambient defrost filtering and cycle durations."""
         self._last_non_defrost_ambient: float | None = None
         self._held_ambient: float | None = None
-        self._ambient_hold_until: float | None = None
         self._was_defrost: bool = False
+        self._post_defrost_start_ts: float | None = None
+        self._last_ambient_poll_ts: float | None = None
+        self._fan_run_after_defrost_s: float = 0.0
         self._compressor_duration = _ActiveDurationTracker()
         self._defrost_duration = _ActiveDurationTracker()
         self._defrost_interval = _DefrostIntervalTracker()
 
     def update_ambient_filtered(self, data: Mapping[str, Any], now: float) -> float | None:
-        """Freeze ambient temperature during defrost and a 7-minute post-defrost cooldown."""
+        """Freeze ambient temp during defrost and hold post-defrost for 7m of fan runtime (45m cap)."""
         raw_amb = _get_float(data, "ambient_temp")
         if raw_amb is None:
             return None
@@ -308,17 +313,34 @@ class ChicoDerivedTracker:
                     else raw_amb
                 )
             self._was_defrost = True
-            self._ambient_hold_until = now + DEFROST_AMBIENT_HOLD_SECONDS
+            self._post_defrost_start_ts = None
+            self._last_ambient_poll_ts = now
+            self._fan_run_after_defrost_s = 0.0
             return self._held_ambient
 
         if self._was_defrost:
             self._was_defrost = False
-            self._ambient_hold_until = now + DEFROST_AMBIENT_HOLD_SECONDS
+            self._post_defrost_start_ts = now
+            self._last_ambient_poll_ts = now
+            self._fan_run_after_defrost_s = 0.0
 
-        if self._ambient_hold_until is not None and self._held_ambient is not None:
-            if now < self._ambient_hold_until and raw_amb > self._held_ambient:
+        if self._post_defrost_start_ts is not None and self._held_ambient is not None:
+            dt = max(0.0, now - self._last_ambient_poll_ts) if self._last_ambient_poll_ts is not None else 0.0
+            self._last_ambient_poll_ts = now
+            fan_bit = _get_bit(data, "output_symbol_1", 5)
+            # Treat missing output_symbol_1 as running to preserve wall-clock cooldown on minimal payloads
+            fan_running = True if fan_bit is None else bool(fan_bit)
+            if fan_running:
+                self._fan_run_after_defrost_s += dt
+
+            within_fan_window = self._fan_run_after_defrost_s < DEFROST_AMBIENT_HOLD_SECONDS
+            within_wall_cap = (now - self._post_defrost_start_ts) < DEFROST_AMBIENT_MAX_HOLD_SECONDS
+            if within_fan_window and within_wall_cap and raw_amb > self._held_ambient:
                 return self._held_ambient
-            self._ambient_hold_until = None
+
+            self._post_defrost_start_ts = None
+            self._last_ambient_poll_ts = None
+            self._fan_run_after_defrost_s = 0.0
             self._held_ambient = None
 
         self._last_non_defrost_ambient = raw_amb
@@ -495,10 +517,11 @@ CHICO_DERIVED_SENSORS: tuple[DerivedSensorSpec, ...] = (
         enabled_default=True,
         suggested_display_precision=1,
         description=(
-            "Temperature difference between filtered outdoor air and evaporator coil. "
-            "Rising values indicate frost accumulation approaching defrost thresholds (H07/H10/H13)."
+            "Non-negative temperature difference between filtered outdoor air and evaporator coil "
+            "(0.0 °C during defrost or when coil >= ambient). Rising values indicate frost accumulation "
+            "approaching defrost thresholds (H07/H10/H13)."
         ),
-        formula="ambient_temp_filtered - coil_temp",
+        formula="0.0 if defrost else max(0.0, ambient_temp_filtered - coil_temp)",
     ),
     DerivedSensorSpec(
         key="water_delta_t",
