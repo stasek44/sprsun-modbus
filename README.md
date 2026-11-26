@@ -106,11 +106,10 @@ In Home Assistant, go to **Settings** → **Devices & Services** → **Add Integ
 # Run unit tests locally
 python3 -m unittest discover tests
 
-# Or run with pytest and coverage
+# Or run with pytest and ruff
 pytest tests/ -v
+ruff check custom_components/
 ```
-
-See **[AGENTS.md](AGENTS.md)** for architecture principles and contribution guidelines.
 
 ---
 
