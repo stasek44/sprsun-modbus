@@ -36,11 +36,31 @@
           "device_address": "Adres Modbus (1-247)",
           "scan_interval": "Interwał skanowania (5-300 sekund)",
           "temp_step": "Krok temperatury (°C)",
-          "enable_expert_writes": "Włącz zapis ustawień eksperckich (Zaawansowane / Ryzykowne)"
+          "enable_derived_sensors": "Włącz sensory wyliczane (obliczeniowe)",
+          "enable_expert_writes": "Włącz ustawienia eksperckie (Diagnostyka + Zapis — Zaawansowane / Ryzykowne)"
         },
         "data_description": {
           "temp_step": "Domyślnie 1.0°C. Niektóre pompy pozwalają na bardziej precyzyjne sterowanie co 0.5°C, ale nie ma gwarancji, że będzie to działać na każdym oprogramowaniu.",
-          "enable_expert_writes": "OSTRZEŻENIE: Odblokowuje zapisywalne parametry inżynierskie/fabryczne CHICO (H/A/B/D/F/R, harmonogramy i bity sterujące) w sekcji Konfiguracja. Błędne wartości mogą uszkodzić sprężarkę lub zakłócić pracę pompy. Zostaw wyłączone, jeśli nie masz pewności."
+          "enable_derived_sensors": "Udostępnia 10 opcjonalnych sensorów wyliczanych (odfiltrowana temperatura zewnętrzna bez skoków w defroście, stan pracy, nastawa z krzywej ECO, czasy cykli, delta T wody, approach skraplacza, przegrzania oraz eksperymentalna szacowana moc).",
+          "enable_expert_writes": "OSTRZEŻENIE: Udostępnia parametry inżynierskie/fabryczne CHICO (H/A/B/D/F/R, harmonogramy i bity sterujące) jako sensory diagnostyczne oraz zapisywalne encje w sekcji Konfiguracja. Błędne wartości mogą uszkodzić sprężarkę lub zakłócić pracę pompy. Zostaw wyłączone, jeśli nie masz pewności."
+        }
+      }
+    }
+  },
+  "entity": {
+    "sensor": {
+      "operating_state": {
+        "state": {
+          "off": "Wyłączona",
+          "idle": "Czuwanie",
+          "heating": "Ogrzewanie",
+          "cooling": "Chłodzenie",
+          "hot_water": "CWU",
+          "heating_hot_water": "Ogrzewanie + CWU",
+          "cooling_hot_water": "Chłodzenie + CWU",
+          "defrost": "Rozmrażanie (Defrost)",
+          "antilegionella": "Antylegionella",
+          "alarm": "Alarm"
         }
       }
     }

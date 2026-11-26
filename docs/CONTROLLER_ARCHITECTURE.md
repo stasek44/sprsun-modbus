@@ -10,7 +10,7 @@ custom_components/sprsun_modbus/
 ├── config_flow.py                  # Auto-detection, options flow (enable_expert_writes), selector coercion
 ├── const.py                        # Integration defaults, is_expert_writes_enabled(), legacy aliases
 ├── diagnostics.py                  # Redacted coordinator cache, poll stats, and entity diagnostics export
-├── sensor.py                       # Consumes ControllerBase.get_sensors() (core + read-only expert diagnostics)
+├── sensor.py                       # Consumes get_sensors() + opt-in get_derived_sensors() (SPRSUNDerivedSensor)
 ├── binary_sensor.py                # Consumes ControllerBase.get_binary_sensors() (bitfields, alarms, control bits)
 ├── number.py                       # Consumes get_numbers() + opt-in get_expert_numbers() (NumberMode.BOX)
 ├── select.py                       # Consumes get_selects() + opt-in get_expert_selects()
@@ -20,9 +20,10 @@ custom_components/sprsun_modbus/
 ├── strings.json & translations/    # En/Pl UI labels & expert write warnings
 └── controllers/
     ├── __init__.py                 # CONTROLLER_REGISTRY, get_controller, detect_controller_type, helpers
-    ├── base.py                     # ControllerBase abstract class, climate & opt-in expert interfaces
-    ├── models.py                   # RegisterSpace, DataType, WordOrder, entity specs (`is_expert`), codecs
+    ├── base.py                     # ControllerBase abstract class, climate, derived & opt-in expert interfaces
+    ├── models.py                   # RegisterSpace, DataType, WordOrder, entity specs (`DerivedSensorSpec`, `is_expert`), codecs
     ├── modbus_helpers.py           # Shared batch reader (FC 0x01/0x02/0x03/0x04) and spec decoder
+    ├── chico_derived.py            # CHICO derived sensor specs & ChicoDerivedTracker (defrost filter, durations)
     ├── chico_registers.py          # Declarative CHICO register map (core + 336 expert sensors + opt-in writes)
     └── chico.py                    # ChicoController driver & batched RW polling (`CHICO_RW_BATCHES`)
 ```
@@ -41,12 +42,11 @@ custom_components/sprsun_modbus/
 
 ## Expert Settings, Polling & Safety Architecture
 
-- **Single-Device Entity Categorization & Default Visibility:** All core controls, sensors, read-only expert diagnostics (`EntityCategory.DIAGNOSTIC`), and opt-in writable expert controls (`EntityCategory.CONFIG`) remain under the single `SPRSUN Heat Pump` device. All `353` RO expert entities (`336` sensors + `17` binary sensors) set `enabled_default=False` (`_attr_entity_registry_enabled_default = False`), hiding them by default in the Home Assistant entity registry while keeping all `149` core entities visible.
-- **Opt-In Expert Write Gating (`enable_expert_writes`):**
-  - `ControllerBase` defines `get_expert_numbers()`, `get_expert_selects()`, and `get_expert_switches()`, returning `()` by default so non-CHICO drivers need no boilerplate.
-  - Confirmed CHICO expert promotion filters by `spec.writable` (independent of `spec.enabled_default`) so RO diagnostics stay hidden in HA by default while `enable_expert_writes=True` still promotes all `337` confirmed controls (`322` numbers, `2` selects, `13` switches).
-  - `number.py`, `select.py`, and `switch.py` only register expert writable entities when `is_expert_writes_enabled(config_entry)` is `True` (default `False`).
-  - Expert numeric entities enforce `NumberMode.BOX` (preventing accidental slider drags in the UI), while dangerous registers/bits (e.g. `parameters_reset_flag` at `0x0033` bit 6) and unconfirmed PDF `Invalid` gaps (`writable=False`) are kept non-writable.
+- **Single-Device Entity Categorization & Opt-In Gating:** Core controls and telemetry (`149` entities) remain under the single `SPRSUN Heat Pump` device and are always registered. Expert settings (`enable_expert_writes`, default `False`) and derived sensors (`enable_derived_sensors`, default `False`) are gated cleanly in **Configure**:
+  - `ControllerBase` defines `get_expert_sensors()`, `get_expert_binary_sensors()`, `get_expert_numbers()`, `get_expert_selects()`, `get_expert_switches()`, and `get_derived_sensors()`, returning `()` by default so non-CHICO drivers need no boilerplate.
+  - When `enable_expert_writes=False` (default), `sensor.py`, `binary_sensor.py`, `number.py`, `select.py`, and `switch.py` register only the `149` core entities — zero expert RO or RW entities clutter the entity registry.
+  - When `enable_expert_writes=True`, `sensor.py` and `binary_sensor.py` add the `353` RO expert diagnostics (`336` sensors + `17` binary sensors, keeping `enabled_default=False` to avoid duplicating writable controls), while `number.py`, `select.py`, and `switch.py` add the `337` confirmed writable `Config` controls (`322` numbers in `NumberMode.BOX`, `2` selects, `13` switches). Dangerous registers/bits (e.g. `parameters_reset_flag` at `0x0033` bit 6) and unconfirmed PDF `Invalid` gaps (`writable=False`) remain non-writable.
+  - When `enable_derived_sensors=True`, `sensor.py` registers the `10` controller-calculated `SPRSUNDerivedSensor` entities (enabled by default once opted in).
 - **Masked Read-Modify-Write & Offset Codecs:**
   - Registers sharing a word with adjacent fields or upper-byte flags — including primary setpoints `P01`/`P02`/`P04` (`0x00CA–0x00CC`) and Timeband temperature setpoints (`0x01A4–0x01AC`) using `bit_mask=0xFF` (`0x00FF`) — route through `async_write_masked_register()` -> `_sync_write_masked_register()`, reading the live 16-bit word, masking only target bits, writing back with `INTER_WRITE_DELAY`, and storing the scaled `cached_value`.
   - Signed (`INT16`) and offset-encoded (`raw_offset`, such as `F02`/`F03` with `+250` raw offset) single-register writes encode via `encode_registers()` and pass explicit `cached_value`.

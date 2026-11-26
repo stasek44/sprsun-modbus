@@ -9,6 +9,7 @@ from .models import (
     BinarySensorSpec,
     ButtonSpec,
     ClimateCapabilities,
+    DerivedSensorSpec,
     NumberSpec,
     SelectSpec,
     SensorSpec,
@@ -81,11 +82,31 @@ class ControllerBase(ABC):
     # ------------------------------------------------------------------
 
     def get_sensors(self) -> tuple[SensorSpec, ...]:
-        """Return read-only sensor specifications for this controller."""
+        """Return core read-only sensor specifications for this controller."""
         return ()
 
+    def get_expert_sensors(self) -> tuple[SensorSpec, ...]:
+        """Return opt-in expert read-only sensor specifications."""
+        return ()
+
+    def get_derived_sensors(self) -> tuple[DerivedSensorSpec, ...]:
+        """Return controller-derived/calculated sensor specifications."""
+        return ()
+
+    def compute_derived_data(
+        self,
+        data: Mapping[str, Any],
+        now: float | None = None,
+    ) -> dict[str, Any]:
+        """Compute derived sensor values from current coordinator data."""
+        return {}
+
     def get_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
-        """Return read-only binary sensor specifications for this controller."""
+        """Return core read-only binary sensor specifications for this controller."""
+        return ()
+
+    def get_expert_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
+        """Return opt-in expert read-only binary sensor specifications."""
         return ()
 
     def get_numbers(self) -> tuple[NumberSpec, ...]:

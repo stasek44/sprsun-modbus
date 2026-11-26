@@ -6,9 +6,18 @@ from tests.conftest import setup_mocks
 setup_mocks()
 
 from homeassistant.const import CONF_NAME, EntityCategory
-from custom_components.sprsun_modbus.const import DOMAIN, REGISTERS_READ_ONLY
-from custom_components.sprsun_modbus.controllers.chico_registers import CHICO_SENSORS
-from custom_components.sprsun_modbus.sensor import SPRSUNSensor, async_setup_entry
+from custom_components.sprsun_modbus.const import (
+    CONF_ENABLE_DERIVED_SENSORS,
+    CONF_ENABLE_EXPERT_WRITES,
+    DOMAIN,
+    REGISTERS_READ_ONLY,
+)
+from custom_components.sprsun_modbus.controllers.chico_derived import CHICO_DERIVED_SENSORS
+from custom_components.sprsun_modbus.controllers.chico_registers import (
+    CHICO_CORE_SENSORS,
+    CHICO_EXPERT_SENSORS,
+)
+from custom_components.sprsun_modbus.sensor import SPRSUNDerivedSensor, SPRSUNSensor, async_setup_entry
 
 
 class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
@@ -33,9 +42,10 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
         self.config_entry.data = {
             CONF_NAME: "SPRSUN Heat Pump",
         }
+        self.config_entry.options = {}
 
-    async def test_async_setup_entry_creates_all_sensors(self):
-        """Test async_setup_entry adds all core (49) and expert (336) sensors."""
+    async def test_async_setup_entry_creates_core_only_by_default(self):
+        """Test default setup adds only the 49 core sensors (no expert or derived sensors)."""
         hass = MagicMock()
         hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
         async_add_entities = MagicMock()
@@ -44,10 +54,44 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
 
         async_add_entities.assert_called_once()
         entities = async_add_entities.call_args[0][0]
-        self.assertEqual(len(entities), len(CHICO_SENSORS))
-        self.assertEqual(len(entities), 385)
+        self.assertEqual(len(entities), len(CHICO_CORE_SENSORS))
+        self.assertEqual(len(entities), 49)
+        self.assertTrue(
+            all(getattr(e, "_attr_entity_registry_enabled_default", True) for e in entities)
+        )
 
-        by_key = {entity._key: entity for entity in entities}
+    async def test_async_setup_entry_with_expert_and_derived_options(self):
+        """Test enable_expert_writes and enable_derived_sensors independently gate entities."""
+        hass = MagicMock()
+        hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
+
+        # Derived sensors only
+        self.config_entry.options = {CONF_ENABLE_DERIVED_SENSORS: True}
+        added_derived = []
+        await async_setup_entry(hass, self.config_entry, added_derived.extend)
+        self.assertEqual(len(added_derived), len(CHICO_CORE_SENSORS) + len(CHICO_DERIVED_SENSORS))
+        self.assertEqual(len(added_derived), 59)
+        by_derived = {e._key: e for e in added_derived}
+        for derived_spec in CHICO_DERIVED_SENSORS:
+            self.assertIsInstance(by_derived[derived_spec.key], SPRSUNDerivedSensor)
+            self.assertTrue(
+                getattr(by_derived[derived_spec.key], "_attr_entity_registry_enabled_default", True)
+            )
+
+        # Expert + Derived enabled
+        self.config_entry.options = {
+            CONF_ENABLE_EXPERT_WRITES: True,
+            CONF_ENABLE_DERIVED_SENSORS: True,
+        }
+        added_all = []
+        await async_setup_entry(hass, self.config_entry, added_all.extend)
+        self.assertEqual(
+            len(added_all),
+            len(CHICO_CORE_SENSORS) + len(CHICO_EXPERT_SENSORS) + len(CHICO_DERIVED_SENSORS),
+        )
+        self.assertEqual(len(added_all), 395)
+
+        by_key = {entity._key: entity for entity in added_all}
         self.assertEqual(by_key["h01_defrost_freq"].entity_category, EntityCategory.DIAGNOSTIC)
         self.assertIsNone(by_key["h01_defrost_freq"].state_class)
         self.assertFalse(

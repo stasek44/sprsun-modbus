@@ -11,7 +11,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
-from .const import DOMAIN
+from .const import DOMAIN, is_expert_writes_enabled
 from .controllers import (
     BinarySensorSpec,
     build_device_info,
@@ -30,6 +30,10 @@ async def async_setup_entry(
     coordinator = resolve_coordinator(hass, config_entry, DOMAIN)
     controller = resolve_controller(coordinator)
 
+    specs = controller.get_binary_sensors()
+    if is_expert_writes_enabled(config_entry, getattr(coordinator, "config_entry", None)):
+        specs = specs + controller.get_expert_binary_sensors()
+
     entities = [
         SPRSUNBinarySensor(
             coordinator,
@@ -38,7 +42,7 @@ async def async_setup_entry(
             spec.name,
             spec=spec,
         )
-        for spec in controller.get_binary_sensors()
+        for spec in specs
     ]
 
     async_add_entities(entities)
@@ -62,8 +66,9 @@ class SPRSUNBinarySensor(CoordinatorEntity, BinarySensorEntity):
 
         controller = resolve_controller(coordinator)
         if spec is None:
+            all_specs = controller.get_binary_sensors() + controller.get_expert_binary_sensors()
             spec = next(
-                (item for item in controller.get_binary_sensors() if item.key == key),
+                (item for item in all_specs if item.key == key),
                 None,
             )
 

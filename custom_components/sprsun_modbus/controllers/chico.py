@@ -6,10 +6,13 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from .base import ControllerBase
+from .chico_derived import CHICO_DERIVED_SENSORS, ChicoDerivedTracker
 from .chico_registers import (
     CHICO_BUTTONS,
-    CHICO_BINARY_SENSORS,
     CHICO_CONTROL_REGISTER_KEYS,
+    CHICO_CORE_BINARY_SENSORS,
+    CHICO_CORE_SENSORS,
+    CHICO_EXPERT_BINARY_SENSORS,
     CHICO_EXPERT_NUMBERS,
     CHICO_EXPERT_SELECTS,
     CHICO_EXPERT_SENSORS,
@@ -33,6 +36,7 @@ from .models import (
     BinarySensorSpec,
     ButtonSpec,
     ClimateCapabilities,
+    DerivedSensorSpec,
     NumberSpec,
     RegisterSpace,
     SelectSpec,
@@ -66,6 +70,10 @@ _CHICO_PRESET_TO_FAN_MODE: dict[str, str] = {
 class ChicoController(ControllerBase):
     """CHICO controller (original SPRSUN controller)."""
 
+    def __init__(self) -> None:
+        """Initialize CHICO controller and stateful derived-sensor tracker."""
+        self._derived_tracker = ChicoDerivedTracker()
+
     @property
     def name(self) -> str:
         """Return controller type name."""
@@ -77,12 +85,32 @@ class ChicoController(ControllerBase):
         return "SPRSUN (CHICO Controller)"
 
     def get_sensors(self) -> tuple[SensorSpec, ...]:
-        """Return CHICO read-only sensor specifications."""
-        return CHICO_SENSORS
+        """Return CHICO core read-only sensor specifications."""
+        return CHICO_CORE_SENSORS
+
+    def get_expert_sensors(self) -> tuple[SensorSpec, ...]:
+        """Return opt-in CHICO expert read-only sensor specifications."""
+        return CHICO_EXPERT_SENSORS
+
+    def get_derived_sensors(self) -> tuple[DerivedSensorSpec, ...]:
+        """Return CHICO calculated/derived sensor specifications."""
+        return CHICO_DERIVED_SENSORS
+
+    def compute_derived_data(
+        self,
+        data: Mapping[str, Any],
+        now: float | None = None,
+    ) -> dict[str, Any]:
+        """Compute CHICO derived sensor values from coordinator data."""
+        return self._derived_tracker.compute(data, now=now)
 
     def get_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
-        """Return CHICO binary sensor specifications."""
-        return CHICO_BINARY_SENSORS
+        """Return CHICO core binary sensor specifications."""
+        return CHICO_CORE_BINARY_SENSORS
+
+    def get_expert_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
+        """Return opt-in CHICO expert read-only binary sensor specifications."""
+        return CHICO_EXPERT_BINARY_SENSORS
 
     def get_numbers(self) -> tuple[NumberSpec, ...]:
         """Return CHICO read-write number specifications."""

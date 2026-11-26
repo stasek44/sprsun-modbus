@@ -340,6 +340,16 @@ def setup_mocks():
             helpers.device_registry = dev_reg
             sys.modules["homeassistant.helpers.device_registry"] = dev_reg
 
+            class RegistryEntryDisabler(StrEnum):
+                INTEGRATION = "integration"
+                USER = "user"
+
+            ent_reg = MagicMock()
+            ent_reg.RegistryEntryDisabler = RegistryEntryDisabler
+            ent_reg.async_entries_for_config_entry = MagicMock(return_value=[])
+            helpers.entity_registry = ent_reg
+            sys.modules["homeassistant.helpers.entity_registry"] = ent_reg
+
             sys.modules["homeassistant.helpers"] = helpers
             sys.modules["homeassistant.helpers.update_coordinator"] = update_coord
             sys.modules["homeassistant.helpers.entity_platform"] = MagicMock()
@@ -472,6 +482,8 @@ def setup_mocks():
                 VOLTAGE = "voltage"
                 ENERGY = "energy"
                 VOLUME_FLOW_RATE = "volume_flow_rate"
+                DURATION = "duration"
+                ENUM = "enum"
 
             class SensorStateClass(StrEnum):
                 MEASUREMENT = "measurement"

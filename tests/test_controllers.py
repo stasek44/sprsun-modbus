@@ -359,7 +359,9 @@ class TestControllers(unittest.TestCase):
         controller = ChicoController()
         all_specs = (
             controller.get_sensors()
+            + controller.get_expert_sensors()
             + controller.get_binary_sensors()
+            + controller.get_expert_binary_sensors()
             + controller.get_numbers()
             + controller.get_selects()
             + controller.get_switches()
@@ -373,7 +375,12 @@ class TestControllers(unittest.TestCase):
             CHICO_RO_BATCH,
             CHICO_RW_BATCHES,
         )
-        word_specs = controller.get_sensors() + controller.get_numbers() + controller.get_selects()
+        word_specs = (
+            controller.get_sensors()
+            + controller.get_expert_sensors()
+            + controller.get_numbers()
+            + controller.get_selects()
+        )
         addrs = [s.address for s in word_specs]
         self.assertEqual(len(addrs), len(set(addrs)), "Duplicate CHICO word register address detected")
 
@@ -384,7 +391,7 @@ class TestControllers(unittest.TestCase):
         for spec in word_specs:
             self.assertIn(spec.address, covered, f"Address 0x{spec.address:04X} ({spec.key}) not covered by batch")
 
-        by_key = {spec.key: spec for spec in controller.get_sensors()}
+        by_key = {spec.key: spec for spec in controller.get_sensors() + controller.get_expert_sensors()}
         self.assertEqual(by_key["dc_pump_speed"].unit, "%")
         self.assertEqual(by_key["d05_cool_dcfan_high_press"].unit, "bar")
         self.assertEqual(by_key["d06_cool_dcfan_open_diff"].device_class, "pressure")
@@ -419,6 +426,25 @@ class TestControllers(unittest.TestCase):
         self.assertEqual(data["hotwater_setpoint"], 48.0)
         self.assertEqual(data["cooling_setpoint"], 18.0)
         self.assertEqual(data["heating_setpoint"], 28.5)
+
+    def test_chico_signed_cond_temp_and_eev2_step(self):
+        """Test negative INT16 values on 0x0029 (cond_temp) and 0x001D (eev2_step) decode cleanly."""
+        controller = ChicoController()
+        client = MagicMock()
+        ro_regs = [0] * 50
+        ro_regs[0x002C] = 590
+        ro_regs[0x000E] = 250
+        ro_regs[0x0029] = 0xFFFC  # -4 -> -0.4 °C
+        ro_regs[0x001D] = 0xFFD8  # -40 steps
+
+        res = MagicMock()
+        res.isError.return_value = False
+        res.registers = ro_regs
+        client.read_holding_registers.return_value = res
+
+        data = controller.read_all_registers(client, device_address=1, initial_read=False)
+        self.assertEqual(data["cond_temp"], -0.4)
+        self.assertEqual(data["eev2_step"], -40)
 
 
 if __name__ == "__main__":

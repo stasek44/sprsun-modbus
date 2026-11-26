@@ -30,6 +30,8 @@ from .const import (
     DEFAULT_SCAN_INTERVAL,
     INTER_WRITE_DELAY,
     PLATFORMS,
+    is_derived_sensors_enabled,
+    is_expert_writes_enabled,
 )
 from .controllers import ControllerBase, get_controller
 
@@ -78,6 +80,54 @@ def _configure_prerelease_logging(version: str) -> None:
         )
 
 
+def _sync_entity_registry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    controller: ControllerBase,
+) -> None:
+    """Prune opted-out expert/derived entities and un-disable integration-disabled derived ones."""
+    try:
+        from homeassistant.helpers import entity_registry as er
+
+        ent_reg = er.async_get(hass)
+        entries = er.async_entries_for_config_entry(ent_reg, entry.entry_id)
+        if not isinstance(entries, (list, tuple)):
+            return
+    except Exception:
+        return
+
+    expert_enabled = is_expert_writes_enabled(entry)
+    derived_enabled = is_derived_sensors_enabled(entry)
+    prefix = f"{entry.entry_id}_"
+
+    expert_ids: set[tuple[str, str]] = (
+        {("sensor", f"{prefix}{s.key}") for s in controller.get_expert_sensors()}
+        | {("binary_sensor", f"{prefix}{s.key}") for s in controller.get_expert_binary_sensors()}
+        | {("number", f"{prefix}{s.key}") for s in controller.get_expert_numbers()}
+        | {("select", f"{prefix}{s.key}") for s in controller.get_expert_selects()}
+        | {("switch", f"{prefix}{s.key}") for s in controller.get_expert_switches()}
+    )
+    derived_ids: set[tuple[str, str]] = {
+        ("sensor", f"{prefix}{s.key}") for s in controller.get_derived_sensors()
+    }
+
+    disabler_enum = getattr(er, "RegistryEntryDisabler", None)
+    integration_disabler = getattr(disabler_enum, "INTEGRATION", "integration")
+
+    for reg_entry in list(entries):
+        identity = (reg_entry.domain, reg_entry.unique_id)
+        if not expert_enabled and identity in expert_ids:
+            ent_reg.async_remove(reg_entry.entity_id)
+        elif not derived_enabled and identity in derived_ids:
+            ent_reg.async_remove(reg_entry.entity_id)
+        elif (
+            derived_enabled
+            and identity in derived_ids
+            and reg_entry.disabled_by == integration_disabler
+        ):
+            ent_reg.async_update_entity(reg_entry.entity_id, disabled_by=None)
+
+
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SPRSUN Heat Pump from a config entry."""
     executor = getattr(hass, "async_add_executor_job", None)
@@ -117,6 +167,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     entry.runtime_data = coordinator
     hass.data.setdefault(DOMAIN, {})
     hass.data[DOMAIN][entry.entry_id] = coordinator
+
+    _sync_entity_registry(hass, entry, coordinator.controller)
 
     platforms = _resolve_platforms(coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
@@ -379,8 +431,29 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                     continue
             updated_data[key] = {"value": value, "updated_at": now}
 
+        self._apply_derived_data(updated_data, now)
         self._poll_count += 1
         return updated_data
+
+    def _apply_derived_data(self, target_data: dict[str, Any], now: float) -> None:
+        """Compute and merge controller-derived sensor values into coordinator data."""
+        compute_fn = getattr(self.controller, "compute_derived_data", None)
+        if not callable(compute_fn):
+            return
+        derived_specs = self.controller.get_derived_sensors() if hasattr(self.controller, "get_derived_sensors") else ()
+        derived_values = compute_fn(target_data, now) or {}
+        for spec in derived_specs:
+            val = derived_values.get(spec.key)
+            if val is not None:
+                target_data[spec.key] = {"value": val, "updated_at": now}
+            else:
+                target_data.pop(spec.key, None)
+
+    def _notify_updated_data(self) -> None:
+        """Recompute derived data after a write and notify listeners."""
+        if isinstance(self.data, dict):
+            self._apply_derived_data(self.data, time.time())
+        self.async_set_updated_data(self.data)
 
     def _execute_with_reconnect(self, operation: Callable[[], Any], context: str) -> Any:
         """Execute a synchronous Modbus client operation with one reconnect-and-retry cycle."""
@@ -590,7 +663,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 scale,
                 cached_value,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_write_masked_register(
         self,
@@ -610,7 +683,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 key,
                 cached_value,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_write_registers(
         self,
@@ -628,7 +701,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 key,
                 value,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_write_bit(self, address: int, bit: int, value: bool, reg_key: str | None = None) -> None:
         """Async thread-safe wrapper for bitfield holding register write."""
@@ -640,7 +713,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 value,
                 reg_key,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_write_coil(self, address: int, value: bool, key: str | None = None) -> None:
         """Async thread-safe wrapper for single coil write (FC 0x05)."""
@@ -651,7 +724,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 value,
                 key,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_shutdown(self):
         """Shutdown coordinator."""
