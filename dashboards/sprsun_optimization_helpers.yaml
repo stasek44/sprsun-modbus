@@ -1,0 +1,72 @@
+# ==============================================================================
+# SPRSUN Heat Pump - Optional 24h Optimization Helpers (history_stats + template)
+# ==============================================================================
+# PL: Opcjonalny pakiet pomocników do zbierania statystyk z ostatnich 24 godzin
+#     (liczba defrostów, czas w defroście, liczba startów sprężarki, czas pracy
+#     grzałek elektrycznych). Po dodaniu do configuration.yaml (lub packages/)
+#     kafelki na zakładce Optymalizacyjny pojawią się automatycznie!
+#
+# EN: Optional Home Assistant helpers tracking rolling 24-hour counts and
+#     durations (defrost count, total defrost time, compressor starts, electric
+#     heater runtime). Add to configuration.yaml or packages/ and restart HA.
+#     Tiles in the Optimization dashboard appear automatically once added.
+# ==============================================================================
+
+sensor:
+  - platform: history_stats
+    name: "SPRSUN Defrost Count 24h"
+    unique_id: sprsun_defrost_count_24h
+    entity_id: binary_sensor.sprsun_heat_pump_defrost_active
+    state: "on"
+    type: count
+    end: "{{ now() }}"
+    duration:
+      hours: 24
+
+  - platform: history_stats
+    name: "SPRSUN Defrost Time 24h"
+    unique_id: sprsun_defrost_time_24h
+    entity_id: binary_sensor.sprsun_heat_pump_defrost_active
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration:
+      hours: 24
+
+  - platform: history_stats
+    name: "SPRSUN Compressor Starts 24h"
+    unique_id: sprsun_compressor_starts_24h
+    entity_id: binary_sensor.sprsun_heat_pump_compressor
+    state: "on"
+    type: count
+    end: "{{ now() }}"
+    duration:
+      hours: 24
+
+  - platform: history_stats
+    name: "SPRSUN Chassis Heater Time 24h"
+    unique_id: sprsun_chassis_heater_time_24h
+    entity_id: binary_sensor.sprsun_heat_pump_chassis_heater
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration:
+      hours: 24
+
+  - platform: history_stats
+    name: "SPRSUN Heaters Time 24h"
+    unique_id: sprsun_heaters_time_24h
+    entity_id: binary_sensor.sprsun_any_backup_heater_active
+    state: "on"
+    type: time
+    end: "{{ now() }}"
+    duration:
+      hours: 24
+
+template:
+  - binary_sensor:
+      - name: "SPRSUN Any Electric Backup Heater Active"
+        unique_id: sprsun_any_backup_heater_active
+        state: >
+          {{ is_state('binary_sensor.sprsun_heat_pump_heating_heater', 'on')
+             or is_state('binary_sensor.sprsun_heat_pump_hot_water_heater', 'on') }}

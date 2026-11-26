@@ -1,0 +1,1489 @@
+# ==============================================================================
+# SPRSUN Heat Pump - Complete Dashboard (4 Views, 100% Native Home Assistant)
+# ==============================================================================
+# Ready-to-use 4-view Sections dashboard (HA 2024.3+ / 2026.x) with zero HACS
+# custom cards. Written in plain, beginner-friendly language:
+#   1. Default      - everyday controls and simple status summary
+#   2. Detailed     - ECO weather curves, water flow, refrigerant circuit & graphs
+#   3. Diagnostics  - 24 alarms, heat-exchanger/EEV health, relays & versions
+#   4. Optimization - lower power draw + defrost duration & frequency tuning
+#
+# REQUIREMENTS / RECOMMENDATIONS:
+# - Enable "Derived / Calculated Sensors" in the SPRSUN integration Configure dialog.
+# - [Expert] sections stay hidden automatically until you enable
+#   "Enable Expert Settings" in the integration Configure dialog.
+# - If your device name is not "SPRSUN Heat Pump", find-and-replace the
+#   "sprsun_heat_pump" prefix across this file with your own prefix.
+#
+# INSTALLATION:
+# Settings -> Dashboards -> + Add Dashboard -> New dashboard from scratch ->
+# top-right menu (⋮) -> Raw configuration editor -> Paste all -> Save.
+# ==============================================================================
+
+views:
+  # ============================================================================
+  # VIEW 1: DEFAULT (Daily Control & Simple Summary)
+  # ============================================================================
+  - type: sections
+    title: Default
+    path: default
+    icon: mdi:home-thermometer
+    max_columns: 3
+    badges:
+      - type: entity
+        entity: switch.sprsun_heat_pump_power
+        name: Power
+      - type: entity
+        entity: sensor.sprsun_heat_pump_operating_state
+        name: State
+      - type: entity
+        entity: sensor.sprsun_heat_pump_filtered_ambient_temperature
+        name: Outdoor
+      - type: entity
+        entity: sensor.sprsun_heat_pump_outlet_water_temperature
+        name: Flow Temp
+      - type: entity
+        entity: sensor.sprsun_heat_pump_hot_water_temperature
+        name: Hot Water
+      - type: entity
+        entity: binary_sensor.sprsun_heat_pump_alarm_stop
+        name: Alarm
+    sections:
+      # ------------------------------------------------------------------------
+      # Section 1: Conditional Alarm + Live Plain-Language Status
+      # ------------------------------------------------------------------------
+      - type: grid
+        cards:
+          - type: conditional
+            conditions:
+              - condition: state
+                entity: binary_sensor.sprsun_heat_pump_alarm_stop
+                state: "on"
+            card:
+              type: vertical-stack
+              cards:
+                - type: tile
+                  entity: binary_sensor.sprsun_heat_pump_alarm_stop
+                  name: "WARNING: Heat Pump Fault Detected!"
+                  icon: mdi:alert-octagon
+                  color: red
+                - type: tile
+                  entity: button.sprsun_heat_pump_failure_reset
+                  name: "Reset Fault (check Diagnostics tab first)"
+                  icon: mdi:restart
+                  color: orange
+
+          - type: heading
+            heading: What is the heat pump doing?
+            heading_style: title
+            icon: mdi:heat-pump
+
+          - type: markdown
+            text_only: true
+            content: >-
+              {% set st = states('sensor.sprsun_heat_pump_operating_state') %}
+              {% set power = states('switch.sprsun_heat_pump_power') %}
+              {% set heat_h = is_state('binary_sensor.sprsun_heat_pump_heating_heater', 'on') %}
+              {% set hw_h = is_state('binary_sensor.sprsun_heat_pump_hot_water_heater', 'on') %}
+              {% set defrost = is_state('binary_sensor.sprsun_heat_pump_defrost_active', 'on') %}
+              {% if power == 'off' %}
+              ⚪ **Heat pump is OFF** (standby). Turn on the main power switch below to resume heating or hot water.
+              {% elif st == 'alarm' or is_state('binary_sensor.sprsun_heat_pump_alarm_stop', 'on') %}
+              🔴 **Stopped due to a fault.** Open the **Diagnostics** tab to inspect the exact alarm, fix the cause, and press Reset.
+              {% elif defrost or st == 'defrost' %}
+              ❄️ **Defrosting outdoor coil.** For 3–5 minutes the pump reverses heat flow to melt ice outdoors. A brief dip in radiator/floor water temperature is normal.
+              {% elif st == 'antilegionella' %}
+              🛡️ **Antilegionella disinfection active.** Heating the hot water tank to high temperature to sanitize it.
+              {% elif st == 'heating' %}
+              🔥 **Space heating active.** Delivering warm water to your home heating loop.
+              {% elif st == 'hot_water' %}
+              🚿 **Heating domestic hot water (DHW).** Charging the hot water tank.
+              {% elif st == 'heating_hot_water' %}
+              🔥🚿 **Space heating + Hot water active.**
+              {% elif st == 'cooling' or st == 'cooling_hot_water' %}
+              🧊 **Cooling active.** Chilling water for your home cooling loop.
+              {% elif st == 'idle' %}
+              🟢 **Idle — target temperature reached.** Resting until water cools down by the configured hysteresis.
+              {% elif is_state('binary_sensor.sprsun_heat_pump_compressor', 'on') %}
+              🔥 **Compressor is running** (enable *Derived Sensors* in integration options for a detailed state summary).
+              {% else %}
+              🟢 **Heat pump is ON (standby).**
+              {% endif %}
+              {% if heat_h or hw_h %}
+              ⚠️ **Notice:** Auxiliary electric backup heater is active (1:1 resistive heat — higher electricity use).
+              {% endif %}
+
+          - type: tile
+            entity: switch.sprsun_heat_pump_power
+            name: Main Power
+            icon: mdi:power
+            color: green
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: select.sprsun_heat_pump_unit_mode
+            name: Unit Mode (P06)
+            icon: mdi:heat-pump
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: select.sprsun_heat_pump_fan_mode
+            name: Profile / Noise (P07)
+            icon: mdi:fan
+            color: teal
+            grid_options:
+              columns: 12
+
+      # ------------------------------------------------------------------------
+      # Section 2: Easy Temperature Controls (+ / -)
+      # ------------------------------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Temperature Settings
+            heading_style: title
+            icon: mdi:thermometer-lines
+
+          - type: markdown
+            text_only: true
+            content: >-
+              Use **[-]** and **[+]** to adjust targets directly. **Hysteresis** sets how many degrees the water must cool down before the compressor restarts (higher = fewer starts).
+
+          - type: tile
+            entity: number.sprsun_heat_pump_heating_setpoint
+            name: Heating Target (P01)
+            icon: mdi:radiator
+            color: orange
+            grid_options:
+              columns: 12
+            features:
+              - type: numeric-input
+                style: buttons
+
+          - type: tile
+            entity: number.sprsun_heat_pump_heating_cooling_temp_diff
+            name: Heating Hysteresis (P03)
+            icon: mdi:arrow-expand-vertical
+            color: deep-orange
+            grid_options:
+              columns: 12
+            features:
+              - type: numeric-input
+                style: buttons
+
+          - type: tile
+            entity: number.sprsun_heat_pump_hot_water_setpoint
+            name: Hot Water Target (P04)
+            icon: mdi:water-boiler
+            color: red
+            grid_options:
+              columns: 12
+            features:
+              - type: numeric-input
+                style: buttons
+
+          - type: tile
+            entity: number.sprsun_heat_pump_hot_water_temp_diff
+            name: Hot Water Hysteresis (P05)
+            icon: mdi:arrow-expand-vertical
+            color: deep-orange
+            grid_options:
+              columns: 12
+            features:
+              - type: numeric-input
+                style: buttons
+
+          - type: tile
+            entity: number.sprsun_heat_pump_cooling_setpoint
+            name: Cooling Target (P02)
+            icon: mdi:snowflake
+            color: cyan
+            grid_options:
+              columns: 12
+            features:
+              - type: numeric-input
+                style: buttons
+
+      # ------------------------------------------------------------------------
+      # Section 3: Key Temperatures & 24h Chart
+      # ------------------------------------------------------------------------
+      - type: grid
+        cards:
+          - type: heading
+            heading: Home & Outdoor Temperatures
+            heading_style: title
+            icon: mdi:home-analytics
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_outlet_water_temperature
+            name: Supply Water (Outlet)
+            icon: mdi:water-arrow-right
+            color: orange
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_inlet_water_temperature
+            name: Return Water (Inlet)
+            icon: mdi:water-arrow-left
+            color: amber
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_hot_water_temperature
+            name: Hot Water Tank
+            icon: mdi:water-boiler
+            color: red
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_ambient_temperature
+            name: Outdoor (Raw Sensor)
+            icon: mdi:thermometer
+            color: blue
+            grid_options:
+              columns: 6
+
+          - type: thermostat
+            entity: climate.sprsun_heat_pump_heating_cooling
+            name: Heating / Cooling Thermostat
+            show_current_as_primary: true
+            grid_options:
+              columns: 6
+
+          - type: thermostat
+            entity: climate.sprsun_heat_pump_dhw
+            name: Hot Water Thermostat
+            show_current_as_primary: true
+            grid_options:
+              columns: 6
+
+          - type: history-graph
+            title: Last 24 Hours Temperatures
+            hours_to_show: 24
+            grid_options:
+              columns: full
+            entities:
+              - entity: sensor.sprsun_heat_pump_outlet_water_temperature
+                name: Supply Water
+              - entity: sensor.sprsun_heat_pump_inlet_water_temperature
+                name: Return Water
+              - entity: sensor.sprsun_heat_pump_hot_water_temperature
+                name: Hot Water Tank
+              - entity: sensor.sprsun_heat_pump_ambient_temperature
+                name: Outdoor
+
+  # ============================================================================
+  # VIEW 2: DETAILED (Water Loop, ECO Weather Curves, Refrigerant, Electrical)
+  # ============================================================================
+  - type: sections
+    title: Detailed
+    path: detailed
+    icon: mdi:chart-timeline-variant
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Water Loop & Circulation Pump
+            heading_style: title
+            icon: mdi:water-pump
+
+          - type: markdown
+            text_only: true
+            content: >-
+              **Water Delta T** is the temperature rise across the heat exchanger (Supply minus Return). Healthy heating values are **3–5°C** (underfloor) or **5–8°C** (radiators). If *Pump Flow* reads `0`, your hardware lacks the optional internal flow meter — watch *Delta T* and *DC Pump Speed* instead.
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_outlet_water_temperature
+            name: Supply Water
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_inlet_water_temperature
+            name: Return Water
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_water_delta_t
+            name: Water Delta T
+            icon: mdi:delta
+            color: amber
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_dc_pump_speed
+            name: DC Pump Speed
+            icon: mdi:pump
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_pump_flow
+            name: Flow Rate (if fitted)
+            icon: mdi:gauge
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: select.sprsun_heat_pump_pump_work_mode
+            name: Pump Work Mode (G02)
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_dc_pump_temp_differential
+            name: Target Pump Delta T (G04)
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_pump_thermostatic_cycle
+            name: Min Restart Delay (G03)
+            grid_options:
+              columns: 6
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: ECO Weather Curve (E01–E24)
+            heading_style: title
+            icon: mdi:chart-bell-curve-cumulative
+
+          - type: markdown
+            text_only: true
+            content: >-
+              Weather compensation automatically lowers supply water temperature on milder days, saving electricity without sacrificing comfort. Below is the curve-calculated target compared to your current supply water.
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_filtered_ambient_temperature
+            name: Outdoor Temp (Filtered)
+            icon: mdi:weather-partly-cloudy
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_eco_curve_target_setpoint
+            name: ECO Curve Target
+            icon: mdi:target
+            color: green
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_eco_curve_setpoint_delta
+            name: Supply vs ECO Curve
+            icon: mdi:compare-horizontal
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_heating_setpoint
+            name: Manual Heating Setpoint (P01)
+            grid_options:
+              columns: 6
+
+          - type: heading
+            heading: Space Heating Curve (Outdoor -> Water)
+            heading_style: subtitle
+
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_heat_ambient_1
+            name: E01 Outdoor 1 (Coldest)
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_heat_temp_1
+            name: E13 Water @ E01
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_heat_ambient_2
+            name: E02 Outdoor 2
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_heat_temp_2
+            name: E14 Water @ E02
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_heat_ambient_3
+            name: E03 Outdoor 3
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_heat_temp_3
+            name: E15 Water @ E03
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_heat_ambient_4
+            name: E04 Outdoor 4 (Mildest)
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_heat_temp_4
+            name: E16 Water @ E04
+            grid_options:
+              columns: 6
+
+          - type: heading
+            heading: Hot Water Curve (E05–E08 -> E17–E20)
+            heading_style: subtitle
+
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_water_ambient_1
+            name: E05 Outdoor DHW 1
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_water_temp_1
+            name: E17 DHW @ E05
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_water_ambient_2
+            name: E06 Outdoor DHW 2
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_water_temp_2
+            name: E18 DHW @ E06
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_water_ambient_3
+            name: E07 Outdoor DHW 3
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_water_temp_3
+            name: E19 DHW @ E07
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_water_ambient_4
+            name: E08 Outdoor DHW 4
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_economic_water_temp_4
+            name: E20 DHW @ E08
+            grid_options:
+              columns: 6
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Compressor, Fan & Refrigerant Circuit
+            heading_style: title
+            icon: mdi:sine-wave
+
+          - type: markdown
+            text_only: true
+            content: >-
+              Shows inverter compressor speed (**Hz**), outdoor fan RPM, electronic expansion valves (**EEV**), and refrigerant pressures/temperatures.
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_compressor_frequency
+            name: Compressor Frequency
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_target_frequency
+            name: Target Frequency
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_dc_fan_1_speed
+            name: DC Fan 1 Speed
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_dc_fan_target
+            name: DC Fan Target
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_evaporation_temperature
+            name: Evaporator Temp
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_condensation_temperature
+            name: Condenser Temp
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_coil_temperature
+            name: Outdoor Coil Temp
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_suction_gas_temperature
+            name: Suction Gas Temp
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_exhaust_temperature
+            name: Discharge (Exhaust) Temp
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_driving_temperature
+            name: Inverter Drive Temp
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_discharge_pressure
+            name: Discharge Pressure
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_suction_pressure
+            name: Suction Pressure
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_eev1_step
+            name: Main EEV1 Position
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_eev2_step
+            name: EVI EEV2 Position
+            grid_options:
+              columns: 6
+
+          - type: heading
+            heading: Electrical & Performance
+            heading_style: subtitle
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_estimated_electrical_power_experimental
+            name: Estimated Power (Exp.)
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_compressor_current
+            name: Compressor Current
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_dc_bus_voltage
+            name: DC Bus Voltage
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_compressor_runtime
+            name: Total Runtime
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_cop
+            name: COP (Internal Board)
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_heating_cooling_capacity
+            name: Capacity (Internal Board)
+            grid_options:
+              columns: 6
+
+      - type: grid
+        column_span: 3
+        cards:
+          - type: heading
+            heading: Antilegionella, Season Changeover & 24h Trends
+            heading_style: title
+            icon: mdi:calendar-clock
+
+          - type: tile
+            entity: switch.sprsun_heat_pump_antilegionella_enable
+            name: Antilegionella Enable
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_antilegionella_temperature
+            name: Disinfection Temp
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_antilegionella_weekday
+            name: Weekday (0=Sun..6=Sat)
+            grid_options:
+              columns: 4
+
+          - type: tile
+            entity: number.sprsun_heat_pump_antilegionella_start_hour
+            name: Start Hour
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_antilegionella_end_hour
+            name: End Hour
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: switch.sprsun_heat_pump_two_three_function
+            name: Two/Three Function (G01)
+            grid_options:
+              columns: 4
+
+          - type: tile
+            entity: number.sprsun_heat_pump_mode_control_enable
+            name: Auto Heat/Cool (G09)
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_ambient_temp_switch_setpoint
+            name: Changeover Temp (G10)
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_ambient_temp_switch_diff
+            name: Changeover Diff (G11)
+            grid_options:
+              columns: 4
+
+          - type: history-graph
+            title: ECO Curve vs Actual Supply Water & Compressor Hz (24h)
+            hours_to_show: 24
+            grid_options:
+              columns: 12
+            entities:
+              - entity: sensor.sprsun_heat_pump_outlet_water_temperature
+                name: Supply Water
+              - entity: number.sprsun_heat_pump_heating_setpoint
+                name: Heating Setpoint (P01)
+              - entity: sensor.sprsun_heat_pump_eco_curve_target_setpoint
+                name: ECO Curve Target
+              - entity: sensor.sprsun_heat_pump_compressor_frequency
+                name: Compressor (Hz)
+
+  # ============================================================================
+  # VIEW 3: DIAGNOSTICS (Health, 24 Alarms, Superheat, Relays & Versions)
+  # ============================================================================
+  - type: sections
+    title: Diagnostics
+    path: diagnostics
+    icon: mdi:stethoscope
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Health & Active Alarms
+            heading_style: title
+            icon: mdi:shield-check
+
+          - type: markdown
+            text_only: true
+            content: >-
+              {% set errors = [
+                'binary_sensor.sprsun_heat_pump_hot_water_temp_sensor_error',
+                'binary_sensor.sprsun_heat_pump_ambient_temp_sensor_error',
+                'binary_sensor.sprsun_heat_pump_coil_temp_sensor_error',
+                'binary_sensor.sprsun_heat_pump_outlet_temp_sensor_error',
+                'binary_sensor.sprsun_heat_pump_high_pressure_sensor_error',
+                'binary_sensor.sprsun_heat_pump_phase_sequence_error',
+                'binary_sensor.sprsun_heat_pump_water_flow_error',
+                'binary_sensor.sprsun_heat_pump_high_temp_protection_heating_outlet',
+                'binary_sensor.sprsun_heat_pump_outlet_gas_temp_error',
+                'binary_sensor.sprsun_heat_pump_water_inlet_temp_sensor_error',
+                'binary_sensor.sprsun_heat_pump_exhaust_temperature_too_high',
+                'binary_sensor.sprsun_heat_pump_low_temp_protection_cooling_outlet',
+                'binary_sensor.sprsun_heat_pump_inlet_gas_temp_sensor_error',
+                'binary_sensor.sprsun_heat_pump_low_pressure_protection',
+                'binary_sensor.sprsun_heat_pump_high_pressure_protection',
+                'binary_sensor.sprsun_heat_pump_coil_temperature_too_high',
+                'binary_sensor.sprsun_heat_pump_high_pressure_sensor_failure',
+                'binary_sensor.sprsun_heat_pump_low_pressure_sensor_failure',
+                'binary_sensor.sprsun_heat_pump_secondary_antifreeze_protection',
+                'binary_sensor.sprsun_heat_pump_primary_antifreeze_protection',
+                'binary_sensor.sprsun_heat_pump_ambient_temperature_too_low',
+                'binary_sensor.sprsun_heat_pump_frequency_conversion_module_fault',
+                'binary_sensor.sprsun_heat_pump_dc_fan_2_failure',
+                'binary_sensor.sprsun_heat_pump_dc_fan_1_failure'
+              ] %}
+              {% set active = namespace(items=[]) %}
+              {% for e in errors %}
+                {% if is_state(e, 'on') %}
+                  {% set active.items = active.items + [state_attr(e, 'friendly_name') or e] %}
+                {% endif %}
+              {% endfor %}
+              {% if is_state('binary_sensor.sprsun_heat_pump_alarm_stop', 'on') or active.items | length > 0 %}
+              🔴 **FAULT DETECTED! Active errors ({{ active.items | length }}):**
+              {% for item in active.items %}
+              - ⚠️ {{ item }}
+              {% endfor %}
+              **What to check before resetting:**
+              - *Water Flow Error:* clean the Y-strainer, bleed air, check closed radiator valves.
+              - *High Pressure:* verify water circulation and heat exchanger cleanliness.
+              - *Low Pressure / Antifreeze:* inspect outdoor coil icing and refrigerant charge.
+              {% else %}
+              🟢 **No active alarms (0 / 24 faults).** All sensors and safety switches are healthy.
+              {% endif %}
+
+          - type: tile
+            entity: binary_sensor.sprsun_heat_pump_alarm_stop
+            name: Master Alarm Stop
+            color: red
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: button.sprsun_heat_pump_failure_reset
+            name: Failure Reset
+            icon: mdi:restart
+            color: orange
+            grid_options:
+              columns: 6
+
+          - type: heading
+            heading: Heat Exchanger & Refrigerant Health
+            heading_style: subtitle
+
+          - type: markdown
+            text_only: true
+            content: >-
+              **Plain-language guide:**
+              - **Condenser Approach:** temperature gap from refrigerant to water. Healthy: **1–4°C**. Above **6°C** under load = low flow or fouled heat exchanger.
+              - **Suction Superheat:** healthy EEV control is **2–7°C**. Near **0°C** or negative = liquid floodback risk; **> 10°C** = possible undercharge or EEV issue.
+              - **Discharge Temp:** safe **< 95°C** (critical shutdown > 105°C).
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_condenser_approach_temperature
+            name: Condenser Approach
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_suction_superheat
+            name: Suction Superheat
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_discharge_superheat
+            name: Discharge Superheat
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_exhaust_temperature
+            name: Exhaust Temp (safe <95°C)
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_discharge_pressure
+            name: Discharge Pressure
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_suction_pressure
+            name: Suction Pressure
+            grid_options:
+              columns: 6
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Relays & Digital Inputs
+            heading_style: title
+            icon: mdi:electric-switch
+
+          - type: markdown
+            text_only: true
+            content: >-
+              Live hardware states. **3-Way Valve** `ON` directs flow to the DHW tank (`OFF` = space heating). **4-Way Valve** `ON` means cooling or defrost mode.
+
+          - type: entities
+            title: Relay Outputs
+            show_header_toggle: false
+            entities:
+              - entity: binary_sensor.sprsun_heat_pump_compressor
+                name: Compressor
+              - entity: binary_sensor.sprsun_heat_pump_circulation_pump
+                name: Circulation Pump
+              - entity: binary_sensor.sprsun_heat_pump_fan
+                name: Outdoor Fan
+              - entity: binary_sensor.sprsun_heat_pump_fan_high_speed
+                name: Fan High Speed
+              - entity: binary_sensor.sprsun_heat_pump_3_way_valve
+                name: 3-Way Valve (ON=DHW / OFF=Space)
+              - entity: binary_sensor.sprsun_heat_pump_4_way_valve
+                name: 4-Way Valve (ON=Cool/Defrost)
+              - entity: binary_sensor.sprsun_heat_pump_heating_heater
+                name: Space Heating Electric Heater (OUT4)
+              - entity: binary_sensor.sprsun_heat_pump_hot_water_heater
+                name: DHW Electric Heater (OUT12)
+              - entity: binary_sensor.sprsun_heat_pump_chassis_heater
+                name: Chassis Drain Heater (~43W)
+              - entity: binary_sensor.sprsun_heat_pump_crank_heater
+                name: Compressor Crankcase Heater
+              - entity: binary_sensor.sprsun_heat_pump_assistant_solenoid_valve
+                name: EVI Injection Solenoid
+              - entity: binary_sensor.sprsun_heat_pump_a_c_pump
+                name: Auxiliary A/C Pump
+
+          - type: entities
+            title: Demands & Control Inputs
+            show_header_toggle: false
+            entities:
+              - entity: binary_sensor.sprsun_heat_pump_heating_demand
+                name: Heating Demand
+              - entity: binary_sensor.sprsun_heat_pump_hot_water_demand
+                name: Hot Water Demand
+              - entity: binary_sensor.sprsun_heat_pump_cooling_demand
+                name: Cooling Demand
+              - entity: binary_sensor.sprsun_heat_pump_defrost_active
+                name: Defrost Active
+              - entity: binary_sensor.sprsun_heat_pump_antilegionella_active
+                name: Antilegionella Active
+              - entity: binary_sensor.sprsun_heat_pump_flow_switch
+                name: Flow Switch Input
+              - entity: binary_sensor.sprsun_heat_pump_high_pressure_switch
+                name: High Pressure Switch
+              - entity: binary_sensor.sprsun_heat_pump_phase_sequence_ok
+                name: Phase Sequence OK
+              - entity: binary_sensor.sprsun_heat_pump_linkage_switch
+                name: External Thermostat (Linkage)
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Fault Register (24) & Firmware
+            heading_style: title
+            icon: mdi:alert-circle-outline
+
+          - type: entities
+            title: Flow, Pressure & Protection Faults
+            show_header_toggle: false
+            entities:
+              - entity: binary_sensor.sprsun_heat_pump_water_flow_error
+                name: Water Flow Error
+              - entity: binary_sensor.sprsun_heat_pump_high_pressure_protection
+                name: High Pressure Protection
+              - entity: binary_sensor.sprsun_heat_pump_low_pressure_protection
+                name: Low Pressure Protection
+              - entity: binary_sensor.sprsun_heat_pump_exhaust_temperature_too_high
+                name: Exhaust Temp Too High
+              - entity: binary_sensor.sprsun_heat_pump_high_temp_protection_heating_outlet
+                name: High Outlet Temp Protection
+              - entity: binary_sensor.sprsun_heat_pump_low_temp_protection_cooling_outlet
+                name: Low Outlet Temp Protection
+              - entity: binary_sensor.sprsun_heat_pump_coil_temperature_too_high
+                name: Coil Temp Too High
+              - entity: binary_sensor.sprsun_heat_pump_primary_antifreeze_protection
+                name: Primary Antifreeze Protection
+              - entity: binary_sensor.sprsun_heat_pump_secondary_antifreeze_protection
+                name: Secondary Antifreeze Protection
+              - entity: binary_sensor.sprsun_heat_pump_ambient_temperature_too_low
+                name: Ambient Temp Too Low
+              - entity: binary_sensor.sprsun_heat_pump_phase_sequence_error
+                name: Phase Sequence Error
+              - entity: binary_sensor.sprsun_heat_pump_frequency_conversion_module_fault
+                name: Inverter Module Fault
+              - entity: binary_sensor.sprsun_heat_pump_dc_fan_1_failure
+                name: DC Fan 1 Failure
+              - entity: binary_sensor.sprsun_heat_pump_dc_fan_2_failure
+                name: DC Fan 2 Failure
+
+          - type: entities
+            title: Sensor Open / Short Faults
+            show_header_toggle: false
+            entities:
+              - entity: binary_sensor.sprsun_heat_pump_outlet_temp_sensor_error
+                name: Outlet Water Sensor Error
+              - entity: binary_sensor.sprsun_heat_pump_water_inlet_temp_sensor_error
+                name: Inlet Water Sensor Error
+              - entity: binary_sensor.sprsun_heat_pump_hot_water_temp_sensor_error
+                name: Hot Water Sensor Error
+              - entity: binary_sensor.sprsun_heat_pump_ambient_temp_sensor_error
+                name: Ambient Sensor Error
+              - entity: binary_sensor.sprsun_heat_pump_coil_temp_sensor_error
+                name: Outdoor Coil Sensor Error
+              - entity: binary_sensor.sprsun_heat_pump_inlet_gas_temp_sensor_error
+                name: Suction Gas Sensor Error
+              - entity: binary_sensor.sprsun_heat_pump_outlet_gas_temp_error
+                name: Exhaust Gas Sensor Error
+              - entity: binary_sensor.sprsun_heat_pump_high_pressure_sensor_error
+                name: High Pressure Sensor Error (1)
+              - entity: binary_sensor.sprsun_heat_pump_high_pressure_sensor_failure
+                name: High Pressure Sensor Failure (2)
+              - entity: binary_sensor.sprsun_heat_pump_low_pressure_sensor_failure
+                name: Low Pressure Sensor Failure
+
+          - type: entities
+            title: Controller Versions & Smart Grid
+            show_header_toggle: false
+            entities:
+              - entity: sensor.sprsun_heat_pump_controller_version
+                name: Controller Version
+              - entity: sensor.sprsun_heat_pump_display_version
+                name: Display Version
+              - entity: sensor.sprsun_heat_pump_software_version_year
+                name: Firmware Year (Hex)
+              - entity: sensor.sprsun_heat_pump_software_version_month_day
+                name: Firmware Month/Day (Hex)
+              - entity: sensor.sprsun_heat_pump_smart_grid_status
+                name: Smart Grid Status (0x0025)
+
+  # ============================================================================
+  # VIEW 4: OPTIMIZATION (Energy Savings + Defrost Time & Frequency Tuning)
+  # ============================================================================
+  - type: sections
+    title: Optimization
+    path: optimization
+    icon: mdi:tune-variant
+    max_columns: 3
+    sections:
+      - type: grid
+        cards:
+          - type: heading
+            heading: Live Energy & Defrost Assistant
+            heading_style: title
+            icon: mdi:lightbulb-on-outline
+
+          - type: markdown
+            text_only: true
+            content: >-
+              {% set cycle = states('sensor.sprsun_heat_pump_compressor_last_run_duration') %}
+              {% set def_dur = states('sensor.sprsun_heat_pump_last_defrost_duration') %}
+              {% set def_int = states('sensor.sprsun_heat_pump_defrost_interval') %}
+              {% set coil_d = states('sensor.sprsun_heat_pump_coil_ambient_temperature_delta') %}
+              {% set water_d = states('sensor.sprsun_heat_pump_water_delta_t') %}
+              {% set eco_d = states('sensor.sprsun_heat_pump_eco_curve_setpoint_delta') %}
+              {% set hz = states('sensor.sprsun_heat_pump_compressor_frequency') | float(0) %}
+              {% set heat_h = is_state('binary_sensor.sprsun_heat_pump_heating_heater', 'on') %}
+              {% set hw_h = is_state('binary_sensor.sprsun_heat_pump_hot_water_heater', 'on') %}
+              {% set ch_h = is_state('binary_sensor.sprsun_heat_pump_chassis_heater', 'on') %}
+              **Live check based on current readings:**
+              {% if is_number(cycle) and cycle | float > 0 %}
+              {% if cycle | float < 15 %}
+              - 🟡 **Short compressor cycle ({{ cycle }} min):** If not finishing DHW, the unit may be short-cycling. Raise *Heating Hysteresis (P03)* by 1°C or increase *G03*.
+              {% else %}
+              - 🟢 **Compressor cycle duration ({{ cycle }} min):** Long, steady runs with minimal startup loss.
+              {% endif %}
+              {% endif %}
+              {% if is_number(water_d) and hz > 0 %}
+              {% if water_d | float < 2.0 %}
+              - 🟡 **Low Water Delta T ({{ water_d }} °C):** Circulation pump is moving water very fast or heat isn't absorbed. Check *G04 (Target Delta T)* and DC pump speed.
+              {% elif water_d | float > 7.5 %}
+              - 🟡 **High Water Delta T ({{ water_d }} °C):** Restricted flow — clean your Y-strainer or raise circulation flow to protect COP.
+              {% else %}
+              - 🟢 **Water Delta T ({{ water_d }} °C):** Balanced heat exchange.
+              {% endif %}
+              {% endif %}
+              {% if heat_h or hw_h %}
+              - 🔴 **Electric Backup Heater ON (COP = 1.0)!** Lower *G05/G07* (e.g. to -12°C) and raise delay *G06/G08* to 45–60 min.
+              {% else %}
+              - 🟢 **Backup heaters OFF:** All heat is produced efficiently by the compressor.
+              {% endif %}
+              {% if ch_h %}
+              - ℹ️ **Chassis tray heater ON:** Draws ~43 W continuously to keep drain ice-free.
+              {% endif %}
+              {% if is_number(eco_d) %}
+              - 📊 **Supply vs ECO Curve:** offset is **{{ eco_d }} °C** (every 1°C lower heating water saves ~2–3% electricity).
+              {% endif %}
+              {% if is_number(coil_d) %}
+              - ❄️ **Frost buildup (Outdoor - Coil):** **{{ coil_d }} °C** (rising toward 9–10°C during heating means frost is thickening before defrost).
+              {% endif %}
+              {% if is_number(def_dur) and def_dur | float > 0 %}
+              - ⏱️ **Last defrost:** took **{{ def_dur }} min**{% if is_number(def_int) and def_int | float > 0 %}, interval since prior defrost: **{{ def_int }} min**{% endif %}. Healthy defrosts take 3–5 min.
+              {% endif %}
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_estimated_electrical_power_experimental
+            name: Estimated Power (Exp.)
+            icon: mdi:flash
+            color: amber
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_compressor_last_run_duration
+            name: Compressor Cycle Duration
+            icon: mdi:timer-outline
+            color: green
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_compressor_frequency
+            name: Compressor Speed (Hz)
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_water_delta_t
+            name: Water Delta T
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_eco_curve_setpoint_delta
+            name: Supply vs ECO Curve
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_condenser_approach_temperature
+            name: Condenser Approach
+            grid_options:
+              columns: 6
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Lever 1 — Setpoints, Cycling & Heaters
+            heading_style: title
+            icon: mdi:piggy-bank-outline
+
+          - type: markdown
+            text_only: true
+            content: >-
+              **Safest energy wins:**
+              1. **Lower P01 & P04:** Setting DHW to 46–48°C instead of 55°C boosts COP significantly.
+              2. **Tune P03 (3–5°C):** Prevents short-cycling without hurting comfort.
+              3. **Delay backup heaters (G05–G08):** Set ambient thresholds to `-10..-15°C` and delays to `45–60 min`.
+              4. **Tune pump flow (G02/G04):** Aim for 3–5°C Delta T on underfloor heating.
+
+          - type: tile
+            entity: number.sprsun_heat_pump_heating_setpoint
+            name: Heating Setpoint (P01)
+            grid_options:
+              columns: 6
+            features:
+              - type: numeric-input
+                style: buttons
+          - type: tile
+            entity: number.sprsun_heat_pump_heating_cooling_temp_diff
+            name: Heating Hysteresis (P03)
+            grid_options:
+              columns: 6
+            features:
+              - type: numeric-input
+                style: buttons
+
+          - type: tile
+            entity: number.sprsun_heat_pump_hot_water_setpoint
+            name: DHW Setpoint (P04)
+            grid_options:
+              columns: 6
+            features:
+              - type: numeric-input
+                style: buttons
+          - type: tile
+            entity: number.sprsun_heat_pump_hot_water_temp_diff
+            name: DHW Hysteresis (P05)
+            grid_options:
+              columns: 6
+            features:
+              - type: numeric-input
+                style: buttons
+
+          - type: tile
+            entity: select.sprsun_heat_pump_fan_mode
+            name: Profile (P07 Normal/Eco/Night)
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_pump_thermostatic_cycle
+            name: Min Restart Delay (G03)
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_heating_heater_ambient_temp
+            name: Heating Heater Threshold (G05)
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_heating_heater_delay
+            name: Heating Heater Delay (G06)
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: number.sprsun_heat_pump_hot_water_heater_ambient_temp
+            name: DHW Heater Threshold (G07)
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_hot_water_heater_delay
+            name: DHW Heater Delay (G08)
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: select.sprsun_heat_pump_pump_work_mode
+            name: Pump Work Mode (G02)
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_dc_pump_temp_differential
+            name: Target Pump Delta T (G04)
+            grid_options:
+              columns: 6
+
+      - type: grid
+        cards:
+          - type: heading
+            heading: Lever 2 — Defrost Time & Frequency Optimization
+            heading_style: title
+            icon: mdi:snowflake-melt
+
+          - type: markdown
+            text_only: true
+            content: >-
+              Every defrost steals heat from your home to melt outdoor frost. Goal: **defrost only when genuinely frosted, and stop as soon as ice is clear**.
+              - **Frequency (entry):** Requires **H08/H11/H14** min interval elapsed, coil <= **H03** (e.g. -4°C), AND `Outdoor - Coil` >= **H07/H10/H13** (e.g. 10°C).
+              - **Duration & cost (exit):** Stops when coil reaches **H04** (e.g. 15°C) or **H05** max time (8 min), running at **H01** Hz. If coil spikes to 35–45°C well after ice melts, **H04** or **H01** may be higher than needed.
+              - **Fan profile (P07):** In damp `0..+2°C` weather, *Night* mode slows the fan, dropping coil temp faster and sometimes *increasing* defrosts!
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_coil_ambient_temperature_delta
+            name: Outdoor - Coil Delta (Frost)
+            icon: mdi:snowflake-alert
+            color: cyan
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_coil_temperature
+            name: Coil Temp (H03/H04 target)
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_heat_pump_last_defrost_duration
+            name: Defrost Duration
+            icon: mdi:timer-sand
+            color: blue
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: sensor.sprsun_heat_pump_defrost_interval
+            name: Defrost Interval
+            icon: mdi:history
+            color: indigo
+            grid_options:
+              columns: 6
+
+          - type: tile
+            entity: sensor.sprsun_defrost_count_24h
+            name: Defrost Count (24h)
+            icon: mdi:counter
+            grid_options:
+              columns: 6
+            visibility:
+              - condition: numeric_state
+                entity: sensor.sprsun_defrost_count_24h
+                above: -1
+
+          - type: tile
+            entity: sensor.sprsun_defrost_time_24h
+            name: Total Defrost Time (24h)
+            icon: mdi:clock-alert-outline
+            grid_options:
+              columns: 6
+            visibility:
+              - condition: numeric_state
+                entity: sensor.sprsun_defrost_time_24h
+                above: -1
+
+          - type: tile
+            entity: sensor.sprsun_compressor_starts_24h
+            name: Compressor Starts (24h)
+            icon: mdi:restart
+            grid_options:
+              columns: 6
+            visibility:
+              - condition: numeric_state
+                entity: sensor.sprsun_compressor_starts_24h
+                above: -1
+
+          - type: tile
+            entity: sensor.sprsun_heaters_time_24h
+            name: Electric Heaters Time (24h)
+            icon: mdi:radiator-disabled
+            grid_options:
+              columns: 6
+            visibility:
+              - condition: numeric_state
+                entity: sensor.sprsun_heaters_time_24h
+                above: -1
+
+      - type: grid
+        column_span: 3
+        cards:
+          - type: heading
+            heading: 24h Frost, Defrost & Power Analysis
+            heading_style: title
+            icon: mdi:chart-line
+
+          - type: history-graph
+            title: Defrost Analysis — Coil, Filtered Outdoor, Outdoor-Coil Delta & Defrost State
+            hours_to_show: 24
+            grid_options:
+              columns: 6
+            entities:
+              - entity: sensor.sprsun_heat_pump_coil_temperature
+                name: Coil Temp (°C)
+              - entity: sensor.sprsun_heat_pump_filtered_ambient_temperature
+                name: Outdoor Filtered (°C)
+              - entity: sensor.sprsun_heat_pump_coil_ambient_temperature_delta
+                name: Outdoor - Coil (°C)
+              - entity: binary_sensor.sprsun_heat_pump_defrost_active
+                name: Defrost Active
+
+          - type: history-graph
+            title: Compressor Hz, Estimated Power (W) & Water Delta T (24h)
+            hours_to_show: 24
+            grid_options:
+              columns: 6
+            entities:
+              - entity: sensor.sprsun_heat_pump_compressor_frequency
+                name: Compressor (Hz)
+              - entity: sensor.sprsun_heat_pump_estimated_electrical_power_experimental
+                name: Estimated Power (W)
+              - entity: sensor.sprsun_heat_pump_water_delta_t
+                name: Water Delta T (°C)
+
+      - type: grid
+        column_span: 3
+        visibility:
+          - condition: numeric_state
+            entity: number.sprsun_heat_pump_h01_defrost_frequency
+            above: 0
+        cards:
+          - type: heading
+            heading: "[EXPERT] Defrost (H01–H18), DC Pump (F13–F17) & Frequency Curves (R)"
+            heading_style: title
+            icon: mdi:wrench-cog
+
+          - type: markdown
+            text_only: true
+            content: >-
+              ⚠️ **Factory EEPROM Parameters:** Adjust **one parameter at a time in small steps** (e.g., ±1°C or ±10 min) and observe 24h graphs. Overly rare or short defrosts in humid freezing weather can ice up the coil solid!
+              - **Reduce frequency:** Carefully raise `H08/H11/H14` (e.g. 45 -> 60 min) or `H07/H10/H13` (e.g. 10 -> 11–12°C) if defrost triggers prematurely on a clean coil.
+              - **Shorten / soften defrost:** If coil temp shoots past `30–40°C` long after ice melts, slightly lower `H04` (e.g. 15 -> 12–13°C) or `H01` (e.g. 70 -> 55–60 Hz).
+
+          - type: heading
+            heading: Defrost Entry Frequency (H03, H07–H16, 0x00DB)
+            heading_style: subtitle
+
+          - type: tile
+            entity: number.sprsun_heat_pump_h03_defrost_start_coil_temp
+            name: H03 Start Coil Temp
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_defrost_ambient_setpoint_3_0x00db_pdf_h04
+            name: 0x00DB Max Outdoor Temp
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_h09_defrost_ambient_setpoint_1
+            name: H09 Zone 1/2 Threshold
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_h12_defrost_ambient_setpoint_2
+            name: H12 Zone 2/3 Threshold
+            grid_options:
+              columns: 3
+
+          - type: tile
+            entity: number.sprsun_heat_pump_h07_defrost_ambient_coil_diff_1
+            name: H07 Outdoor-Coil Diff 1
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_h10_defrost_ambient_coil_diff_2
+            name: H10 Outdoor-Coil Diff 2
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_h13_defrost_ambient_coil_diff_3
+            name: H13 Outdoor-Coil Diff 3
+            grid_options:
+              columns: 4
+
+          - type: tile
+            entity: number.sprsun_heat_pump_h08_defrost_period_1
+            name: H08 Min Period 1
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_h11_defrost_period_2
+            name: H11 Min Period 2
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_h14_defrost_period_3
+            name: H14 Min Period 3
+            grid_options:
+              columns: 4
+
+          - type: tile
+            entity: number.sprsun_heat_pump_h15_defrost_comp_total_run
+            name: H15 Comp Total Run
+            grid_options:
+              columns: 6
+          - type: tile
+            entity: number.sprsun_heat_pump_h16_defrost_comp_continuous_run
+            name: H16 Min Continuous Run
+            grid_options:
+              columns: 6
+
+          - type: heading
+            heading: Defrost Duration & Power (H01, H04, H05, H17, H18, A43, A51)
+            heading_style: subtitle
+
+          - type: tile
+            entity: number.sprsun_heat_pump_h01_defrost_frequency
+            name: H01 Defrost Freq (Hz)
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_h04_defrost_exit_coil_temp
+            name: H04 Exit Coil Temp (°C)
+            grid_options:
+              columns: 4
+          - type: tile
+            entity: number.sprsun_heat_pump_h05_defrost_max_time
+            name: H05 Max Time (min)
+            grid_options:
+              columns: 4
+
+          - type: tile
+            entity: number.sprsun_heat_pump_h17_defrost_fan_high_pressure
+            name: H17 Fan High Pressure
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_h18_defrost_fan_speed
+            name: H18 Fan Speed
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_a43_mv_defrost_opening
+            name: A43 MV Defrost Open
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_a51_mv_defrost_keep_time
+            name: A51 MV Keep Time
+            grid_options:
+              columns: 3
+
+          - type: heading
+            heading: DC Pump (F13–F17), Compressor Hz (R04–R45) & Timeband 1
+            heading_style: subtitle
+
+          - type: tile
+            entity: select.sprsun_heat_pump_f13_dc_pump_mode
+            name: F13 DC Pump Mode
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_f16_dc_pump_max_speed
+            name: F16 DC Pump Max %
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_f17_dc_pump_min_speed
+            name: F17 DC Pump Min %
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_f39_ac_constant_temp_diff
+            name: F39 Heating Deadband
+            grid_options:
+              columns: 3
+
+          - type: tile
+            entity: number.sprsun_heat_pump_r04_normal_heat_freq_0_t_14_c
+            name: R04 Normal Hz (T>=14°C)
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_r05_normal_heat_freq_1_9_14_c
+            name: R05 Normal Hz (9..14°C)
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_r06_normal_heat_freq_2_4_9_c
+            name: R06 Normal Hz (4..9°C)
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_r07_normal_heat_freq_3_5_4_c
+            name: R07 Normal Hz (-5..4°C)
+            grid_options:
+              columns: 3
+
+          - type: tile
+            entity: number.sprsun_heat_pump_r42_eco_heat_freq_0_t_14_c
+            name: R42 ECO Hz (T>=14°C)
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_r43_eco_heat_freq_1_9_14_c
+            name: R43 ECO Hz (9..14°C)
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_r44_eco_heat_freq_2_4_9_c
+            name: R44 ECO Hz (4..9°C)
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_r45_eco_heat_freq_3_5_4_c
+            name: R45 ECO Hz (-5..4°C)
+            grid_options:
+              columns: 3
+
+          - type: tile
+            entity: switch.sprsun_heat_pump_timeband_1_enable
+            name: Timeband 1 Enable
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_timeband_1_on_hour
+            name: Timeband 1 ON Hour
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_timeband_1_off_hour
+            name: Timeband 1 OFF Hour
+            grid_options:
+              columns: 3
+          - type: tile
+            entity: number.sprsun_heat_pump_timeband_1_hot_water_setpoint
+            name: Timeband 1 DHW Setp
+            grid_options:
+              columns: 3

@@ -1,0 +1,107 @@
+# ==============================================================================
+# SPRSUN Heat Pump - Compact Control Card (100% Native Home Assistant)
+# ==============================================================================
+# Ready to paste as a Manual Card onto any existing Home Assistant dashboard.
+# If your device name is not "SPRSUN Heat Pump", replace "sprsun_heat_pump"
+# with your own entity prefix.
+# ==============================================================================
+
+type: vertical-stack
+title: SPRSUN Heat Pump
+cards:
+  - type: conditional
+    conditions:
+      - condition: state
+        entity: binary_sensor.sprsun_heat_pump_alarm_stop
+        state: "on"
+    card:
+      type: tile
+      entity: button.sprsun_heat_pump_failure_reset
+      name: "⚠️ HEAT PUMP ALARM! Tap to reset fault"
+      icon: mdi:alert-octagon
+      color: red
+
+  - type: horizontal-stack
+    cards:
+      - type: tile
+        entity: switch.sprsun_heat_pump_power
+        name: Power
+        icon: mdi:power
+        color: green
+      - type: tile
+        entity: select.sprsun_heat_pump_unit_mode
+        name: Unit Mode (P06)
+        icon: mdi:heat-pump
+
+  - type: horizontal-stack
+    cards:
+      - type: tile
+        entity: select.sprsun_heat_pump_fan_mode
+        name: Profile (P07)
+        icon: mdi:fan
+        color: teal
+      - type: tile
+        entity: sensor.sprsun_heat_pump_operating_state
+        name: Operating State
+        icon: mdi:state-machine
+
+  - type: grid
+    columns: 2
+    square: false
+    cards:
+      - type: tile
+        entity: number.sprsun_heat_pump_heating_setpoint
+        name: Heating Target (P01)
+        icon: mdi:radiator
+        color: orange
+        features:
+          - type: numeric-input
+            style: buttons
+
+      - type: tile
+        entity: number.sprsun_heat_pump_heating_cooling_temp_diff
+        name: Heating Hysteresis (P03)
+        icon: mdi:arrow-expand-vertical
+        color: deep-orange
+        features:
+          - type: numeric-input
+            style: buttons
+
+      - type: tile
+        entity: number.sprsun_heat_pump_hot_water_setpoint
+        name: Hot Water Target (P04)
+        icon: mdi:water-boiler
+        color: red
+        features:
+          - type: numeric-input
+            style: buttons
+
+      - type: tile
+        entity: number.sprsun_heat_pump_hot_water_temp_diff
+        name: Hot Water Hysteresis (P05)
+        icon: mdi:arrow-expand-vertical
+        color: deep-orange
+        features:
+          - type: numeric-input
+            style: buttons
+
+  - type: glance
+    title: Live Temperatures & Compressor
+    show_name: true
+    show_state: true
+    entities:
+      - entity: sensor.sprsun_heat_pump_outlet_water_temperature
+        name: Supply
+        icon: mdi:water-arrow-right
+      - entity: sensor.sprsun_heat_pump_inlet_water_temperature
+        name: Return
+        icon: mdi:water-arrow-left
+      - entity: sensor.sprsun_heat_pump_hot_water_temperature
+        name: DHW Tank
+        icon: mdi:water-boiler
+      - entity: sensor.sprsun_heat_pump_ambient_temperature
+        name: Outdoor
+        icon: mdi:thermometer
+      - entity: sensor.sprsun_heat_pump_compressor_frequency
+        name: Compressor
+        icon: mdi:sine-wave
