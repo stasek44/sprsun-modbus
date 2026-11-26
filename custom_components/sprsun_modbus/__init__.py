@@ -477,6 +477,33 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
 
         return result
 
+    def _sync_read_register(
+        self,
+        address: int,
+        key: str | None = None,
+        scale: float = 1,
+    ) -> int | float:
+        """Read a single 16-bit holding register synchronously with auto-reconnect."""
+        result = self._execute_with_reconnect(
+            lambda: self.client.read_holding_registers(
+                address=address,
+                count=1,
+                device_id=self.device_address,
+            ),
+            f"read of 0x{address:04X}",
+        )
+        regs = getattr(result, "registers", None)
+        if not regs:
+            raise ValueError(f"Empty register response reading 0x{address:04X}")
+
+        raw_value = int(regs[0])
+        value: int | float = raw_value / scale if scale != 1 else raw_value
+        if key is not None:
+            if not isinstance(self.data, dict):
+                self.data = {}
+            self.data[key] = {"value": value, "updated_at": time.time()}
+        return value
+
     def _sync_write_register(
         self,
         address: int,
@@ -643,6 +670,21 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
             self.data[key] = {"value": bool_val, "updated_at": time.time()}
         _LOGGER.info("Wrote coil 0x%04X = %s (key=%s)", address, bool_val, key)
         return True
+
+    async def async_read_register(
+        self,
+        address: int,
+        key: str | None = None,
+        scale: float = 1,
+    ) -> int | float:
+        """Async thread-safe wrapper for single holding register read."""
+        async with self._lock:
+            return await self.hass.async_add_executor_job(
+                self._sync_read_register,
+                address,
+                key,
+                scale,
+            )
 
     async def async_write_register(
         self,

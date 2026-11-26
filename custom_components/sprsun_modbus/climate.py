@@ -100,12 +100,12 @@ class SPRSUNClimate(CoordinatorEntity, ClimateEntity):
         return self._controller.get_space_max_temp(self.hvac_mode)
 
     @property
-    def hvac_mode(self) -> HVACMode:
+    def hvac_mode(self) -> HVACMode | None:
         """Return current HVAC mode."""
         return self._controller.get_space_hvac_mode(self.coordinator.data)
 
     @property
-    def hvac_action(self) -> HVACAction:
+    def hvac_action(self) -> HVACAction | None:
         """Return current HVAC action."""
         return self._controller.get_space_hvac_action(self.coordinator.data)
 
@@ -206,12 +206,12 @@ class SPRSUNDHWClimate(CoordinatorEntity, ClimateEntity):
         return bool(self.coordinator.last_update_success and self.coordinator.data is not None)
 
     @property
-    def hvac_mode(self) -> HVACMode:
+    def hvac_mode(self) -> HVACMode | None:
         """Return current HVAC mode for DHW."""
         return self._controller.get_dhw_hvac_mode(self.coordinator.data)
 
     @property
-    def hvac_action(self) -> HVACAction:
+    def hvac_action(self) -> HVACAction | None:
         """Return current HVAC action for DHW."""
         return self._controller.get_dhw_hvac_action(self.coordinator.data)
 

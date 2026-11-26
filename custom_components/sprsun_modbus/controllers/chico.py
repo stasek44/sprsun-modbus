@@ -65,6 +65,7 @@ _CHICO_PRESET_TO_FAN_MODE: dict[str, str] = {
     "eco": "eco",
     "sleep": "night",
 }
+_CHICO_VALID_UNIT_MODES = frozenset({0, 1, 2, 3, 4})
 
 
 class ChicoController(ControllerBase):
@@ -141,8 +142,12 @@ class ChicoController(ControllerBase):
         return CHICO_EXPERT_SWITCHES
 
     def has_rw_data(self, data: Mapping[str, Any]) -> bool:
-        """Return True when primary RW setpoints have been loaded."""
-        return "heating_setpoint" in data
+        """Return True when primary control marks, unit_mode, and setpoints have been loaded."""
+        return (
+            "_control_0032" in data
+            and "unit_mode" in data
+            and "heating_setpoint" in data
+        )
 
     def read_all_registers(
         self,
@@ -355,14 +360,45 @@ class ChicoController(ControllerBase):
         )
 
     @staticmethod
+    def _get_power_state(data: Mapping[str, Any] | None) -> bool | None:
+        reg_value = extract_cache_value(data, "_control_0032")
+        if reg_value is None:
+            return None
+        return bool(int(reg_value) & 1)
+
+    @staticmethod
     def _is_power_on(data: Mapping[str, Any] | None) -> bool:
-        reg_value = int(extract_cache_value(data, "_control_0032", 0) or 0)
-        return bool(reg_value & 1)
+        return bool(ChicoController._get_power_state(data))
 
     @staticmethod
     def _is_compressor_running(data: Mapping[str, Any] | None) -> bool:
         out1_val = int(extract_cache_value(data, "output_symbol_1", 0) or 0)
         return bool(out1_val & 1)
+
+    async def _async_read_unit_mode(self, coordinator: Any) -> int:
+        """Read live unit_mode (0x0036) from the heat pump, raising HomeAssistantError if unknown."""
+        from homeassistant.exceptions import HomeAssistantError
+
+        try:
+            raw_mode = await coordinator.async_read_register(
+                address=0x0036,
+                key="unit_mode",
+                scale=1,
+            )
+        except Exception as err:
+            raise HomeAssistantError(
+                f"Cannot read current unit mode (0x0036) from heat pump: {err}"
+            ) from err
+
+        if raw_mode is None:
+            raise HomeAssistantError("Current unit mode (0x0036) is unknown")
+
+        unit_mode = int(raw_mode)
+        if unit_mode not in _CHICO_VALID_UNIT_MODES:
+            raise HomeAssistantError(
+                f"Unexpected unit mode {unit_mode} read from register 0x0036"
+            )
+        return unit_mode
 
     def get_space_min_temp(self, hvac_mode: HVACMode | str | None) -> float:
         """Return dynamic minimum temperature based on cooling vs heating mode."""
@@ -376,34 +412,46 @@ class ChicoController(ControllerBase):
             return 30.0
         return 55.0
 
-    def get_space_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode:
+    def get_space_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode | None:
         """Return current space HVAC mode for CHICO."""
         from homeassistant.components.climate import HVACMode
 
-        if not self._is_power_on(data):
+        power_on = self._get_power_state(data)
+        if power_on is None:
+            return None
+        if not power_on:
             return HVACMode.OFF
 
         auto_mode = extract_cache_value(data, "mode_control_enable", 0)
         if auto_mode == 1:
             return HVACMode.HEAT_COOL
 
-        unit_mode = int(extract_cache_value(data, "unit_mode", 1))
+        raw_mode = extract_cache_value(data, "unit_mode")
+        if raw_mode is None:
+            return None
+        unit_mode = int(raw_mode)
         if unit_mode in (1, 3):
             return HVACMode.HEAT
         if unit_mode in (2, 4):
             return HVACMode.COOL
         return HVACMode.OFF
 
-    def get_space_hvac_action(self, data: Mapping[str, Any] | None) -> HVACAction:
+    def get_space_hvac_action(self, data: Mapping[str, Any] | None) -> HVACAction | None:
         """Return current space HVAC action for CHICO."""
         from homeassistant.components.climate import HVACAction
 
-        if not self._is_power_on(data):
+        power_on = self._get_power_state(data)
+        if power_on is None:
+            return None
+        if not power_on:
             return HVACAction.OFF
         if not self._is_compressor_running(data):
             return HVACAction.IDLE
 
-        unit_mode = int(extract_cache_value(data, "unit_mode", 1))
+        raw_mode = extract_cache_value(data, "unit_mode")
+        if raw_mode is None:
+            return None
+        unit_mode = int(raw_mode)
         if unit_mode in (1, 3):
             return HVACAction.HEATING
         if unit_mode in (2, 4):
@@ -416,8 +464,10 @@ class ChicoController(ControllerBase):
 
     def get_space_target_temp(self, data: Mapping[str, Any] | None) -> float | None:
         """Return heating or cooling setpoint depending on active CHICO unit mode."""
-        unit_mode = int(extract_cache_value(data, "unit_mode", 1))
-        if unit_mode in (1, 3):
+        raw_mode = extract_cache_value(data, "unit_mode")
+        if raw_mode is None:
+            return None
+        if int(raw_mode) in (1, 3):
             return extract_cache_value(data, "heating_setpoint")
         return extract_cache_value(data, "cooling_setpoint")
 
@@ -456,21 +506,21 @@ class ChicoController(ControllerBase):
         if hvac_mode == HVACMode.OFF:
             await power_writer(False)
         elif hvac_mode == HVACMode.HEAT:
+            current_mode = await self._async_read_unit_mode(coordinator)
             await power_writer(True)
             await coordinator.async_write_register(
                 address=0x0191, value=0, key="mode_control_enable", scale=1
             )
-            current_mode = int(extract_cache_value(data, "unit_mode", 1))
             new_mode = 3 if current_mode in (3, 4) else 1
             await coordinator.async_write_register(
                 address=0x0036, value=new_mode, key="unit_mode", scale=1
             )
         elif hvac_mode == HVACMode.COOL:
+            current_mode = await self._async_read_unit_mode(coordinator)
             await power_writer(True)
             await coordinator.async_write_register(
                 address=0x0191, value=0, key="mode_control_enable", scale=1
             )
-            current_mode = int(extract_cache_value(data, "unit_mode", 1))
             new_mode = 4 if current_mode in (3, 4) else 2
             await coordinator.async_write_register(
                 address=0x0036, value=new_mode, key="unit_mode", scale=1
@@ -488,7 +538,7 @@ class ChicoController(ControllerBase):
         data: Mapping[str, Any] | None,
     ) -> None:
         """Write CHICO heating or cooling setpoint (scale 0.5°C -> x2, lower 8 bits masked)."""
-        unit_mode = int(extract_cache_value(data, "unit_mode", 1))
+        unit_mode = await self._async_read_unit_mode(coordinator)
         if unit_mode in (1, 3):
             address, key = 0x00CC, "heating_setpoint"
         else:
@@ -521,28 +571,39 @@ class ChicoController(ControllerBase):
             return
         await self.async_set_space_fan_mode(coordinator, fan_mode)
 
-    def get_dhw_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode:
+    def get_dhw_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode | None:
         """Return current DHW HVAC mode for CHICO."""
         from homeassistant.components.climate import HVACMode
 
-        if not self._is_power_on(data):
+        power_on = self._get_power_state(data)
+        if power_on is None:
+            return None
+        if not power_on:
             return HVACMode.OFF
-        unit_mode = int(extract_cache_value(data, "unit_mode", 1))
-        if unit_mode in (0, 3, 4):
+        raw_mode = extract_cache_value(data, "unit_mode")
+        if raw_mode is None:
+            return None
+        if int(raw_mode) in (0, 3, 4):
             return HVACMode.HEAT
         return HVACMode.OFF
 
-    def get_dhw_hvac_action(self, data: Mapping[str, Any] | None) -> HVACAction:
+    def get_dhw_hvac_action(self, data: Mapping[str, Any] | None) -> HVACAction | None:
         """Return current DHW HVAC action for CHICO."""
         from homeassistant.components.climate import HVACAction, HVACMode
 
-        if self.get_dhw_hvac_mode(data) == HVACMode.OFF:
+        dhw_mode = self.get_dhw_hvac_mode(data)
+        if dhw_mode is None:
+            return None
+        if dhw_mode == HVACMode.OFF:
             return HVACAction.OFF
 
+        raw_mode = extract_cache_value(data, "unit_mode")
+        if raw_mode is None:
+            return None
         compressor_running = self._is_compressor_running(data)
         status_val = int(extract_cache_value(data, "working_status_register", 0) or 0)
         hw_demand = bool(status_val & 1)
-        unit_mode = int(extract_cache_value(data, "unit_mode", 1))
+        unit_mode = int(raw_mode)
 
         if compressor_running and (unit_mode == 0 or (unit_mode in (3, 4) and hw_demand)):
             return HVACAction.HEATING
@@ -567,7 +628,7 @@ class ChicoController(ControllerBase):
         from homeassistant.components.climate import HVACMode
 
         power_writer = write_power_fn or (lambda st: self.async_write_power(coordinator, st))
-        current_mode = int(extract_cache_value(data, "unit_mode", 1))
+        current_mode = await self._async_read_unit_mode(coordinator)
 
         if hvac_mode == HVACMode.OFF:
             if current_mode == 0:
