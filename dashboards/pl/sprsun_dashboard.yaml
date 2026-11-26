@@ -622,10 +622,10 @@ views:
               columns: 6
 
       # ------------------------------------------------------------------------
-      # Sekcja 4 (pełna szerokość): Antylegionella, Grzałki, Lato/Zima i Wykresy
+      # Sekcja 4 (szeroka): Antylegionella, Grzałki, Lato/Zima i Wykresy
       # ------------------------------------------------------------------------
       - type: grid
-        column_span: 3
+        column_span: 2
         cards:
           - type: heading
             heading: Ochrona Antylegionella, Grzałki i Przełączanie Lato/Zima
@@ -636,55 +636,55 @@ views:
             entity: switch.sprsun_heat_pump_antilegionella_enable
             name: Antylegionella (Wł./Wył.)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_antilegionella_temperature
             name: Temp. dezynfekcji
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_antilegionella_weekday
             name: Dzień (0=Ndz..6=Sob)
             grid_options:
-              columns: 4
+              columns: 6
 
           - type: tile
             entity: number.sprsun_heat_pump_antilegionella_start_hour
             name: Godzina startu
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_antilegionella_end_hour
             name: Godzina końca
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: switch.sprsun_heat_pump_two_three_function
             name: Tryb 2/3-funkcyjny (G01)
             grid_options:
-              columns: 4
+              columns: 6
 
           - type: tile
             entity: number.sprsun_heat_pump_mode_control_enable
             name: Auto Lato/Zima (G09)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_ambient_temp_switch_setpoint
             name: Próg przełączania (G10)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_ambient_temp_switch_diff
             name: Histereza przeł. (G11)
             grid_options:
-              columns: 4
+              columns: 6
 
           - type: history-graph
             title: Krzywa ECO vs Rzeczywiste zasilanie i Praca sprężarki (24h)
             hours_to_show: 24
             grid_options:
-              columns: 12
+              columns: full
             entities:
               - entity: sensor.sprsun_heat_pump_outlet_water_temperature
                 name: Zasilanie CO
@@ -1268,10 +1268,10 @@ views:
                 above: -1
 
       # ------------------------------------------------------------------------
-      # Sekcja 4 (pełna szerokość): Wykres analizy szronienia i efektywności
+      # Sekcja 4 (szeroka): Wykres analizy szronienia i efektywności
       # ------------------------------------------------------------------------
       - type: grid
-        column_span: 3
+        column_span: 2
         cards:
           - type: heading
             heading: Wykresy do strojenia defrostu i krzywej mocy (24h)
@@ -1282,7 +1282,7 @@ views:
             title: Analiza defrostu — Temp. lamel, Zewnętrzna, Przyrost szronu (Zewn.-Lamel) i Defrost
             hours_to_show: 24
             grid_options:
-              columns: 6
+              columns: 12
             entities:
               - entity: sensor.sprsun_heat_pump_coil_temperature
                 name: Lamele / Cewka (°C)
@@ -1297,7 +1297,7 @@ views:
             title: Praca sprężarki (Hz), Szacowana moc (W) i Odstęp defrostu (min)
             hours_to_show: 24
             grid_options:
-              columns: 6
+              columns: 12
             entities:
               - entity: sensor.sprsun_heat_pump_compressor_frequency
                 name: Sprężarka (Hz)
@@ -1310,7 +1310,7 @@ views:
       # Sekcja 5 (Ekspercka — ukryta dopóki enable_expert_writes == False)
       # ------------------------------------------------------------------------
       - type: grid
-        column_span: 3
+        column_span: 2
         visibility:
           - condition: numeric_state
             entity: number.sprsun_heat_pump_h01_defrost_frequency
@@ -1323,6 +1323,8 @@ views:
 
           - type: markdown
             text_only: true
+            grid_options:
+              columns: full
             content: >-
               ⚠️ **Strefa parametrów fabrycznych (EEPROM):** Zmiany wprowadzaj **pojedynczo o mały krok** (np. ±1°C lub ±10 min) i obserwuj wykresy przez 24h. Zbyt rzadki lub zbyt krótki defrost przy dużej wilgotności może całkowicie zalodzić parownik!
               - **Rzadszy defrost (mniej strat):** delikatnie zwiększ `H08/H11/H14` (np. 45 -> 60 min) lub `H07/H10/H13` (np. 10 -> 11–12°C), jeśli na wykresie `Zewn. - Lamele` wchodzi zbyt wcześnie na czystych lamelach.
@@ -1336,54 +1338,54 @@ views:
             entity: number.sprsun_heat_pump_h03_defrost_start_coil_temp
             name: H03 Próg lamel startu
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_defrost_ambient_setpoint_3_0x00db_pdf_h04
             name: 0x00DB Maks. temp. zewn. defrostu
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h09_defrost_ambient_setpoint_1
             name: H09 Próg strefy 1/2
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h12_defrost_ambient_setpoint_2
             name: H12 Próg strefy 2/3
             grid_options:
-              columns: 3
+              columns: 6
 
           - type: tile
             entity: number.sprsun_heat_pump_h07_defrost_ambient_coil_diff_1
             name: H07 Delta Zewn-Lamel (Strefa 1)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h10_defrost_ambient_coil_diff_2
             name: H10 Delta Zewn-Lamel (Strefa 2)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h13_defrost_ambient_coil_diff_3
             name: H13 Delta Zewn-Lamel (Strefa 3)
             grid_options:
-              columns: 4
+              columns: 6
 
           - type: tile
             entity: number.sprsun_heat_pump_h08_defrost_period_1
             name: H08 Min. odstęp (Strefa 1)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h11_defrost_period_2
             name: H11 Min. odstęp (Strefa 2)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h14_defrost_period_3
             name: H14 Min. odstęp (Strefa 3)
             grid_options:
-              columns: 4
+              columns: 6
 
           - type: tile
             entity: number.sprsun_heat_pump_h15_defrost_comp_total_run
@@ -1404,38 +1406,38 @@ views:
             entity: number.sprsun_heat_pump_h01_defrost_frequency
             name: H01 Częstotliwość w defroście (Hz)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h04_defrost_exit_coil_temp
             name: H04 Temp. wyjścia lamel (°C)
             grid_options:
-              columns: 4
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h05_defrost_max_time
             name: H05 Maks. czas defrostu (min)
             grid_options:
-              columns: 4
+              columns: 6
 
           - type: tile
             entity: number.sprsun_heat_pump_h17_defrost_fan_high_pressure
             name: H17 Próg ciśn. wentylatora
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_h18_defrost_fan_speed
             name: H18 Obroty wentylatora
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_a43_mv_defrost_opening
             name: A43 Otwarcie EEV w defroście
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_a51_mv_defrost_keep_time
             name: A51 Podtrzymanie EEV po defroście
             grid_options:
-              columns: 3
+              columns: 6
 
           - type: heading
             heading: Modulacja pompy DC (F13–F17), Sprężarki (F27–F32, R04–R45) i Harmonogramy
@@ -1445,82 +1447,82 @@ views:
             entity: select.sprsun_heat_pump_f13_dc_pump_mode
             name: F13 Tryb pompy DC
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_f16_dc_pump_max_speed
             name: F16 Maks. % pompy DC
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_f17_dc_pump_min_speed
             name: F17 Min. % pompy DC
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_f39_ac_constant_temp_diff
             name: F39 Martwa strefa CO
             grid_options:
-              columns: 3
+              columns: 6
 
           - type: tile
             entity: number.sprsun_heat_pump_r04_normal_heat_freq_0_t_14_c
             name: R04 Normal Hz (T>=14°C)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_r05_normal_heat_freq_1_9_14_c
             name: R05 Normal Hz (9..14°C)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_r06_normal_heat_freq_2_4_9_c
             name: R06 Normal Hz (4..9°C)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_r07_normal_heat_freq_3_5_4_c
             name: R07 Normal Hz (-5..4°C)
             grid_options:
-              columns: 3
+              columns: 6
 
           - type: tile
             entity: number.sprsun_heat_pump_r42_eco_heat_freq_0_t_14_c
             name: R42 ECO Hz (T>=14°C)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_r43_eco_heat_freq_1_9_14_c
             name: R43 ECO Hz (9..14°C)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_r44_eco_heat_freq_2_4_9_c
             name: R44 ECO Hz (4..9°C)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_r45_eco_heat_freq_3_5_4_c
             name: R45 ECO Hz (-5..4°C)
             grid_options:
-              columns: 3
+              columns: 6
 
           - type: tile
             entity: switch.sprsun_heat_pump_timeband_1_enable
             name: Harmonogram 1 (Wł./Wył.)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_timeband_1_on_hour
             name: Timeband 1 Start (h)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_timeband_1_off_hour
             name: Timeband 1 Stop (h)
             grid_options:
-              columns: 3
+              columns: 6
           - type: tile
             entity: number.sprsun_heat_pump_timeband_1_hot_water_setpoint
             name: Timeband 1 Zadana CWU
             grid_options:
-              columns: 3
+              columns: 6
