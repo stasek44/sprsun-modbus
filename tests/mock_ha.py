@@ -472,6 +472,8 @@ def setup_mocks():
                 VOLTAGE = "voltage"
                 ENERGY = "energy"
                 VOLUME_FLOW_RATE = "volume_flow_rate"
+                DURATION = "duration"
+                ENUM = "enum"
 
             class SensorStateClass(StrEnum):
                 MEASUREMENT = "measurement"

@@ -379,8 +379,29 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                     continue
             updated_data[key] = {"value": value, "updated_at": now}
 
+        self._apply_derived_data(updated_data, now)
         self._poll_count += 1
         return updated_data
+
+    def _apply_derived_data(self, target_data: dict[str, Any], now: float) -> None:
+        """Compute and merge controller-derived sensor values into coordinator data."""
+        compute_fn = getattr(self.controller, "compute_derived_data", None)
+        if not callable(compute_fn):
+            return
+        derived_specs = self.controller.get_derived_sensors() if hasattr(self.controller, "get_derived_sensors") else ()
+        derived_values = compute_fn(target_data, now) or {}
+        for spec in derived_specs:
+            val = derived_values.get(spec.key)
+            if val is not None:
+                target_data[spec.key] = {"value": val, "updated_at": now}
+            else:
+                target_data.pop(spec.key, None)
+
+    def _notify_updated_data(self) -> None:
+        """Recompute derived data after a write and notify listeners."""
+        if isinstance(self.data, dict):
+            self._apply_derived_data(self.data, time.time())
+        self.async_set_updated_data(self.data)
 
     def _execute_with_reconnect(self, operation: Callable[[], Any], context: str) -> Any:
         """Execute a synchronous Modbus client operation with one reconnect-and-retry cycle."""
@@ -590,7 +611,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 scale,
                 cached_value,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_write_masked_register(
         self,
@@ -610,7 +631,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 key,
                 cached_value,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_write_registers(
         self,
@@ -628,7 +649,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 key,
                 value,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_write_bit(self, address: int, bit: int, value: bool, reg_key: str | None = None) -> None:
         """Async thread-safe wrapper for bitfield holding register write."""
@@ -640,7 +661,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 value,
                 reg_key,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_write_coil(self, address: int, value: bool, key: str | None = None) -> None:
         """Async thread-safe wrapper for single coil write (FC 0x05)."""
@@ -651,7 +672,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 value,
                 key,
             )
-        self.async_set_updated_data(self.data)
+        self._notify_updated_data()
 
     async def async_shutdown(self):
         """Shutdown coordinator."""

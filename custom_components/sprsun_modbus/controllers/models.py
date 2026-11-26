@@ -1,7 +1,7 @@
 """Controller-agnostic register models, entity specs, and Modbus codecs."""
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from enum import StrEnum
 import math
@@ -122,6 +122,26 @@ class SensorSpec:
             enabled_default=self.enabled_default if enabled_default is None else enabled_default,
             is_expert=is_expert,
         )
+
+
+@dataclass(frozen=True)
+class DerivedSensorSpec:
+    """Controller-calculated virtual sensor specification (not backed by a single register)."""
+
+    key: str
+    name: str
+    value_fn: Callable[[Mapping[str, Any] | None], Any]
+    unit: str | None = None
+    device_class: str | None = None
+    state_class: str | None = None
+    options: tuple[str, ...] | None = None
+    diagnostic: bool = False
+    enabled_default: bool = False
+    suggested_display_precision: int | None = None
+    description: str = ""
+    formula: str = ""
+    experimental: bool = False
+    disclaimer: str | None = None
 
 
 @dataclass(frozen=True)

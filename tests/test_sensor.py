@@ -7,8 +7,9 @@ setup_mocks()
 
 from homeassistant.const import CONF_NAME, EntityCategory
 from custom_components.sprsun_modbus.const import DOMAIN, REGISTERS_READ_ONLY
+from custom_components.sprsun_modbus.controllers.chico_derived import CHICO_DERIVED_SENSORS
 from custom_components.sprsun_modbus.controllers.chico_registers import CHICO_SENSORS
-from custom_components.sprsun_modbus.sensor import SPRSUNSensor, async_setup_entry
+from custom_components.sprsun_modbus.sensor import SPRSUNDerivedSensor, SPRSUNSensor, async_setup_entry
 
 
 class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
@@ -35,7 +36,7 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
         }
 
     async def test_async_setup_entry_creates_all_sensors(self):
-        """Test async_setup_entry adds all core (49) and expert (336) sensors."""
+        """Test async_setup_entry adds all core (49), expert (336), and derived (10) sensors."""
         hass = MagicMock()
         hass.data = {DOMAIN: {self.config_entry.entry_id: self.coordinator}}
         async_add_entities = MagicMock()
@@ -44,8 +45,8 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
 
         async_add_entities.assert_called_once()
         entities = async_add_entities.call_args[0][0]
-        self.assertEqual(len(entities), len(CHICO_SENSORS))
-        self.assertEqual(len(entities), 385)
+        self.assertEqual(len(entities), len(CHICO_SENSORS) + len(CHICO_DERIVED_SENSORS))
+        self.assertEqual(len(entities), 395)
 
         by_key = {entity._key: entity for entity in entities}
         self.assertEqual(by_key["h01_defrost_freq"].entity_category, EntityCategory.DIAGNOSTIC)
@@ -59,6 +60,13 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(
             getattr(by_key["inlet_temp"], "_attr_entity_registry_enabled_default", True)
         )
+        for derived_spec in CHICO_DERIVED_SENSORS:
+            derived_ent = by_key[derived_spec.key]
+            self.assertIsInstance(derived_ent, SPRSUNDerivedSensor)
+            self.assertFalse(
+                getattr(derived_ent, "_attr_entity_registry_enabled_default", True),
+                f"Derived sensor {derived_spec.key} must be disabled by default",
+            )
 
     def test_sensor_creation_and_attributes(self):
         """Test sensor initialization and standard HA properties."""

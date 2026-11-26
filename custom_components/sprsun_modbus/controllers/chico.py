@@ -6,6 +6,7 @@ import logging
 from typing import TYPE_CHECKING, Any
 
 from .base import ControllerBase
+from .chico_derived import CHICO_DERIVED_SENSORS, ChicoDerivedTracker
 from .chico_registers import (
     CHICO_BUTTONS,
     CHICO_BINARY_SENSORS,
@@ -33,6 +34,7 @@ from .models import (
     BinarySensorSpec,
     ButtonSpec,
     ClimateCapabilities,
+    DerivedSensorSpec,
     NumberSpec,
     RegisterSpace,
     SelectSpec,
@@ -66,6 +68,10 @@ _CHICO_PRESET_TO_FAN_MODE: dict[str, str] = {
 class ChicoController(ControllerBase):
     """CHICO controller (original SPRSUN controller)."""
 
+    def __init__(self) -> None:
+        """Initialize CHICO controller and stateful derived-sensor tracker."""
+        self._derived_tracker = ChicoDerivedTracker()
+
     @property
     def name(self) -> str:
         """Return controller type name."""
@@ -79,6 +85,18 @@ class ChicoController(ControllerBase):
     def get_sensors(self) -> tuple[SensorSpec, ...]:
         """Return CHICO read-only sensor specifications."""
         return CHICO_SENSORS
+
+    def get_derived_sensors(self) -> tuple[DerivedSensorSpec, ...]:
+        """Return CHICO calculated/derived sensor specifications."""
+        return CHICO_DERIVED_SENSORS
+
+    def compute_derived_data(
+        self,
+        data: Mapping[str, Any],
+        now: float | None = None,
+    ) -> dict[str, Any]:
+        """Compute CHICO derived sensor values from coordinator data."""
+        return self._derived_tracker.compute(data, now=now)
 
     def get_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
         """Return CHICO binary sensor specifications."""

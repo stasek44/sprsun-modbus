@@ -33,6 +33,7 @@ async def async_get_config_entry_diagnostics(
             "name": controller.name,
             "manufacturer": controller.manufacturer,
             "sensor_count": len(controller.get_sensors()),
+            "derived_sensor_count": len(controller.get_derived_sensors()),
             "binary_sensor_count": len(controller.get_binary_sensors()),
             "number_count": len(controller.get_numbers()),
             "select_count": len(controller.get_selects()),

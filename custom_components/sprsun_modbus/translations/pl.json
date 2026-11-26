@@ -44,5 +44,23 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "operating_state": {
+        "state": {
+          "off": "Wyłączona",
+          "idle": "Czuwanie",
+          "heating": "Ogrzewanie",
+          "cooling": "Chłodzenie",
+          "hot_water": "CWU",
+          "heating_hot_water": "Ogrzewanie + CWU",
+          "cooling_hot_water": "Chłodzenie + CWU",
+          "defrost": "Rozmrażanie (Defrost)",
+          "antilegionella": "Antylegionella",
+          "alarm": "Alarm"
+        }
+      }
+    }
   }
 }

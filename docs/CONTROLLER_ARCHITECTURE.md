@@ -10,7 +10,7 @@ custom_components/sprsun_modbus/
 ├── config_flow.py                  # Auto-detection, options flow (enable_expert_writes), selector coercion
 ├── const.py                        # Integration defaults, is_expert_writes_enabled(), legacy aliases
 ├── diagnostics.py                  # Redacted coordinator cache, poll stats, and entity diagnostics export
-├── sensor.py                       # Consumes ControllerBase.get_sensors() (core + read-only expert diagnostics)
+├── sensor.py                       # Consumes get_sensors() + opt-in get_derived_sensors() (SPRSUNDerivedSensor)
 ├── binary_sensor.py                # Consumes ControllerBase.get_binary_sensors() (bitfields, alarms, control bits)
 ├── number.py                       # Consumes get_numbers() + opt-in get_expert_numbers() (NumberMode.BOX)
 ├── select.py                       # Consumes get_selects() + opt-in get_expert_selects()
@@ -20,9 +20,10 @@ custom_components/sprsun_modbus/
 ├── strings.json & translations/    # En/Pl UI labels & expert write warnings
 └── controllers/
     ├── __init__.py                 # CONTROLLER_REGISTRY, get_controller, detect_controller_type, helpers
-    ├── base.py                     # ControllerBase abstract class, climate & opt-in expert interfaces
-    ├── models.py                   # RegisterSpace, DataType, WordOrder, entity specs (`is_expert`), codecs
+    ├── base.py                     # ControllerBase abstract class, climate, derived & opt-in expert interfaces
+    ├── models.py                   # RegisterSpace, DataType, WordOrder, entity specs (`DerivedSensorSpec`, `is_expert`), codecs
     ├── modbus_helpers.py           # Shared batch reader (FC 0x01/0x02/0x03/0x04) and spec decoder
+    ├── chico_derived.py            # CHICO derived sensor specs & ChicoDerivedTracker (defrost filter, durations)
     ├── chico_registers.py          # Declarative CHICO register map (core + 336 expert sensors + opt-in writes)
     └── chico.py                    # ChicoController driver & batched RW polling (`CHICO_RW_BATCHES`)
 ```

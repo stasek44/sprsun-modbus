@@ -44,5 +44,23 @@
         }
       }
     }
+  },
+  "entity": {
+    "sensor": {
+      "operating_state": {
+        "state": {
+          "off": "Off",
+          "idle": "Idle",
+          "heating": "Heating",
+          "cooling": "Cooling",
+          "hot_water": "Hot Water",
+          "heating_hot_water": "Heating + Hot Water",
+          "cooling_hot_water": "Cooling + Hot Water",
+          "defrost": "Defrosting",
+          "antilegionella": "Antilegionella",
+          "alarm": "Alarm"
+        }
+      }
+    }
   }
 }
