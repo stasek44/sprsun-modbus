@@ -245,9 +245,73 @@ if (!customElements.get("ll-strategy-section-sprsun-control")) {
   );
 }
 
-const isBrowserPl =
-  typeof navigator !== "undefined" &&
-  String(navigator.language || "").toLowerCase().startsWith("pl");
+const PICKER_META = {
+  en: {
+    dashName: "SPRSUN Heat Pump",
+    dashDesc: "Ready-to-use 4-tab SPRSUN heat pump dashboard with automatic language & entity detection.",
+    secName: "SPRSUN — Quick Control",
+    secDesc: "Compact SPRSUN heat pump control section for any dashboard.",
+  },
+  pl: {
+    dashName: "Pompa Ciepła SPRSUN",
+    dashDesc: "Gotowy 4-zakładkowy dashboard pompy ciepła SPRSUN z automatycznym językiem i wykrywaniem encji.",
+    secName: "SPRSUN — Sterowanie",
+    secDesc: "Kompaktowa sekcja sterowania pompą SPRSUN na dowolny pulpit.",
+  },
+  fr: {
+    dashName: "Pompe à chaleur SPRSUN",
+    dashDesc: "Tableau de bord SPRSUN à 4 onglets prêt à l'emploi avec détection automatique de la langue et des entités.",
+    secName: "SPRSUN — Contrôle rapide",
+    secDesc: "Section de contrôle compacte SPRSUN pour tout tableau de bord.",
+  },
+  de: {
+    dashName: "SPRSUN Wärmepumpe",
+    dashDesc: "Sofort einsatzbereites 4-Tab-Dashboard mit automatischer Sprach- und Entitätserkennung.",
+    secName: "SPRSUN — Schnellsteuerung",
+    secDesc: "Kompakter SPRSUN-Steuerungsbereich für jedes Dashboard.",
+  },
+  es: {
+    dashName: "Bomba de calor SPRSUN",
+    dashDesc: "Panel SPRSUN de 4 pestañas listo para usar con detección automática de idioma y entidades.",
+    secName: "SPRSUN — Control rápido",
+    secDesc: "Sección compacta de control SPRSUN para cualquier panel.",
+  },
+  cs: {
+    dashName: "Tepelné čerpadlo SPRSUN",
+    dashDesc: "Připravený 4-kartový dashboard SPRSUN s automatickým jazykem a rozpoznáním entit.",
+    secName: "SPRSUN — Rychlé ovládání",
+    secDesc: "Kompaktní ovládací sekce SPRSUN pro libovolný dashboard.",
+  },
+  sk: {
+    dashName: "Tepelné čerpadlo SPRSUN",
+    dashDesc: "Pripravený 4-kartový dashboard SPRSUN s automatickým jazykom a rozpoznaním entít.",
+    secName: "SPRSUN — Rýchle ovládanie",
+    secDesc: "Kompaktná ovládacia sekcia SPRSUN pre ľubovoľný dashboard.",
+  },
+  hu: {
+    dashName: "SPRSUN Hőszivattyú",
+    dashDesc: "Azonnal használható 4 lapos SPRSUN irányítópult automatikus nyelv- és entitásfelismeréssel.",
+    secName: "SPRSUN — Gyorsvezérlés",
+    secDesc: "Kompakt SPRSUN vezérlő szakasz bármely irányítópulthoz.",
+  },
+  lt: {
+    dashName: "SPRSUN Šilumos siurblys",
+    dashDesc: "Paruoštas 4 skirtukų SPRSUN skydelis su automatiniu kalbos ir objektų atpažinimu.",
+    secName: "SPRSUN — Greitas valdymas",
+    secDesc: "Kompaktiška SPRSUN valdymo sekcija bet kuriam skydeliui.",
+  },
+  uk: {
+    dashName: "Тепловий насос SPRSUN",
+    dashDesc: "Готова 4-вкладкова панель SPRSUN з автоматичним визначенням мови та сутностей.",
+    secName: "SPRSUN — Швидке керування",
+    secDesc: "Компактна секція керування SPRSUN для будь-якої панелі.",
+  },
+};
+
+const browserLang = normalizeLanguage(
+  typeof navigator !== "undefined" ? navigator.language : "en"
+);
+const pickerText = PICKER_META[browserLang] || PICKER_META.en;
 
 window.customStrategies = window.customStrategies || [];
 
@@ -255,10 +319,8 @@ if (!window.customStrategies.some((item) => item?.type === "sprsun")) {
   window.customStrategies.push({
     type: "sprsun",
     strategyType: "dashboard",
-    name: isBrowserPl ? "Pompa Ciepła SPRSUN" : "SPRSUN Heat Pump",
-    description: isBrowserPl
-      ? "Gotowy 4-zakładkowy dashboard pompy ciepła SPRSUN z automatycznym językiem i wykrywaniem encji."
-      : "Ready-to-use 4-tab SPRSUN heat pump dashboard with automatic language & entity detection.",
+    name: pickerText.dashName,
+    description: pickerText.dashDesc,
     documentationURL: "https://github.com/stasek44/sprsun-modbus/blob/main/docs/DASHBOARD.md",
   });
 }
@@ -267,10 +329,8 @@ if (!window.customStrategies.some((item) => item?.type === "sprsun-control")) {
   window.customStrategies.push({
     type: "sprsun-control",
     strategyType: "section",
-    name: isBrowserPl ? "SPRSUN — Sterowanie" : "SPRSUN — Quick Control",
-    description: isBrowserPl
-      ? "Kompaktowa sekcja sterowania pompą SPRSUN na dowolny pulpit."
-      : "Compact SPRSUN heat pump control section for any dashboard.",
+    name: pickerText.secName,
+    description: pickerText.secDesc,
     documentationURL: "https://github.com/stasek44/sprsun-modbus/blob/main/docs/DASHBOARD.md",
   });
 }

@@ -4,7 +4,7 @@
 
 The integration ships with built-in **100% native Home Assistant Lovelace strategies** (built with the modern `sections` layout — **no HACS custom cards and no YAML copy-paste required**).
 
-- **Automatic language selection:** Reads your Home Assistant UI language (`en` / `pl`) from a single template + i18n dictionary.
+- **Automatic language selection:** Reads your Home Assistant UI language (`en`, `pl`, `fr`, `de`, `es`, `cs`, `sk`, `hu`, `lt`, `uk`) from a single template + i18n dictionary.
 - **Automatic entity detection:** Resolves your actual entity IDs automatically via `unique_id` — even if you renamed your heat pump device.
 - **Editable anytime:** Click **Take control** in Home Assistant whenever you want to convert the generated dashboard into a manually editable one.
 

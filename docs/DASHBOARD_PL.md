@@ -4,7 +4,7 @@
 
 Integracja zawiera wbudowane, w **100% natywne strategie Lovelace** dla Home Assistanta (układ **Sekcji** — **bez instalowania kart z HACS i bez ręcznego kopiowania YAML-a**).
 
-- **Automatyczny język:** Dashboard sam dobiera język (`pl` / `en`) na podstawie ustawień Twojego profilu w HA z jednego wspólnego szablonu i słownika tłumaczeń.
+- **Automatyczny język:** Dashboard sam dobiera język (`pl`, `en`, `fr`, `de`, `es`, `cs`, `sk`, `hu`, `lt`, `uk`) na podstawie ustawień Twojego profilu w HA z jednego wspólnego szablonu i słownika tłumaczeń.
 - **Automatyczne wykrywanie encji:** Sam znajduje rzeczywiste `entity_id` po `unique_id` — działa od razu nawet po zmianie nazwy pompy (bez żadnego `Ctrl+H`).
 - **Możliwość pełnej edycji:** W dowolnym momencie możesz kliknąć **Przejmij kontrolę** w HA, aby zamienić pulpit w zwykły edytowalny dashboard.
 

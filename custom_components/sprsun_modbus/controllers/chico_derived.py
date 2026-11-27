@@ -236,6 +236,12 @@ class _ActiveDurationTracker:
     def __init__(self) -> None:
         self._active_since: float | None = None
         self._last_duration_min: float = 0.0
+        self._last_completed_duration_min: float | None = None
+
+    @property
+    def last_completed_duration_min(self) -> float | None:
+        """Return duration (minutes) of the most recently finished cycle, if any."""
+        return self._last_completed_duration_min
 
     def update(self, is_active: bool | None, now: float) -> float | None:
         """Update cycle state and return current or last completed duration in minutes."""
@@ -248,7 +254,9 @@ class _ActiveDurationTracker:
             self._last_duration_min = elapsed
             return elapsed
         if self._active_since is not None:
-            self._last_duration_min = round(max(0.0, (now - self._active_since) / 60.0), 1)
+            completed = round(max(0.0, (now - self._active_since) / 60.0), 1)
+            self._last_duration_min = completed
+            self._last_completed_duration_min = completed
             self._active_since = None
         return self._last_duration_min
 
@@ -362,6 +370,10 @@ class ChicoDerivedTracker:
         )
         if comp_dur is not None:
             results["compressor_last_run_duration"] = comp_dur
+        if self._compressor_duration.last_completed_duration_min is not None:
+            results["compressor_last_completed_duration"] = (
+                self._compressor_duration.last_completed_duration_min
+            )
 
         defr_dur = self._defrost_duration.update(
             _get_bit(data, "working_status_register", 7),

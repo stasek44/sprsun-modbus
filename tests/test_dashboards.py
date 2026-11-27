@@ -64,7 +64,10 @@ class TestDashboardTemplatesAndI18n(unittest.TestCase):
         self.assertGreater(len(en_data), 200)
 
         i18n_files = sorted(I18N_DIR.glob("*.json"))
-        self.assertGreaterEqual(len(i18n_files), 2)
+        self.assertEqual(
+            {p.stem for p in i18n_files},
+            {"en", "pl", "fr", "de", "es", "cs", "sk", "hu", "lt", "uk"},
+        )
         for path in i18n_files:
             data = json.loads(path.read_text(encoding="utf-8"))
             self.assertEqual(

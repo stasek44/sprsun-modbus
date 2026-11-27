@@ -227,8 +227,18 @@ class SPRSUNDerivedSensor(CoordinatorEntity, SensorEntity):
         self._attr_device_info = build_device_info(controller, config_entry)
 
     @property
-    def extra_state_attributes(self) -> dict[str, str | bool]:
-        """Return static documentation and experimental disclaimer attributes."""
+    def extra_state_attributes(self) -> dict[str, str | bool | float]:
+        """Return static documentation, disclaimer, and cycle completion attributes."""
+        if self._key == "compressor_last_run_duration":
+            completed = extract_cache_value(
+                self.coordinator.data,
+                "compressor_last_completed_duration",
+            )
+            if completed is not None:
+                return {
+                    **self._static_extra_attributes,
+                    "last_completed_minutes": completed,
+                }
         return self._static_extra_attributes
 
     @property
