@@ -9,7 +9,9 @@ custom_components/sprsun_modbus/
 ├── __init__.py                     # SPRSUNDataUpdateCoordinator (FC 0x03/0x06/0x10/0x05 + masked RMW + auto-DEBUG)
 ├── config_flow.py                  # Auto-detection, options flow (enable_expert_writes), selector coercion
 ├── const.py                        # Integration defaults, is_expert_writes_enabled(), legacy aliases
+├── dashboard.py                    # Built-in Lovelace strategy registration, static serving & WS entity context API
 ├── diagnostics.py                  # Redacted coordinator cache, poll stats, and entity diagnostics export
+├── frontend/                       # Single-source Lovelace strategy JS, per-controller JSON templates & i18n/{en,pl}.json
 ├── sensor.py                       # Consumes get_sensors() + opt-in get_derived_sensors() (SPRSUNDerivedSensor)
 ├── binary_sensor.py                # Consumes ControllerBase.get_binary_sensors() (bitfields, alarms, control bits)
 ├── number.py                       # Consumes get_numbers() + opt-in get_expert_numbers() (NumberMode.BOX)
@@ -72,6 +74,7 @@ custom_components/sprsun_modbus/
    - Return `ClimateCapabilities(enabled=False, supports_dhw=False)` if climate entities are not supported yet.
 5. Register the driver in `CONTROLLER_REGISTRY` in `controllers/__init__.py` (keep `chico` first or ensure `detect()` checks non-zero/unique signature registers so `[0, 0, 0]` cannot false-match).
 6. Add unit tests in `tests/` covering register decoding, batch reads, climate mapping, and detection.
+7. Optionally add a controller-specific dashboard template `frontend/sprsun_dashboard_<controller>.json` (plus any new keys in `frontend/i18n/{en,pl}.json`). Until a dedicated template exists, the built-in Lovelace strategy automatically renders a clean fallback view of the controller's resolved entities.
 
 ### Note on Archived CAREL Reference (`24c99a3`)
 

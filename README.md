@@ -109,7 +109,7 @@ In Home Assistant, go to **Settings** → **Devices & Services** → **Add Integ
 
 ## Documentation
 
-- 🎛️ **[Ready-to-Use Native HA Dashboards (EN)](docs/DASHBOARD.md)** / **[Polski przewodnik (PL)](docs/DASHBOARD_PL.md)**: 100% native Home Assistant 4-view Lovelace dashboards (`Default`, `Detailed`, `Diagnostics`, `Optimization` with energy & defrost tuning), compact control card, and optional 24h helper templates.
+- 🎛️ **[Built-in Native HA Dashboards (EN)](docs/DASHBOARD.md)** / **[Polski przewodnik (PL)](docs/DASHBOARD_PL.md)**: Built-in 100% native Home Assistant Lovelace strategies (`Default`, `Detailed`, `Diagnostics`, `Optimization` + compact quick-control section) with automatic UI language (`EN`/`PL`) and automatic entity detection — no YAML copy-paste or HACS custom cards required.
 - 📖 **[CHICO Parameters & Settings Guide](docs/CHICO_PARAMETERS_GUIDE.md)**: Detailed explanations of all parameters (`P`, `E`, `G`, and `H`/`A`/`B`/`D`/`F`/`R`/Timeband expert series), weather curves, safety limits, and practical tips.
 - 📚 **[CHICO Modbus Protocol Reference](docs/CHICO_MODBUS_REFERENCE.md)**: Complete `0x0000–0x01BB` register map with live hardware observations, data types, scales, batching layout, and bitfield definitions.
 - 🧩 **[Multi-Controller Architecture Guide](docs/CONTROLLER_ARCHITECTURE.md)**: Package layout, `ControllerBase` driver interface, polling/batching model, masked writes, and safety architecture.

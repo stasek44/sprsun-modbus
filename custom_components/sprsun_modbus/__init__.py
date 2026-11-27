@@ -34,6 +34,7 @@ from .const import (
     is_expert_writes_enabled,
 )
 from .controllers import ControllerBase, get_controller
+from .dashboard import async_register_dashboard
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -130,11 +131,13 @@ def _sync_entity_registry(
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SPRSUN Heat Pump from a config entry."""
+    manifest_version = ""
     executor = getattr(hass, "async_add_executor_job", None)
     if callable(executor):
         res = executor(_read_manifest_version)
         if inspect.isawaitable(res):
-            _configure_prerelease_logging(await res)
+            manifest_version = str(await res or "")
+            _configure_prerelease_logging(manifest_version)
 
     host = entry.options.get(CONF_HOST, entry.data.get(CONF_HOST))
     port = int(entry.options.get(CONF_PORT, entry.data.get(CONF_PORT)))
@@ -172,6 +175,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     platforms = _resolve_platforms(coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
+
+    await async_register_dashboard(hass, manifest_version)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 

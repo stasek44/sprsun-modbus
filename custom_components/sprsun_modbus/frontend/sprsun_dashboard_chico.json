@@ -1,0 +1,1979 @@
+{
+  "views": [
+    {
+      "type": "sections",
+      "title": "[[t:view_default_title]]",
+      "path": "[[t:view_default_path]]",
+      "icon": "mdi:home-thermometer",
+      "max_columns": 3,
+      "badges": [
+        {
+          "type": "entity",
+          "entity": "[[ent:switch:power_switch]]",
+          "name": "[[t:power]]"
+        },
+        {
+          "type": "entity",
+          "entity": "[[ent:sensor:operating_state]]",
+          "name": "[[t:state]]"
+        },
+        {
+          "type": "entity",
+          "entity": "[[ent:sensor:ambient_temp_filtered]]",
+          "name": "[[t:outdoor]]"
+        },
+        {
+          "type": "entity",
+          "entity": "[[ent:sensor:outlet_temp]]",
+          "name": "[[t:flow_temp]]"
+        },
+        {
+          "type": "entity",
+          "entity": "[[ent:sensor:hotwater_temp]]",
+          "name": "[[t:hot_water]]"
+        },
+        {
+          "type": "entity",
+          "entity": "[[ent:binary_sensor:alarm_stop]]",
+          "name": "[[t:alarm]]"
+        }
+      ],
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "conditional",
+              "conditions": [
+                {
+                  "condition": "state",
+                  "entity": "[[ent:binary_sensor:alarm_stop]]",
+                  "state": "on"
+                }
+              ],
+              "card": {
+                "type": "vertical-stack",
+                "cards": [
+                  {
+                    "type": "tile",
+                    "entity": "[[ent:binary_sensor:alarm_stop]]",
+                    "name": "[[t:warning_heat_pump_fault_detected]]",
+                    "icon": "mdi:alert-octagon",
+                    "color": "red"
+                  },
+                  {
+                    "type": "tile",
+                    "entity": "[[ent:button:failure_reset]]",
+                    "name": "[[t:reset_fault_check_diagnostics_tab_first]]",
+                    "icon": "mdi:restart",
+                    "color": "orange"
+                  }
+                ]
+              }
+            },
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_default_what_is_the_heat_pump_doing]]",
+              "heading_style": "title",
+              "icon": "mdi:heat-pump"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_default_set_st_states_ent_sensor_operati]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:switch:power_switch]]",
+              "name": "[[t:main_power]]",
+              "icon": "mdi:power",
+              "color": "green",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:select:unit_mode]]",
+              "name": "[[t:unit_mode_p06]]",
+              "icon": "mdi:heat-pump",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:select:fan_mode]]",
+              "name": "[[t:profile_noise_p07]]",
+              "icon": "mdi:fan",
+              "color": "teal",
+              "grid_options": {
+                "columns": 12
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_default_temperature_settings]]",
+              "heading_style": "title",
+              "icon": "mdi:thermometer-lines"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_default_use_and_to_adjust_targets_direct]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:heating_setpoint]]",
+              "name": "[[t:heating_target_p01]]",
+              "icon": "mdi:radiator",
+              "color": "orange",
+              "grid_options": {
+                "columns": 12
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:temp_diff_heating_cooling]]",
+              "name": "[[t:heating_hysteresis_p03]]",
+              "icon": "mdi:arrow-expand-vertical",
+              "color": "deep-orange",
+              "grid_options": {
+                "columns": 12
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:hotwater_setpoint]]",
+              "name": "[[t:hot_water_target_p04]]",
+              "icon": "mdi:water-boiler",
+              "color": "red",
+              "grid_options": {
+                "columns": 12
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:temp_diff_hotwater]]",
+              "name": "[[t:hot_water_hysteresis_p05]]",
+              "icon": "mdi:arrow-expand-vertical",
+              "color": "deep-orange",
+              "grid_options": {
+                "columns": 12
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:cooling_setpoint]]",
+              "name": "[[t:cooling_target_p02]]",
+              "icon": "mdi:snowflake",
+              "color": "cyan",
+              "grid_options": {
+                "columns": 12
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_default_home_outdoor_temperatures]]",
+              "heading_style": "title",
+              "icon": "mdi:home-analytics"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:outlet_temp]]",
+              "name": "[[t:supply_water_outlet]]",
+              "icon": "mdi:water-arrow-right",
+              "color": "orange",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:inlet_temp]]",
+              "name": "[[t:return_water_inlet]]",
+              "icon": "mdi:water-arrow-left",
+              "color": "amber",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:hotwater_temp]]",
+              "name": "[[t:hot_water_tank]]",
+              "icon": "mdi:water-boiler",
+              "color": "red",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:ambient_temp]]",
+              "name": "[[t:outdoor_raw_sensor]]",
+              "icon": "mdi:thermometer",
+              "color": "blue",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "thermostat",
+              "entity": "[[ent:climate:climate]]",
+              "name": "[[t:heating_cooling_thermostat]]",
+              "show_current_as_primary": true,
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "thermostat",
+              "entity": "[[ent:climate:dhw_climate]]",
+              "name": "[[t:hot_water_thermostat]]",
+              "show_current_as_primary": true,
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "history-graph",
+              "title": "[[t:view_default_title_2]]",
+              "hours_to_show": 24,
+              "grid_options": {
+                "columns": "full"
+              },
+              "entities": [
+                {
+                  "entity": "[[ent:sensor:outlet_temp]]",
+                  "name": "[[t:supply_water]]"
+                },
+                {
+                  "entity": "[[ent:sensor:inlet_temp]]",
+                  "name": "[[t:return_water]]"
+                },
+                {
+                  "entity": "[[ent:sensor:hotwater_temp]]",
+                  "name": "[[t:hot_water_tank]]"
+                },
+                {
+                  "entity": "[[ent:sensor:ambient_temp]]",
+                  "name": "[[t:outdoor]]"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sections",
+      "title": "[[t:view_detailed_title]]",
+      "path": "[[t:view_detailed_path]]",
+      "icon": "mdi:chart-timeline-variant",
+      "max_columns": 3,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_detailed_water_loop_circulation_pump]]",
+              "heading_style": "title",
+              "icon": "mdi:water-pump"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_detailed_water_delta_t_is_the_temperature]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:outlet_temp]]",
+              "name": "[[t:supply_water]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:inlet_temp]]",
+              "name": "[[t:return_water]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:water_delta_t]]",
+              "name": "[[t:water_delta_t]]",
+              "icon": "mdi:delta",
+              "color": "amber",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:dc_pump_speed]]",
+              "name": "[[t:dc_pump_speed]]",
+              "icon": "mdi:pump",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:pump_flow]]",
+              "name": "[[t:flow_rate_if_fitted]]",
+              "icon": "mdi:gauge",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:select:pump_mode]]",
+              "name": "[[t:pump_work_mode_g02]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:dc_pump_temp_diff]]",
+              "name": "[[t:target_pump_delta_t_g04]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:pump_cycle]]",
+              "name": "[[t:min_restart_delay_g03]]",
+              "grid_options": {
+                "columns": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_detailed_eco_weather_curve_e01_e24]]",
+              "heading_style": "title",
+              "icon": "mdi:chart-bell-curve-cumulative"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_detailed_weather_compensation_automatical]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:ambient_temp_filtered]]",
+              "name": "[[t:outdoor_temp_filtered]]",
+              "icon": "mdi:weather-partly-cloudy",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:eco_active_setpoint]]",
+              "name": "[[t:eco_curve_target]]",
+              "icon": "mdi:target",
+              "color": "green",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:eco_setpoint_delta]]",
+              "name": "[[t:supply_vs_eco_curve]]",
+              "icon": "mdi:compare-horizontal",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:heating_setpoint]]",
+              "name": "[[t:manual_heating_setpoint_p01]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_detailed_space_heating_curve_outdoor_water]]",
+              "heading_style": "subtitle"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_heat_ambi_1]]",
+              "name": "[[t:e01_outdoor_1_coldest]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_heat_temp_1]]",
+              "name": "[[t:e13_water_e01]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_heat_ambi_2]]",
+              "name": "[[t:e02_outdoor_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_heat_temp_2]]",
+              "name": "[[t:e14_water_e02]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_heat_ambi_3]]",
+              "name": "[[t:e03_outdoor_3]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_heat_temp_3]]",
+              "name": "[[t:e15_water_e03]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_heat_ambi_4]]",
+              "name": "[[t:e04_outdoor_4_mildest]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_heat_temp_4]]",
+              "name": "[[t:e16_water_e04]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_detailed_hot_water_curve_e05_e08_e17_e20]]",
+              "heading_style": "subtitle"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_water_ambi_1]]",
+              "name": "[[t:e05_outdoor_dhw_1]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_water_temp_1]]",
+              "name": "[[t:e17_dhw_e05]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_water_ambi_2]]",
+              "name": "[[t:e06_outdoor_dhw_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_water_temp_2]]",
+              "name": "[[t:e18_dhw_e06]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_water_ambi_3]]",
+              "name": "[[t:e07_outdoor_dhw_3]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_water_temp_3]]",
+              "name": "[[t:e19_dhw_e07]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_water_ambi_4]]",
+              "name": "[[t:e08_outdoor_dhw_4]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:econ_water_temp_4]]",
+              "name": "[[t:e20_dhw_e08]]",
+              "grid_options": {
+                "columns": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_detailed_compressor_fan_refrigerant_circuit]]",
+              "heading_style": "title",
+              "icon": "mdi:sine-wave"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_detailed_shows_inverter_compressor_speed_]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:compressor_frequency]]",
+              "name": "[[t:compressor_frequency]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:target_frequency]]",
+              "name": "[[t:target_frequency]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:dc_fan1_speed]]",
+              "name": "[[t:dc_fan_1_speed]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:dc_fan_target]]",
+              "name": "[[t:dc_fan_target]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:evap_temp]]",
+              "name": "[[t:evaporator_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:cond_temp]]",
+              "name": "[[t:condenser_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:coil_temp]]",
+              "name": "[[t:outdoor_coil_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:suction_gas_temp]]",
+              "name": "[[t:suction_gas_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:exhaust_temp]]",
+              "name": "[[t:discharge_exhaust_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:driving_temp]]",
+              "name": "[[t:inverter_drive_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:discharge_pressure]]",
+              "name": "[[t:discharge_pressure]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:suction_pressure]]",
+              "name": "[[t:suction_pressure]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:eev1_step]]",
+              "name": "[[t:main_eev1_position]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:eev2_step]]",
+              "name": "[[t:evi_eev2_position]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_detailed_electrical_performance]]",
+              "heading_style": "subtitle"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:estimated_power]]",
+              "name": "[[t:estimated_power_exp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:compressor_current]]",
+              "name": "[[t:compressor_current]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:dc_bus_voltage]]",
+              "name": "[[t:dc_bus_voltage]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:compressor_runtime]]",
+              "name": "[[t:total_runtime]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:cop]]",
+              "name": "[[t:cop_internal_board]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:heating_cooling_capacity]]",
+              "name": "[[t:capacity_internal_board]]",
+              "grid_options": {
+                "columns": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 2,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_detailed_antilegionella_season_changeover_24h]]",
+              "heading_style": "title",
+              "icon": "mdi:calendar-clock"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:switch:antilegionella_enable]]",
+              "name": "[[t:antilegionella_enable]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:antilegionella_temp]]",
+              "name": "[[t:disinfection_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:antilegionella_weekday]]",
+              "name": "[[t:weekday_0_sun_6_sat]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:antilegionella_start_hour]]",
+              "name": "[[t:start_hour]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:antilegionella_end_hour]]",
+              "name": "[[t:end_hour]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:switch:two_three_function]]",
+              "name": "[[t:two_three_function_g01]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:mode_control_enable]]",
+              "name": "[[t:auto_heat_cool_g09]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:ambient_switch_setpoint]]",
+              "name": "[[t:changeover_temp_g10]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:ambient_switch_diff]]",
+              "name": "[[t:changeover_diff_g11]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "history-graph",
+              "title": "[[t:view_detailed_title_2]]",
+              "hours_to_show": 24,
+              "grid_options": {
+                "columns": "full"
+              },
+              "entities": [
+                {
+                  "entity": "[[ent:sensor:outlet_temp]]",
+                  "name": "[[t:supply_water]]"
+                },
+                {
+                  "entity": "[[ent:number:heating_setpoint]]",
+                  "name": "[[t:heating_setpoint_p01]]"
+                },
+                {
+                  "entity": "[[ent:sensor:eco_active_setpoint]]",
+                  "name": "[[t:eco_curve_target]]"
+                },
+                {
+                  "entity": "[[ent:sensor:compressor_frequency]]",
+                  "name": "[[t:compressor_hz]]"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sections",
+      "title": "[[t:view_diagnostics_title]]",
+      "path": "[[t:view_diagnostics_path]]",
+      "icon": "mdi:stethoscope",
+      "max_columns": 3,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_diagnostics_health_active_alarms]]",
+              "heading_style": "title",
+              "icon": "mdi:shield-check"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_diagnostics_set_errors_ent_binary_sensor_err]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:binary_sensor:alarm_stop]]",
+              "name": "[[t:master_alarm_stop]]",
+              "color": "red",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:button:failure_reset]]",
+              "name": "[[t:failure_reset]]",
+              "icon": "mdi:restart",
+              "color": "orange",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_diagnostics_heat_exchanger_refrigerant_health]]",
+              "heading_style": "subtitle"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_diagnostics_plain_language_guide_condenser_a]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:condenser_approach_temp]]",
+              "name": "[[t:condenser_approach]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:suction_superheat]]",
+              "name": "[[t:suction_superheat]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:discharge_superheat]]",
+              "name": "[[t:discharge_superheat]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:exhaust_temp]]",
+              "name": "[[t:exhaust_temp_safe_95_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:discharge_pressure]]",
+              "name": "[[t:discharge_pressure_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:suction_pressure]]",
+              "name": "[[t:suction_pressure_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_diagnostics_relays_digital_inputs]]",
+              "heading_style": "title",
+              "icon": "mdi:electric-switch"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_diagnostics_live_hardware_states_3_way_valve]]"
+            },
+            {
+              "type": "entities",
+              "title": "[[t:view_diagnostics_title_2]]",
+              "show_header_toggle": false,
+              "entities": [
+                {
+                  "entity": "[[ent:binary_sensor:compressor_running]]",
+                  "name": "[[t:compressor]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:pump_running]]",
+                  "name": "[[t:circulation_pump]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:fan_running]]",
+                  "name": "[[t:outdoor_fan]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:fan_high_speed]]",
+                  "name": "[[t:fan_high_speed]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:valve_3way]]",
+                  "name": "[[t:3_way_valve_on_dhw_off_space]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:valve_4way]]",
+                  "name": "[[t:4_way_valve_on_cool_defrost]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:heating_heater]]",
+                  "name": "[[t:space_heating_electric_heater_out4]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:hotwater_heater]]",
+                  "name": "[[t:dhw_electric_heater_out12]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:chassis_heater]]",
+                  "name": "[[t:chassis_drain_heater_43w]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:crank_heater]]",
+                  "name": "[[t:compressor_crankcase_heater]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:assistant_solenoid]]",
+                  "name": "[[t:evi_injection_solenoid]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:ac_pump]]",
+                  "name": "[[t:auxiliary_a_c_pump]]"
+                }
+              ]
+            },
+            {
+              "type": "entities",
+              "title": "[[t:view_diagnostics_title_3]]",
+              "show_header_toggle": false,
+              "entities": [
+                {
+                  "entity": "[[ent:binary_sensor:heating_demand]]",
+                  "name": "[[t:heating_demand]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:hotwater_demand]]",
+                  "name": "[[t:hot_water_demand]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:cooling_demand]]",
+                  "name": "[[t:cooling_demand]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:defrost_active]]",
+                  "name": "[[t:defrost_active]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:antilegionella_active]]",
+                  "name": "[[t:antilegionella_active]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:flow_switch]]",
+                  "name": "[[t:flow_switch_input]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:high_pressure_switch]]",
+                  "name": "[[t:high_pressure_switch]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:phase_sequence_ok]]",
+                  "name": "[[t:phase_sequence_ok]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:linkage_switch]]",
+                  "name": "[[t:external_thermostat_linkage]]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_diagnostics_fault_register_24_firmware]]",
+              "heading_style": "title",
+              "icon": "mdi:alert-circle-outline"
+            },
+            {
+              "type": "entities",
+              "title": "[[t:view_diagnostics_title_4]]",
+              "show_header_toggle": false,
+              "entities": [
+                {
+                  "entity": "[[ent:binary_sensor:error_water_flow]]",
+                  "name": "[[t:water_flow_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_high_pressure]]",
+                  "name": "[[t:high_pressure_protection]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_low_pressure]]",
+                  "name": "[[t:low_pressure_protection]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_exhaust_high]]",
+                  "name": "[[t:exhaust_temp_too_high]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_high_temp_heating]]",
+                  "name": "[[t:high_outlet_temp_protection]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_low_temp_cooling]]",
+                  "name": "[[t:low_outlet_temp_protection]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_coil_temp_high]]",
+                  "name": "[[t:coil_temp_too_high]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_antifreeze_primary]]",
+                  "name": "[[t:primary_antifreeze_protection]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_antifreeze_secondary]]",
+                  "name": "[[t:secondary_antifreeze_protection]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_ambient_temp_low]]",
+                  "name": "[[t:ambient_temp_too_low]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_phase_sequence]]",
+                  "name": "[[t:phase_sequence_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_inverter_module]]",
+                  "name": "[[t:inverter_module_fault]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_dc_fan1]]",
+                  "name": "[[t:dc_fan_1_failure]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_dc_fan2]]",
+                  "name": "[[t:dc_fan_2_failure]]"
+                }
+              ]
+            },
+            {
+              "type": "entities",
+              "title": "[[t:view_diagnostics_title_5]]",
+              "show_header_toggle": false,
+              "entities": [
+                {
+                  "entity": "[[ent:binary_sensor:error_outlet_sensor]]",
+                  "name": "[[t:outlet_water_sensor_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_inlet_sensor]]",
+                  "name": "[[t:inlet_water_sensor_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_hotwater_sensor]]",
+                  "name": "[[t:hot_water_sensor_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_ambient_sensor]]",
+                  "name": "[[t:ambient_sensor_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_coil_sensor]]",
+                  "name": "[[t:outdoor_coil_sensor_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_inlet_gas_sensor]]",
+                  "name": "[[t:suction_gas_sensor_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_outlet_gas_temp]]",
+                  "name": "[[t:exhaust_gas_sensor_error]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_high_pressure_sensor]]",
+                  "name": "[[t:high_pressure_sensor_error_1]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_high_pressure_sensor2]]",
+                  "name": "[[t:high_pressure_sensor_failure_2]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:error_low_pressure_sensor]]",
+                  "name": "[[t:low_pressure_sensor_failure]]"
+                }
+              ]
+            },
+            {
+              "type": "entities",
+              "title": "[[t:view_diagnostics_title_6]]",
+              "show_header_toggle": false,
+              "entities": [
+                {
+                  "entity": "[[ent:sensor:controller_version]]",
+                  "name": "[[t:controller_version]]"
+                },
+                {
+                  "entity": "[[ent:sensor:display_version]]",
+                  "name": "[[t:display_version]]"
+                },
+                {
+                  "entity": "[[ent:sensor:software_version_year]]",
+                  "name": "[[t:firmware_year_hex]]"
+                },
+                {
+                  "entity": "[[ent:sensor:software_version_month_day]]",
+                  "name": "[[t:firmware_month_day_hex]]"
+                },
+                {
+                  "entity": "[[ent:sensor:smart_grid_status]]",
+                  "name": "[[t:smart_grid_status_0x0025]]"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "sections",
+      "title": "[[t:view_optimization_title]]",
+      "path": "[[t:view_optimization_path]]",
+      "icon": "mdi:tune-variant",
+      "max_columns": 3,
+      "sections": [
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_optimization_live_energy_defrost_assistant]]",
+              "heading_style": "title",
+              "icon": "mdi:lightbulb-on-outline"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_optimization_set_cycle_states_ent_sensor_comp]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:estimated_power]]",
+              "name": "[[t:estimated_power_exp_2]]",
+              "icon": "mdi:flash",
+              "color": "amber",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:compressor_last_run_duration]]",
+              "name": "[[t:compressor_cycle_duration]]",
+              "icon": "mdi:timer-outline",
+              "color": "green",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:compressor_frequency]]",
+              "name": "[[t:compressor_speed_hz]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:water_delta_t]]",
+              "name": "[[t:water_delta_t_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:eco_setpoint_delta]]",
+              "name": "[[t:supply_vs_eco_curve_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:condenser_approach_temp]]",
+              "name": "[[t:condenser_approach]]",
+              "grid_options": {
+                "columns": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_optimization_lever_1_setpoints_cycling_heaters]]",
+              "heading_style": "title",
+              "icon": "mdi:piggy-bank-outline"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_optimization_safest_energy_wins_1_lower_p01_p]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:heating_setpoint]]",
+              "name": "[[t:heating_setpoint_p01]]",
+              "grid_options": {
+                "columns": 6
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:temp_diff_heating_cooling]]",
+              "name": "[[t:heating_hysteresis_p03]]",
+              "grid_options": {
+                "columns": 6
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:hotwater_setpoint]]",
+              "name": "[[t:dhw_setpoint_p04]]",
+              "grid_options": {
+                "columns": 6
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:temp_diff_hotwater]]",
+              "name": "[[t:dhw_hysteresis_p05]]",
+              "grid_options": {
+                "columns": 6
+              },
+              "features": [
+                {
+                  "type": "numeric-input",
+                  "style": "buttons"
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:select:fan_mode]]",
+              "name": "[[t:profile_p07_normal_eco_night]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:pump_cycle]]",
+              "name": "[[t:min_restart_delay_g03_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:heating_heater_ext_temp]]",
+              "name": "[[t:heating_heater_threshold_g05]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:comp_delay_heating]]",
+              "name": "[[t:heating_heater_delay_g06]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:hotwater_heater_ext_temp]]",
+              "name": "[[t:dhw_heater_threshold_g07]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:comp_delay_hotwater]]",
+              "name": "[[t:dhw_heater_delay_g08]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:select:pump_mode]]",
+              "name": "[[t:pump_work_mode_g02]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:dc_pump_temp_diff]]",
+              "name": "[[t:target_pump_delta_t_g04]]",
+              "grid_options": {
+                "columns": 6
+              }
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_optimization_lever_2_defrost_time_frequency_optim]]",
+              "heading_style": "title",
+              "icon": "mdi:snowflake-melt"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "content": "[[t:md_view_optimization_every_defrost_steals_heat_from_y]]"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:coil_ambient_delta]]",
+              "name": "[[t:outdoor_coil_delta_frost]]",
+              "icon": "mdi:snowflake-alert",
+              "color": "cyan",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:coil_temp]]",
+              "name": "[[t:coil_temp_h03_h04_target]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:defrost_last_duration]]",
+              "name": "[[t:defrost_duration]]",
+              "icon": "mdi:timer-sand",
+              "color": "blue",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:sensor:defrost_last_interval]]",
+              "name": "[[t:defrost_interval]]",
+              "icon": "mdi:history",
+              "color": "indigo",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.sprsun_defrost_count_24h",
+              "name": "[[t:defrost_count_24h]]",
+              "icon": "mdi:counter",
+              "grid_options": {
+                "columns": 6
+              },
+              "visibility": [
+                {
+                  "condition": "numeric_state",
+                  "entity": "sensor.sprsun_defrost_count_24h",
+                  "above": -1
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.sprsun_defrost_time_24h",
+              "name": "[[t:total_defrost_time_24h]]",
+              "icon": "mdi:clock-alert-outline",
+              "grid_options": {
+                "columns": 6
+              },
+              "visibility": [
+                {
+                  "condition": "numeric_state",
+                  "entity": "sensor.sprsun_defrost_time_24h",
+                  "above": -1
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.sprsun_compressor_starts_24h",
+              "name": "[[t:compressor_starts_24h]]",
+              "icon": "mdi:restart",
+              "grid_options": {
+                "columns": 6
+              },
+              "visibility": [
+                {
+                  "condition": "numeric_state",
+                  "entity": "sensor.sprsun_compressor_starts_24h",
+                  "above": -1
+                }
+              ]
+            },
+            {
+              "type": "tile",
+              "entity": "sensor.sprsun_heaters_time_24h",
+              "name": "[[t:electric_heaters_time_24h]]",
+              "icon": "mdi:radiator-disabled",
+              "grid_options": {
+                "columns": 6
+              },
+              "visibility": [
+                {
+                  "condition": "numeric_state",
+                  "entity": "sensor.sprsun_heaters_time_24h",
+                  "above": -1
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 2,
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_optimization_24h_frost_defrost_power_analysis]]",
+              "heading_style": "title",
+              "icon": "mdi:chart-line"
+            },
+            {
+              "type": "history-graph",
+              "title": "[[t:view_optimization_title_2]]",
+              "hours_to_show": 24,
+              "grid_options": {
+                "columns": 12
+              },
+              "entities": [
+                {
+                  "entity": "[[ent:sensor:coil_ambient_delta]]",
+                  "name": "[[t:frost_load_outdoor_coil_c]]"
+                },
+                {
+                  "entity": "[[ent:sensor:ambient_temp_filtered]]",
+                  "name": "[[t:outdoor_filtered_c]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:defrost_active]]",
+                  "name": "[[t:defrost_active_2]]"
+                }
+              ]
+            },
+            {
+              "type": "history-graph",
+              "title": "[[t:view_optimization_title_3]]",
+              "hours_to_show": 24,
+              "grid_options": {
+                "columns": 12
+              },
+              "entities": [
+                {
+                  "entity": "[[ent:sensor:coil_temp]]",
+                  "name": "[[t:coil_temp_c]]"
+                },
+                {
+                  "entity": "[[ent:sensor:compressor_frequency]]",
+                  "name": "[[t:compressor_hz]]"
+                },
+                {
+                  "entity": "[[ent:binary_sensor:defrost_active]]",
+                  "name": "[[t:defrost_active_2]]"
+                }
+              ]
+            },
+            {
+              "type": "history-graph",
+              "title": "[[t:view_optimization_title_4]]",
+              "hours_to_show": 24,
+              "grid_options": {
+                "columns": "full"
+              },
+              "entities": [
+                {
+                  "entity": "[[ent:sensor:estimated_power]]",
+                  "name": "[[t:estimated_power_w]]"
+                },
+                {
+                  "entity": "[[ent:sensor:water_delta_t]]",
+                  "name": "[[t:water_delta_t_c]]"
+                },
+                {
+                  "entity": "[[ent:sensor:defrost_last_interval]]",
+                  "name": "[[t:defrost_interval_min]]"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "type": "grid",
+          "column_span": 2,
+          "visibility": [
+            {
+              "condition": "numeric_state",
+              "entity": "[[ent:number:h01_defrost_freq]]",
+              "above": 0
+            }
+          ],
+          "cards": [
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_optimization_expert_defrost_h01_h18_dc_pump_f13_f]]",
+              "heading_style": "title",
+              "icon": "mdi:wrench-cog"
+            },
+            {
+              "type": "markdown",
+              "text_only": true,
+              "grid_options": {
+                "columns": "full"
+              },
+              "content": "[[t:md_view_optimization_factory_eeprom_parameters_adjust]]"
+            },
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_optimization_defrost_entry_frequency_h03_h07_h16_]]",
+              "heading_style": "subtitle"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h03_defrost_in_stp]]",
+              "name": "[[t:h03_start_coil_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:defrost_ambi_stp_00db]]",
+              "name": "[[t:0x00db_max_outdoor_temp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h09_defrost_ambi_stp_1]]",
+              "name": "[[t:h09_zone_1_2_threshold]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h12_defrost_ambi_stp_2]]",
+              "name": "[[t:h12_zone_2_3_threshold]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h07_defrost_ambi_coil_1]]",
+              "name": "[[t:h07_outdoor_coil_diff_1]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h10_defrost_ambi_coil_2]]",
+              "name": "[[t:h10_outdoor_coil_diff_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h13_defrost_ambi_coil_3]]",
+              "name": "[[t:h13_outdoor_coil_diff_3]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h08_defrost_period_1]]",
+              "name": "[[t:h08_min_period_1]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h11_defrost_period_2]]",
+              "name": "[[t:h11_min_period_2]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h14_defrost_period_3]]",
+              "name": "[[t:h14_min_period_3]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h15_comp_total_run]]",
+              "name": "[[t:h15_comp_total_run]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h16_comp_continuous_run]]",
+              "name": "[[t:h16_min_continuous_run]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_optimization_defrost_duration_power_h01_h04_h05_h]]",
+              "heading_style": "subtitle"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h01_defrost_freq]]",
+              "name": "[[t:h01_defrost_freq_hz]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h04_defrost_exit_stp]]",
+              "name": "[[t:h04_exit_coil_temp_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h05_defrost_time]]",
+              "name": "[[t:h05_max_time_min]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h17_def_fan_high_press]]",
+              "name": "[[t:h17_fan_high_pressure]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:h18_def_fan_speed]]",
+              "name": "[[t:h18_fan_speed]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:a43_mv_defrost_open]]",
+              "name": "[[t:a43_mv_defrost_open]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:a51_mv_def_keep_time]]",
+              "name": "[[t:a51_mv_keep_time]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "heading",
+              "heading": "[[t:heading_view_optimization_dc_pump_f13_f17_compressor_hz_r04_r4]]",
+              "heading_style": "subtitle"
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:select:f13_dc_pump_mode]]",
+              "name": "[[t:f13_dc_pump_mode]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:f16_dc_pump_max_freq]]",
+              "name": "[[t:f16_dc_pump_max]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:f17_dc_pump_min_freq]]",
+              "name": "[[t:f17_dc_pump_min]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:f39_ac_constant_temp_diff]]",
+              "name": "[[t:f39_heating_deadband]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:r04_heat_freq_0]]",
+              "name": "[[t:r04_normal_hz_t_14_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:r05_heat_freq_1]]",
+              "name": "[[t:r05_normal_hz_9_14_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:r06_heat_freq_2]]",
+              "name": "[[t:r06_normal_hz_4_9_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:r07_heat_freq_3]]",
+              "name": "[[t:r07_normal_hz_5_4_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:r42_eco_heat_freq_0]]",
+              "name": "[[t:r42_eco_hz_t_14_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:r43_eco_heat_freq_1]]",
+              "name": "[[t:r43_eco_hz_9_14_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:r44_eco_heat_freq_2]]",
+              "name": "[[t:r44_eco_hz_4_9_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:r45_eco_heat_freq_3]]",
+              "name": "[[t:r45_eco_hz_5_4_c]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:switch:timeband_1_enable]]",
+              "name": "[[t:timeband_1_enable]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:timeband_1_on_hour]]",
+              "name": "[[t:timeband_1_on_hour]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:timeband_1_off_hour]]",
+              "name": "[[t:timeband_1_off_hour]]",
+              "grid_options": {
+                "columns": 6
+              }
+            },
+            {
+              "type": "tile",
+              "entity": "[[ent:number:timeband_1_hotwater_setp]]",
+              "name": "[[t:timeband_1_dhw_setp]]",
+              "grid_options": {
+                "columns": 6
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

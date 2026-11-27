@@ -1,19 +1,21 @@
-# 🎛️ Gotowe Dashboardy Home Assistant (100% Natywny Lovelace)
+# 🎛️ Wbudowane Dashboardy Home Assistant (100% Natywny Lovelace)
 
 *[English guide available here: DASHBOARD.md](DASHBOARD.md)*
 
-W repozytorium znajdziesz gotowe, w **100% natywne** dashboardy dla Home Assistanta (nowoczesny układ **Sekcji** — bez instalowania żadnych zewnętrznych kart z HACS). Każdy widok jest opisany **prostym, zrozumiałym językiem dla laika**, aby łatwo ocenić pracę pompy, zdiagnozować błędy i obniżyć rachunki za prąd.
+Integracja zawiera wbudowane, w **100% natywne strategie Lovelace** dla Home Assistanta (układ **Sekcji** — **bez instalowania kart z HACS i bez ręcznego kopiowania YAML-a**).
+
+- **Automatyczny język:** Dashboard sam dobiera język (`pl` / `en`) na podstawie ustawień Twojego profilu w HA z jednego wspólnego szablonu i słownika tłumaczeń.
+- **Automatyczne wykrywanie encji:** Sam znajduje rzeczywiste `entity_id` po `unique_id` — działa od razu nawet po zmianie nazwy pompy (bez żadnego `Ctrl+H`).
+- **Możliwość pełnej edycji:** W dowolnym momencie możesz kliknąć **Przejmij kontrolę** w HA, aby zamienić pulpit w zwykły edytowalny dashboard.
 
 ---
 
-## 📦 Zawartość pakietu
+## 📦 Zawartość
 
-| Plik | Opis |
+| Element | Opis |
 | :--- | :--- |
-| **[dashboards/pl/sprsun_dashboard.yaml](../dashboards/pl/sprsun_dashboard.yaml)** | Pełny **4-zakładkowy Dashboard** (`Domyślny`, `Szczegółowy`, `Diagnostyczny`, `Optymalizacyjny`) |
-| **[dashboards/pl/sprsun_control_card.yaml](../dashboards/pl/sprsun_control_card.yaml)** | Kompaktowa karta sterowania na istniejący pulpit główny |
-| **[dashboards/en/sprsun_dashboard.yaml](../dashboards/en/sprsun_dashboard.yaml)** | Angielska wersja 4-zakładkowego dashboardu |
-| **[dashboards/en/sprsun_control_card.yaml](../dashboards/en/sprsun_control_card.yaml)** | Angielska wersja kompaktowej karty |
+| **Wbudowany Dashboard (`custom:sprsun`)** | Pełny **4-zakładkowy Dashboard** (`Domyślny`, `Szczegółowy`, `Diagnostyczny`, `Optymalizacyjny`) dostępny bezpośrednio w **+ Dodaj pulpit** |
+| **Wbudowana Sekcja Sterowania (`custom:sprsun-control`)** | Kompaktowa sekcja sterowania dostępna z **+ Dodaj sekcję** na dowolnym pulpicie |
 | **[dashboards/sprsun_optimization_helpers.yaml](../dashboards/sprsun_optimization_helpers.yaml)** | Opcjonalny pakiet `history_stats` + `template` (liczba defrostów 24h, czas defrostu, starty sprężarki, czas grzałek) |
 
 ### Do czego służy każda z 4 zakładek?
@@ -35,14 +37,18 @@ Aby zakładki `Szczegółowy`, `Diagnostyczny` i `Optymalizacyjny` pokazywały w
 
 > **Wskazówka dot. sekcji `[EKSPERT]`:** Opcję **Włącz ustawienia eksperckie** zostaw wyłączoną, dopóki nie zechcesz korygować parametrów fabrycznych (`H01–H18`, `F`, `R`). Dopóki opcja jest wyłączona, sekcje eksperckie na dashboardzie ukrywają się automatycznie.
 
-### 2. Dodaj 4-zakładkowy Dashboard
-1. Otwórz plik [dashboards/pl/sprsun_dashboard.yaml](../dashboards/pl/sprsun_dashboard.yaml) i skopiuj całą zawartość.
-2. W Home Assistant przejdź do **Ustawienia → Pulpity → + Dodaj pulpit → Nowy pulpit od zera**.
-3. Otwórz utworzony pulpit, kliknij **ikonę ołówka** (prawy górny róg) → **trzy kropki (⋮) → Edytor konfiguracji RAW**.
-4. Wklej skopiowany kod YAML i kliknij **Zapisz**.
+### 2. Dodaj wbudowany 4-zakładkowy Dashboard (bez kopiowania YAML-a)
+1. W Home Assistant przejdź do **Ustawienia → Pulpity → + Dodaj pulpit**.
+2. Wybierz z listy strategii **Pompa Ciepła SPRSUN** (jeśli po aktualizacji integracji przeglądarka trzyma stary cache, odśwież raz przez `Ctrl+F5`).
+3. *(Alternatywa YAML)* Możesz też utworzyć pusty pulpit, otworzyć **Edytor konfiguracji RAW** i wkleić:
+   ```yaml
+   strategy:
+     type: custom:sprsun
+   ```
+   *(Opcjonalne pola pod `strategy:`: `entry_id` przy kilku pompach oraz `language: pl` / `en`, jeśli chcesz wymusić język inny niż w profilu HA.)*
 
-### 3. Jeśli zmieniłeś nazwę pompy
-Szablony zakładają domyślną nazwę urządzenia **`SPRSUN Heat Pump`** (encje zaczynają się od `sprsun_heat_pump_`). Jeśli nadałeś własną nazwę (np. *Pompa Ciepła*), przed zapisem użyj **Ctrl+H** i zamień `sprsun_heat_pump` na swój prefiks (np. `pompa_ciepla`).
+### 3. Dodaj kompaktową sekcję sterowania na istniejący pulpit
+Na dowolnym pulpicie w układzie Sekcji kliknij **Edytuj → + Dodaj sekcję** i wybierz **SPRSUN — Sterowanie** (`strategy: type: custom:sprsun-control`).
 
 ### 4. (Opcjonalnie) Statystyki 24h i zewnętrzny licznik energii
 - **Liczniki dobowe defrostu i taktowania:** Skopiuj zawartość [dashboards/sprsun_optimization_helpers.yaml](../dashboards/sprsun_optimization_helpers.yaml) do folderu `packages/` w HA (lub do `configuration.yaml`) i zrestartuj HA — kafelki 24h na zakładce **Optymalizacyjny** pojawią się same.

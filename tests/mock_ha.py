@@ -590,6 +590,30 @@ def setup_mocks():
             }
             sys.modules["homeassistant.components.diagnostics"] = diag_mod
 
+            # HTTP, Frontend & WebSocket API
+            class StaticPathConfig:
+                def __init__(self, url_path: str, path: str, cache_headers: bool = True):
+                    self.url_path = url_path
+                    self.path = path
+                    self.cache_headers = cache_headers
+
+            http_mod = MagicMock()
+            http_mod.StaticPathConfig = StaticPathConfig
+            sys.modules["homeassistant.components.http"] = http_mod
+
+            frontend_mod = MagicMock()
+            sys.modules["homeassistant.components.frontend"] = frontend_mod
+
+            ws_mod = MagicMock()
+            ws_mod.websocket_command = lambda schema: (lambda fn: fn)
+            ws_mod.async_response = lambda fn: fn
+            sys.modules["homeassistant.components.websocket_api"] = ws_mod
+
+            components_mod = sys.modules["homeassistant.components"]
+            components_mod.http = http_mod
+            components_mod.frontend = frontend_mod
+            components_mod.websocket_api = ws_mod
+
             # Attach submodules to parent package so "from homeassistant import config_entries" works
             ha.config_entries = cfg
             ha.const = ha_const
