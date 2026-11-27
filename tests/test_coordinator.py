@@ -165,6 +165,7 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
 
         # Mock controller returning fresh registers
         fresh_data = {
+            "_control_0032": 1,
             "inlet_temp": 24.5,
             "unit_mode": 3,
             "heating_setpoint": 40.0,
@@ -177,6 +178,21 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(data["inlet_temp"]["updated_at"], float)
         self.assertEqual(data["unit_mode"]["value"], 3)
         self.assertTrue(self.coordinator._rw_loaded)
+
+    def test_sync_update_missing_unit_mode_keeps_rw_loaded_false(self):
+        """Test _rw_loaded stays False when Batch 0 (unit_mode/_control_0032) failed."""
+        client = MagicMock()
+        client.connected = True
+        self.coordinator.client = client
+
+        fresh_data = {
+            "inlet_temp": 24.5,
+            "heating_setpoint": 40.0,
+        }
+        self.coordinator.controller.read_all_registers = MagicMock(return_value=fresh_data)
+
+        self.coordinator._sync_update()
+        self.assertFalse(self.coordinator._rw_loaded)
 
     def test_sync_update_cache_staleness_preserves_recent_writes(self):
         """Test recently written values are preserved against revert glitches."""
@@ -497,6 +513,66 @@ class TestSPRSUNCoordinator(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(data["inlet_temp"]["value"], 25.0)
         self.assertEqual(self.coordinator._consecutive_failures, 0)
         self.assertEqual(self.coordinator.update_interval.total_seconds(), 10)
+
+    def test_sync_read_register_success_and_caching(self):
+        """Test _sync_read_register reads a holding register and updates cache."""
+        client = MagicMock()
+        client.connected = True
+        client.read_holding_registers.return_value = MagicMock(
+            isError=lambda: False, registers=[3]
+        )
+        self.coordinator.client = client
+        self.coordinator.data = {}
+
+        value = self.coordinator._sync_read_register(address=0x0036, key="unit_mode", scale=1)
+
+        self.assertEqual(value, 3)
+        client.read_holding_registers.assert_called_once_with(
+            address=0x0036, count=1, device_id=1
+        )
+        self.assertEqual(self.coordinator.data["unit_mode"]["value"], 3)
+
+    def test_sync_read_register_empty_response_raises(self):
+        """Test _sync_read_register raises ValueError when device returns empty registers."""
+        client = MagicMock()
+        client.connected = True
+        client.read_holding_registers.return_value = MagicMock(
+            isError=lambda: False, registers=[]
+        )
+        self.coordinator.client = client
+
+        with self.assertRaises(ValueError):
+            self.coordinator._sync_read_register(address=0x0036, key="unit_mode", scale=1)
+
+    def test_sync_read_register_retry_on_error(self):
+        """Test _sync_read_register reconnects and retries once on Modbus error."""
+        client = MagicMock()
+        client.connected = True
+        client.connect.return_value = True
+        client.read_holding_registers.side_effect = [
+            MagicMock(isError=lambda: True, registers=[]),
+            MagicMock(isError=lambda: False, registers=[4]),
+        ]
+        self.coordinator._create_modbus_client = MagicMock(return_value=client)
+        self.coordinator.client = client
+        self.coordinator.data = {}
+
+        with patch("time.sleep"):
+            value = self.coordinator._sync_read_register(address=0x0036, key="unit_mode", scale=1)
+
+        self.assertEqual(value, 4)
+        self.assertEqual(client.read_holding_registers.call_count, 2)
+
+    async def test_async_read_register(self):
+        """Test async_read_register delegates to _sync_read_register under lock."""
+        self.coordinator._sync_read_register = MagicMock(return_value=3)
+
+        value = await self.coordinator.async_read_register(
+            address=0x0036, key="unit_mode", scale=1
+        )
+
+        self.assertEqual(value, 3)
+        self.coordinator._sync_read_register.assert_called_once_with(0x0036, "unit_mode", 1)
 
     async def test_backoff_respects_large_base_scan_interval(self):
         """Test configured scan_interval >= 300s is never shrunk by backoff cap."""

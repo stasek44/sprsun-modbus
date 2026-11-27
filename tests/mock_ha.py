@@ -124,6 +124,14 @@ def setup_mocks():
             core.callback = lambda f: f
             sys.modules["homeassistant.core"] = core
 
+            # Exceptions
+            class HomeAssistantError(Exception):
+                """Mock Home Assistant exception."""
+
+            exceptions_mod = MagicMock()
+            exceptions_mod.HomeAssistantError = HomeAssistantError
+            sys.modules["homeassistant.exceptions"] = exceptions_mod
+
             # Constants
             class Platform(StrEnum):
                 SENSOR = "sensor"
@@ -586,6 +594,7 @@ def setup_mocks():
             ha.config_entries = cfg
             ha.const = ha_const
             ha.core = core
+            ha.exceptions = exceptions_mod
             ha.helpers = helpers
             ha.data_entry_flow = data_flow
             ha.components = sys.modules["homeassistant.components"]

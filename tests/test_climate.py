@@ -13,6 +13,7 @@ from homeassistant.components.climate import (
     PRESET_SLEEP,
 )
 from homeassistant.const import CONF_NAME, ATTR_TEMPERATURE, UnitOfTemperature
+from homeassistant.exceptions import HomeAssistantError
 from custom_components.sprsun_modbus.const import DOMAIN, CONF_TEMP_STEP
 from custom_components.sprsun_modbus.climate import (
     SPRSUNClimate,
@@ -30,6 +31,13 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
         self.coordinator.device_address = 1
         self.coordinator.async_write_register = AsyncMock()
         self.coordinator.async_write_masked_register = AsyncMock()
+
+        def _mock_read_register(address, key=None, scale=1):
+            if address == 0x0036 and "unit_mode" in self.coordinator.data:
+                return self.coordinator.data["unit_mode"]["value"]
+            raise ConnectionError(f"Register 0x{address:04X} unavailable")
+
+        self.coordinator.async_read_register = AsyncMock(side_effect=_mock_read_register)
         self.coordinator.data = {
             "_control_0032": {"value": 1, "updated_at": 1000.0},  # Power ON (bit 0 = 1)
             "unit_mode": {"value": 3, "updated_at": 1000.0},       # Heating + DHW
@@ -370,6 +378,119 @@ class TestSPRSUNClimate(unittest.IsolatedAsyncioTestCase):
             key="heating_setpoint",
             cached_value=28.5,
         )
+
+    async def test_async_set_hvac_mode_reads_live_0x0036_when_cache_missing_or_stale(self):
+        """Setting Heat/Cool reads live 0x0036 so missing or stale cache cannot disable DHW."""
+        self.climate._write_power = AsyncMock()
+
+        # Case 1: unit_mode missing from cache, live device reports 3 (Heating + DHW)
+        del self.coordinator.data["unit_mode"]
+        self.coordinator.async_read_register = AsyncMock(return_value=3)
+
+        await self.climate.async_set_hvac_mode(HVACMode.HEAT)
+        self.coordinator.async_read_register.assert_called_once_with(
+            address=0x0036, key="unit_mode", scale=1
+        )
+        self.coordinator.async_write_register.assert_any_call(
+            address=0x0036, value=3, key="unit_mode", scale=1
+        )
+
+        # Case 2: cache stale (1), live device reports 3 -> COOL preserves DHW (writes 4)
+        self.coordinator.async_write_register.reset_mock()
+        self.coordinator.data["unit_mode"] = {"value": 1, "updated_at": 1000.0}
+        self.coordinator.async_read_register = AsyncMock(return_value=3)
+
+        await self.climate.async_set_hvac_mode(HVACMode.COOL)
+        self.coordinator.async_write_register.assert_any_call(
+            address=0x0036, value=4, key="unit_mode", scale=1
+        )
+
+    async def test_async_set_dhw_hvac_mode_reads_live_0x0036_when_cache_missing(self):
+        """Setting DHW mode reads live 0x0036 instead of defaulting to unit_mode=1."""
+        self.dhw_climate._write_power = AsyncMock()
+        del self.coordinator.data["unit_mode"]
+
+        # Live unit is Hot Water Only (0): turning DHW Heat ON keeps mode 0 (does NOT write 3)
+        self.coordinator.async_read_register = AsyncMock(return_value=0)
+        await self.dhw_climate.async_set_hvac_mode(HVACMode.HEAT)
+        self.dhw_climate._write_power.assert_called_once_with(True)
+        self.coordinator.async_write_register.assert_not_called()
+
+        # Live unit is Cooling Only (2): turning DHW Heat ON writes 4 (Cooling + DHW), not 3
+        self.dhw_climate._write_power.reset_mock()
+        self.coordinator.async_read_register = AsyncMock(return_value=2)
+        await self.dhw_climate.async_set_hvac_mode(HVACMode.HEAT)
+        self.coordinator.async_write_register.assert_called_once_with(
+            address=0x0036, value=4, key="unit_mode", scale=1
+        )
+
+    async def test_async_set_temperature_reads_live_0x0036_when_cache_missing(self):
+        """Setting space temperature reads live 0x0036 instead of defaulting to heating."""
+        del self.coordinator.data["unit_mode"]
+        self.coordinator.async_read_register = AsyncMock(return_value=2)
+
+        await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 19.0})
+        self.coordinator.async_write_masked_register.assert_called_once_with(
+            address=0x00CB,
+            raw_value=38,
+            mask=0x00FF,
+            key="cooling_setpoint",
+            cached_value=19.0,
+        )
+
+        # Hot Water Only (0) keeps legacy fallback to cooling_setpoint when explicitly read as 0
+        self.coordinator.async_write_masked_register.reset_mock()
+        self.coordinator.async_read_register = AsyncMock(return_value=0)
+        await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 20.0})
+        self.coordinator.async_write_masked_register.assert_called_once_with(
+            address=0x00CB,
+            raw_value=40,
+            mask=0x00FF,
+            key="cooling_setpoint",
+            cached_value=20.0,
+        )
+
+    async def test_climate_writes_raise_home_assistant_error_when_0x0036_unavailable(self):
+        """Raise HomeAssistantError and perform zero writes if live 0x0036 read fails or is invalid."""
+        self.climate._write_power = AsyncMock()
+        self.dhw_climate._write_power = AsyncMock()
+
+        for side_effect in (ConnectionError("offline"), None, 99):
+            self.coordinator.async_read_register = AsyncMock(side_effect=side_effect) if isinstance(side_effect, Exception) else AsyncMock(return_value=side_effect)
+            self.climate._write_power.reset_mock()
+            self.dhw_climate._write_power.reset_mock()
+            self.coordinator.async_write_register.reset_mock()
+            self.coordinator.async_write_masked_register.reset_mock()
+
+            with self.assertRaises(HomeAssistantError):
+                await self.climate.async_set_hvac_mode(HVACMode.HEAT)
+            with self.assertRaises(HomeAssistantError):
+                await self.climate.async_set_hvac_mode(HVACMode.COOL)
+            with self.assertRaises(HomeAssistantError):
+                await self.climate.async_set_temperature(**{ATTR_TEMPERATURE: 35.0})
+            with self.assertRaises(HomeAssistantError):
+                await self.dhw_climate.async_set_hvac_mode(HVACMode.HEAT)
+
+            self.climate._write_power.assert_not_called()
+            self.dhw_climate._write_power.assert_not_called()
+            self.coordinator.async_write_register.assert_not_called()
+            self.coordinator.async_write_masked_register.assert_not_called()
+
+    def test_climate_read_properties_return_none_when_unit_mode_or_power_missing(self):
+        """Read properties return None instead of fabricating mode/setpoint when cache lacks keys."""
+        del self.coordinator.data["unit_mode"]
+        self.assertIsNone(self.climate.hvac_mode)
+        self.assertIsNone(self.climate.hvac_action)
+        self.assertIsNone(self.climate.native_target_temperature)
+        self.assertIsNone(self.dhw_climate.hvac_mode)
+        self.assertIsNone(self.dhw_climate.hvac_action)
+
+        self.coordinator.data["unit_mode"] = {"value": 3, "updated_at": 1000.0}
+        del self.coordinator.data["_control_0032"]
+        self.assertIsNone(self.climate.hvac_mode)
+        self.assertIsNone(self.climate.hvac_action)
+        self.assertIsNone(self.dhw_climate.hvac_mode)
+        self.assertIsNone(self.dhw_climate.hvac_action)
 
 
 if __name__ == "__main__":

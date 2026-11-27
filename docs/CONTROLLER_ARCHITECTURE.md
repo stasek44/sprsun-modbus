@@ -52,7 +52,9 @@ custom_components/sprsun_modbus/
   - Signed (`INT16`) and offset-encoded (`raw_offset`, such as `F02`/`F03` with `+250` raw offset) single-register writes encode via `encode_registers()` and pass explicit `cached_value`.
 - **Two-Tier Batched Polling & Failure Backoff (`ChicoController` / Coordinator):**
   - Fast RO telemetry (`0x0000–0x0031`) runs every `scan_interval`. Repeated poll failures apply exponential backoff up to `300s` (`max(300, scan_interval)`) and reset immediately to `scan_interval` upon recovery.
-  - RW & expert registers run at startup and every 20 cycles (`_rw_refresh_interval = 20`) across `CHICO_RW_BATCHES` (`<= 62` registers/batch, skipping PDF `Invalid` gaps; `optional=True` skips undocumented gaps cleanly if a firmware variant rejects them).
+  - RW & expert registers run at startup and every 20 cycles (`_rw_refresh_interval = 20`) across `CHICO_RW_BATCHES` (`<= 62` registers/batch, skipping PDF `Invalid` gaps; `optional=True` skips undocumented gaps cleanly if a firmware variant rejects them). `ChicoController.has_rw_data()` verifies `_control_0032`, `unit_mode`, and `heating_setpoint` are all present so a failed first RW batch triggers an automatic retry on the next poll.
+- **Pre-Write Live Register Reads (`0x0036` / `unit_mode`):**
+  - Climate mode and space temperature writes (`async_set_space_hvac_mode`, `async_set_space_temperature`, `async_set_dhw_hvac_mode`) read `0x0036` directly via `coordinator.async_read_register()` right before writing, raising `HomeAssistantError` if the register cannot be read rather than falling back to a default mode.
 - **Climate Preset & HVAC Separation (`ChicoController`):**
   - `HVACMode.HEAT_COOL` exclusively controls `G09` ambient changeover (`0x0191`, `mode_control_enable`), while `preset_mode` (`none`/`eco`/`sleep`) maps bijectively to `P07` (`0x0190` `fan_mode`: `Normal`/`Economic`/`Night`).
 - **Pre-release Logging & Selector Normalization:**

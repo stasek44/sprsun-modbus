@@ -153,11 +153,11 @@ class ControllerBase(ABC):
         """Return maximum space target temperature for the active HVAC mode."""
         return self.get_space_climate_capabilities().max_temp
 
-    def get_space_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode:
+    def get_space_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode | None:
         """Resolve current space HVAC mode from coordinator data."""
         raise NotImplementedError
 
-    def get_space_hvac_action(self, data: Mapping[str, Any] | None) -> HVACAction:
+    def get_space_hvac_action(self, data: Mapping[str, Any] | None) -> HVACAction | None:
         """Resolve current space HVAC action from coordinator data."""
         raise NotImplementedError
 
@@ -216,11 +216,11 @@ class ControllerBase(ABC):
         """Turn the unit power ON or OFF."""
         raise NotImplementedError
 
-    def get_dhw_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode:
+    def get_dhw_hvac_mode(self, data: Mapping[str, Any] | None) -> HVACMode | None:
         """Resolve current DHW HVAC mode from coordinator data."""
         raise NotImplementedError
 
-    def get_dhw_hvac_action(self, data: Mapping[str, Any] | None) -> HVACAction:
+    def get_dhw_hvac_action(self, data: Mapping[str, Any] | None) -> HVACAction | None:
         """Resolve current DHW HVAC action from coordinator data."""
         raise NotImplementedError
 

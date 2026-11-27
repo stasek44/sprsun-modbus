@@ -46,14 +46,22 @@ Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using an RS485-
 
 ## Installation
 
-### One-Click Install (Recommended)
+### Via HACS (Recommended)
+1. In Home Assistant, open **HACS** (or **Settings** → **Marketplace**).
+2. Search for **SPRSUN Heat Pump (Modbus)**, click **Download**, and restart Home Assistant.
+
+Or open directly via My Home Assistant:
 
 [![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=stasek44&repository=sprsun-modbus&category=integration)
 
-### Via HACS / Marketplace
-1. In Home Assistant, open **Settings** → **Marketplace** (or **HACS** in older installations) → Menu (top right) → **Custom repositories**.
+<details>
+<summary>Alternative: Custom Repository in HACS (beta / pre-release or manual catalog)</summary>
+
+1. In HACS, open the menu (top right) → **Custom repositories**.
 2. Add repository URL: `https://github.com/stasek44/sprsun-modbus` with category **Integration**.
-3. Search for **SPRSUN Heat Pump Modbus**, click **Download**, and restart Home Assistant.
+3. Search for **SPRSUN Heat Pump (Modbus)**, click **Download**, and restart Home Assistant.
+
+</details>
 
 ### Manual Installation
 Copy `custom_components/sprsun_modbus` into your Home Assistant directory under `<config>/custom_components/` and restart Home Assistant.
@@ -84,7 +92,6 @@ In Home Assistant, go to **Settings** → **Devices & Services** → **Add Integ
 
 - **Single Home Assistant Device (`SPRSUN Heat Pump`):** All controls, telemetry sensors, diagnostics, and optional expert configuration entities are grouped under one device.
 - **Polling Architecture:**
-  - **Polling Architecture:**
   - **Fast Telemetry (`0x0000–0x0031`):** 1 contiguous read every `scan_interval` (49 sensors + 49 binary status/alarm sensors), with automatic exponential backoff up to `300s` when the gateway/unit is offline and instant recovery on the first successful poll.
   - **RW & Expert Batches (`0x0032–0x01BB`):** Read at startup and refreshed every 20 poll cycles using batched reads that skip unmapped `Invalid` gaps.
 - **Clean Default Device (`149` Core Entities):** Fresh setups expose only the `149` core entities (`49` sensors, `49` binary sensors, `42` numbers, `3` selects, `3` switches, `1` button, `2` climate entities). Integration diagnostics download (`diagnostics.py`) still captures all polled parameters regardless of UI entity toggles.
