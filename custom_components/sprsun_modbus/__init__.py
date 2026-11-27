@@ -34,6 +34,7 @@ from .const import (
     is_expert_writes_enabled,
 )
 from .controllers import ControllerBase, get_controller
+from .dashboard import async_register_dashboard
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -130,11 +131,13 @@ def _sync_entity_registry(
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up SPRSUN Heat Pump from a config entry."""
+    manifest_version = ""
     executor = getattr(hass, "async_add_executor_job", None)
     if callable(executor):
         res = executor(_read_manifest_version)
         if inspect.isawaitable(res):
-            _configure_prerelease_logging(await res)
+            manifest_version = str(await res or "")
+            _configure_prerelease_logging(manifest_version)
 
     host = entry.options.get(CONF_HOST, entry.data.get(CONF_HOST))
     port = int(entry.options.get(CONF_PORT, entry.data.get(CONF_PORT)))
@@ -162,6 +165,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     )
     coordinator.config_entry = entry
 
+    await coordinator.async_init_derived_store(hass, entry)
     await coordinator.async_config_entry_first_refresh()
 
     entry.runtime_data = coordinator
@@ -172,6 +176,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     platforms = _resolve_platforms(coordinator)
     await hass.config_entries.async_forward_entry_setups(entry, platforms)
+
+    await async_register_dashboard(hass, manifest_version)
 
     entry.async_on_unload(entry.add_update_listener(async_reload_entry))
 
@@ -241,6 +247,9 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         self._rw_loaded = False
         self._poll_count = 0
         self._rw_refresh_interval = 20
+        self._derived_store: Any = None
+        self._last_derived_save_ts: float = 0.0
+        self._last_derived_signature: Any = None
 
         _LOGGER.info(
             "SPRSUN coordinator initialized (%s controller, scan: %ds, cache staleness: %ds)",
@@ -374,6 +383,7 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
                 self._record_poll_failure(err)
                 raise UpdateFailed(f"Error communicating with Modbus: {err}") from err
             self._record_poll_success()
+            self._schedule_derived_state_save()
             return data
 
     def _sync_update(self):
@@ -768,7 +778,73 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
             )
         self._notify_updated_data()
 
+    async def async_init_derived_store(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        """Load persisted rolling 24h derived-sensor intervals when derived sensors are enabled."""
+        if not is_derived_sensors_enabled(entry):
+            return
+        try:
+            from homeassistant.helpers import storage as ha_storage
+
+            store_cls = getattr(ha_storage, "Store", None)
+            if not callable(store_cls):
+                return
+            store = store_cls(hass, 1, f"{DOMAIN}.derived_{entry.entry_id}")
+            self._derived_store = store
+            res = store.async_load()
+            loaded = await res if inspect.isawaitable(res) else res
+            if isinstance(loaded, dict):
+                restore_fn = getattr(self.controller, "restore_derived_state", None)
+                if callable(restore_fn):
+                    restore_fn(loaded, time.time())
+        except Exception as err:
+            _LOGGER.debug("Skipping derived state restore: %s", err)
+
+    def _schedule_derived_state_save(self) -> None:
+        """Schedule debounced persistence of rolling 24h derived state on the event loop."""
+        if self._derived_store is None or not hasattr(self._derived_store, "async_delay_save"):
+            return
+        export_fn = getattr(self.controller, "export_derived_state", None)
+        if not callable(export_fn):
+            return
+        now = time.time()
+        state = export_fn(now)
+        if not isinstance(state, dict):
+            return
+        signature = tuple(
+            (
+                key,
+                len(val.get("intervals", [])) if isinstance(val, dict) else 0,
+                val.get("active_start") if isinstance(val, dict) else None,
+            )
+            for key, val in sorted(state.items())
+        )
+        if signature == self._last_derived_signature and (now - self._last_derived_save_ts) < 300.0:
+            return
+        self._last_derived_signature = signature
+        self._last_derived_save_ts = now
+        self._derived_store.async_delay_save(
+            lambda: export_fn(time.time()) or {},
+            15,
+        )
+
+    async def async_save_derived_state(self) -> None:
+        """Flush persisted rolling 24h derived state immediately on shutdown/unload."""
+        if self._derived_store is None or not hasattr(self._derived_store, "async_save"):
+            return
+        export_fn = getattr(self.controller, "export_derived_state", None)
+        if not callable(export_fn):
+            return
+        state = export_fn(time.time())
+        if isinstance(state, dict):
+            res = self._derived_store.async_save(state)
+            if inspect.isawaitable(res):
+                await res
+
     async def async_shutdown(self):
         """Shutdown coordinator."""
+        try:
+            await self.async_save_derived_state()
+        except Exception as err:
+            _LOGGER.debug("Failed to flush derived state on shutdown: %s", err)
         async with self._lock:
             await self.hass.async_add_executor_job(self._close_client)

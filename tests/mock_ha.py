@@ -362,6 +362,27 @@ def setup_mocks():
             sys.modules["homeassistant.helpers.update_coordinator"] = update_coord
             sys.modules["homeassistant.helpers.entity_platform"] = MagicMock()
 
+            class MockStore:
+                def __init__(self, hass, version, key):
+                    self.hass = hass
+                    self.version = version
+                    self.key = key
+                    self._data = None
+
+                async def async_load(self):
+                    return self._data
+
+                async def async_save(self, data):
+                    self._data = data
+
+                def async_delay_save(self, data_func, delay):
+                    self._data = data_func()
+
+            storage_mod = MagicMock()
+            storage_mod.Store = MockStore
+            helpers.storage = storage_mod
+            sys.modules["homeassistant.helpers.storage"] = storage_mod
+
             # Config validation
             cv = MagicMock()
             cv.port = lambda v: v
@@ -589,6 +610,30 @@ def setup_mocks():
                 k: ("**REDACTED**" if k in to_redact else v) for k, v in dict(data).items()
             }
             sys.modules["homeassistant.components.diagnostics"] = diag_mod
+
+            # HTTP, Frontend & WebSocket API
+            class StaticPathConfig:
+                def __init__(self, url_path: str, path: str, cache_headers: bool = True):
+                    self.url_path = url_path
+                    self.path = path
+                    self.cache_headers = cache_headers
+
+            http_mod = MagicMock()
+            http_mod.StaticPathConfig = StaticPathConfig
+            sys.modules["homeassistant.components.http"] = http_mod
+
+            frontend_mod = MagicMock()
+            sys.modules["homeassistant.components.frontend"] = frontend_mod
+
+            ws_mod = MagicMock()
+            ws_mod.websocket_command = lambda schema: (lambda fn: fn)
+            ws_mod.async_response = lambda fn: fn
+            sys.modules["homeassistant.components.websocket_api"] = ws_mod
+
+            components_mod = sys.modules["homeassistant.components"]
+            components_mod.http = http_mod
+            components_mod.frontend = frontend_mod
+            components_mod.websocket_api = ws_mod
 
             # Attach submodules to parent package so "from homeassistant import config_entries" works
             ha.config_entries = cfg

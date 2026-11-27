@@ -1,20 +1,22 @@
-# 🎛️ Ready-to-Use Home Assistant Dashboards (100% Native Lovelace)
+# 🎛️ Built-in Home Assistant Dashboards (100% Native Lovelace)
 
 *[Polska wersja przewodnika dostępna tutaj / Polish guide: DASHBOARD_PL.md](DASHBOARD_PL.md)*
 
-This repository includes ready-to-paste **100% native Home Assistant Lovelace** dashboards (built with the modern `sections` layout — **no HACS custom cards required**). Every view uses plain, beginner-friendly descriptions so anyone in the household can understand what the heat pump is doing and how to tune it for lower electricity bills.
+The integration ships with built-in **100% native Home Assistant Lovelace strategies** (built with the modern `sections` layout — **no HACS custom cards and no YAML copy-paste required**).
+
+- **Automatic language selection:** Reads your Home Assistant UI language (`en`, `pl`, `fr`, `de`, `es`, `cs`, `sk`, `hu`, `lt`, `uk`) from a single template + i18n dictionary.
+- **Automatic entity detection:** Resolves your actual entity IDs automatically via `unique_id` — even if you renamed your heat pump device.
+- **Editable anytime:** Click **Take control** in Home Assistant whenever you want to convert the generated dashboard into a manually editable one.
 
 ---
 
 ## 📦 What's Included
 
-| File | Description |
+| Component | Description |
 | :--- | :--- |
-| **[dashboards/en/sprsun_dashboard.yaml](../dashboards/en/sprsun_dashboard.yaml)** | Full **4-tab Dashboard** (`Default`, `Detailed`, `Diagnostics`, `Optimization`) |
-| **[dashboards/en/sprsun_control_card.yaml](../dashboards/en/sprsun_control_card.yaml)** | Compact single control card for your main Home screen |
-| **[dashboards/pl/sprsun_dashboard.yaml](../dashboards/pl/sprsun_dashboard.yaml)** | Polish **4-tab Dashboard** (`Domyślny`, `Szczegółowy`, `Diagnostyczny`, `Optymalizacyjny`) |
-| **[dashboards/pl/sprsun_control_card.yaml](../dashboards/pl/sprsun_control_card.yaml)** | Polish compact single control card |
-| **[dashboards/sprsun_optimization_helpers.yaml](../dashboards/sprsun_optimization_helpers.yaml)** | Optional `history_stats` + `template` YAML package for 24h defrost counts, compressor starts & heater runtime |
+| **Built-in Dashboard (`custom:sprsun`)** | Full **4-tab Dashboard** (`Default`, `Detailed`, `Diagnostics`, `Optimization`) selectable directly from **+ Add Dashboard** |
+| **Built-in Control Section (`custom:sprsun-control`)** | Compact single control section selectable from **+ Add Section** on any Sections dashboard |
+| **Built-in 24h Counters** | `Defrost Count (24h)`, `Defrost Time (24h)`, `Compressor Starts (24h)`, `Electric Heaters Time (24h)` included directly under **Derived / Calculated Sensors** (persisted across HA restarts) |
 
 ### The 4 Views Explained
 
@@ -35,17 +37,20 @@ For the `Detailed`, `Diagnostics`, and `Optimization` views to show calculated m
 
 > **Note on Expert Settings (`[EXPERT]` sections):** Leave **Enable Expert Settings** disabled until you want to tune factory parameters (`H01–H18`, `F`, `R`). The dashboard automatically hides `[EXPERT]` sections when the option is off so you won't see broken tiles.
 
-### 2. Add the 4-Tab Dashboard
-1. Open [dashboards/en/sprsun_dashboard.yaml](../dashboards/en/sprsun_dashboard.yaml) and copy its entire contents.
-2. In Home Assistant, go to **Settings → Dashboards → + Add Dashboard → New dashboard from scratch**.
-3. Open the new dashboard, click the **pencil icon** (top right) → **⋮ menu → Raw configuration editor**.
-4. Paste the YAML and click **Save**.
+### 2. Add the Built-in 4-Tab Dashboard (No YAML Needed)
+1. In Home Assistant, go to **Settings → Dashboards → + Add Dashboard**.
+2. Pick **SPRSUN Heat Pump** from the dashboard strategies list (if your browser still has cached assets after an upgrade, refresh once with `Ctrl+F5`).
+3. *(Alternative YAML)* Or create an empty dashboard, open **Raw configuration editor**, and paste:
+   ```yaml
+   strategy:
+     type: custom:sprsun
+   ```
+   *(Optional fields under `strategy:`: `entry_id` if you run multiple heat pumps, or `language: en` / `pl` to override your HA profile language.)*
 
-### 3. If Your Entity Prefix Is Different
-The templates assume the default integration name **`SPRSUN Heat Pump`** (entities starting with `sprsun_heat_pump_`). If you named yours differently (e.g. *My Heat Pump*), find-and-replace `sprsun_heat_pump` in the YAML before saving.
+### 3. Add the Compact Control Card to an Existing Dashboard
+In any Sections view, click **Edit → + Add Section** and choose **SPRSUN — Quick Control** (`strategy: type: custom:sprsun-control`).
 
-### 4. (Optional) Add 24h Counters & External Power Meter
-- **24h Defrost & Cycling Counters:** Copy [dashboards/sprsun_optimization_helpers.yaml](../dashboards/sprsun_optimization_helpers.yaml) into your HA `packages/` folder (or merge `sensor:` / `template:` into `configuration.yaml`) and restart HA. The 24h tiles on the **Optimization** tab appear automatically.
+### 4. (Optional) External Power Meter
 - **External Energy Meter:** Some CHICO firmware variants (e.g. without the factory flow/power board) report `0` for internal `COP`, `Heating/Cooling Capacity`, `AC Voltage`, and `Pump Flow`. If you have a smart meter (Shelly 3EM, Tuya, etc.), simply add its `kW` / `kWh` sensor to the Optimization tab.
 
 ---

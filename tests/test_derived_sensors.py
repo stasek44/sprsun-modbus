@@ -32,7 +32,7 @@ class TestChicoDerivedSensors(unittest.TestCase):
         """Ensure derived sensor keys never collide with physical CHICO keys."""
         controller = ChicoController()
         derived_keys = [s.key for s in controller.get_derived_sensors()]
-        self.assertEqual(len(derived_keys), 13)
+        self.assertEqual(len(derived_keys), 17)
         self.assertEqual(len(derived_keys), len(set(derived_keys)))
 
         hardware_keys = (
@@ -267,19 +267,22 @@ class TestChicoDerivedSensors(unittest.TestCase):
     def test_duration_trackers(self):
         """Verify live and held cycle duration tracking for compressor and defrost."""
         tracker = ChicoDerivedTracker()
-        # Idle initially -> 0.0
+        # Idle initially -> 0.0 and no completed cycle yet
         res0 = tracker.compute({"working_status_register": 0, "output_symbol_1": 0}, now=1000.0)
         self.assertEqual(res0["compressor_last_run_duration"], 0.0)
+        self.assertNotIn("compressor_last_completed_duration", res0)
         self.assertEqual(res0["defrost_last_duration"], 0.0)
         self.assertEqual(res0["defrost_last_interval"], 0.0)
 
         # Compressor starts at t=1000, defrost starts at t=1300
         res1 = tracker.compute({"working_status_register": 0, "output_symbol_1": 1}, now=1000.0)
         self.assertEqual(res1["compressor_last_run_duration"], 0.0)
+        self.assertNotIn("compressor_last_completed_duration", res1)
         self.assertEqual(res1["defrost_last_interval"], 0.0)
 
         res2 = tracker.compute({"working_status_register": 1 << 7, "output_symbol_1": 1}, now=1300.0)
         self.assertEqual(res2["compressor_last_run_duration"], 5.0)
+        self.assertNotIn("compressor_last_completed_duration", res2)
         self.assertEqual(res2["defrost_last_duration"], 0.0)
         self.assertEqual(res2["defrost_last_interval"], 0.0)
 
@@ -291,19 +294,25 @@ class TestChicoDerivedSensors(unittest.TestCase):
 
         res4 = tracker.compute({"working_status_register": 0, "output_symbol_1": 0}, now=1900.0)
         self.assertEqual(res4["compressor_last_run_duration"], 15.0)
+        self.assertEqual(res4["compressor_last_completed_duration"], 15.0)
         self.assertEqual(res4["defrost_last_duration"], 4.0)
         self.assertEqual(res4["defrost_last_interval"], 6.0)
 
         # Remains held while idle for compressor, while defrost_last_interval continues counting live
         res5 = tracker.compute({"working_status_register": 0, "output_symbol_1": 0}, now=2500.0)
         self.assertEqual(res5["compressor_last_run_duration"], 15.0)
+        self.assertEqual(res5["compressor_last_completed_duration"], 15.0)
         self.assertEqual(res5["defrost_last_interval"], 16.0)
 
-        # Second defrost starts at t=5500 (66.0 min after t=1540) -> interval freezes at 66.0
+        # New compressor cycle starts at t=5500 -> live duration resets to 0..2 min, completed stays 15.0
         res6 = tracker.compute({"working_status_register": 1 << 7, "output_symbol_1": 1}, now=5500.0)
         self.assertEqual(res6["defrost_last_interval"], 66.0)
+        self.assertEqual(res6["compressor_last_run_duration"], 0.0)
+        self.assertEqual(res6["compressor_last_completed_duration"], 15.0)
         res7 = tracker.compute({"working_status_register": 1 << 7, "output_symbol_1": 1}, now=5620.0)
         self.assertEqual(res7["defrost_last_interval"], 66.0)
+        self.assertEqual(res7["compressor_last_run_duration"], 2.0)
+        self.assertEqual(res7["compressor_last_completed_duration"], 15.0)
         res8 = tracker.compute({"working_status_register": 0, "output_symbol_1": 1}, now=5740.0)
         self.assertEqual(res8["defrost_last_duration"], 4.0)
         self.assertEqual(res8["defrost_last_interval"], 0.0)
@@ -388,6 +397,13 @@ class TestChicoDerivedSensors(unittest.TestCase):
         self.assertEqual(approach_ent.entity_category, EntityCategory.DIAGNOSTIC)
         self.assertFalse(approach_ent.available)
 
+        cycle_ent = SPRSUNDerivedSensor(
+            coordinator, config_entry, by_key["compressor_last_run_duration"]
+        )
+        self.assertNotIn("last_completed_minutes", cycle_ent.extra_state_attributes)
+        coordinator.data["compressor_last_completed_duration"] = 24.5
+        self.assertEqual(cycle_ent.extra_state_attributes["last_completed_minutes"], 24.5)
+
     def test_coordinator_sync_update_populates_derived_data(self):
         """Verify SPRSUNDataUpdateCoordinator._sync_update populates derived sensor keys."""
         hass = MagicMock()
@@ -420,6 +436,57 @@ class TestChicoDerivedSensors(unittest.TestCase):
         self.assertEqual(updated["operating_state"]["value"], "heating")
         self.assertEqual(updated["ambient_temp_filtered"]["value"], 2.0)
         self.assertIn("estimated_power", updated)
+        self.assertEqual(updated["compressor_starts_24h"]["value"], 1)
+        self.assertEqual(updated["defrost_count_24h"]["value"], 0)
+
+    def test_rolling_24h_counters_pruning_and_persistence(self):
+        """Verify 24h rolling counters track intervals, prune >24h history, and restore safely."""
+        tracker = ChicoDerivedTracker()
+        t0 = 100_000.0
+        # Cycle 1: defrost 4 min (t0..t0+240), compressor on (t0..t0+600), heating heater on (t0+60..t0+360)
+        tracker.compute({"working_status_register": 1 << 7, "output_symbol_1": 1, "output_symbol_2": 0}, now=t0)
+        tracker.compute({"working_status_register": 1 << 7, "output_symbol_1": 1, "output_symbol_2": 1 << 5}, now=t0 + 60)
+        tracker.compute({"working_status_register": 0, "output_symbol_1": 1, "output_symbol_2": 1 << 5}, now=t0 + 240)
+        res = tracker.compute({"working_status_register": 0, "output_symbol_1": 1, "output_symbol_2": 0}, now=t0 + 360)
+        self.assertEqual(res["defrost_count_24h"], 1)
+        self.assertEqual(res["defrost_time_24h"], 4.0)
+        self.assertEqual(res["compressor_starts_24h"], 1)
+        self.assertEqual(res["heaters_time_24h"], 5.0)
+
+        # Export at t0+500 while compressor is still active, then restore after short 45s HA restart
+        snapshot = tracker.export_state(now=t0 + 500)
+        restored = ChicoDerivedTracker()
+        restored.restore_state(snapshot, now=t0 + 545)
+        res_after_restart = restored.compute(
+            {"working_status_register": 0, "output_symbol_1": 1, "output_symbol_2": 0},
+            now=t0 + 545,
+        )
+        # Continues the same compressor cycle without adding a fake start, then stops at t0+600
+        self.assertEqual(res_after_restart["compressor_starts_24h"], 1)
+        self.assertEqual(res_after_restart["defrost_count_24h"], 1)
+        restored.compute(
+            {"working_status_register": 0, "output_symbol_1": 0, "output_symbol_2": 0},
+            now=t0 + 600,
+        )
+
+        # After 24h + 601s, Cycle 1 falls completely out of the rolling 24h window
+        res_expired = restored.compute(
+            {"working_status_register": 0, "output_symbol_1": 0, "output_symbol_2": 0},
+            now=t0 + 86400.0 + 601.0,
+        )
+        self.assertEqual(res_expired["defrost_count_24h"], 0)
+        self.assertEqual(res_expired["defrost_time_24h"], 0.0)
+        self.assertEqual(res_expired["compressor_starts_24h"], 0)
+        self.assertEqual(res_expired["heaters_time_24h"], 0.0)
+
+        # Long outage (> 3 min) closes pre-shutdown active run cleanly at last_seen
+        long_gap = ChicoDerivedTracker()
+        long_gap.restore_state(snapshot, now=t0 + 500 + 600)
+        res_gap = long_gap.compute(
+            {"working_status_register": 0, "output_symbol_1": 1, "output_symbol_2": 0},
+            now=t0 + 1100,
+        )
+        self.assertEqual(res_gap["compressor_starts_24h"], 2)
 
 
 if __name__ == "__main__":

@@ -9,7 +9,9 @@ custom_components/sprsun_modbus/
 ├── __init__.py                     # SPRSUNDataUpdateCoordinator (FC 0x03/0x06/0x10/0x05 + masked RMW + auto-DEBUG)
 ├── config_flow.py                  # Auto-detection, options flow (enable_expert_writes), selector coercion
 ├── const.py                        # Integration defaults, is_expert_writes_enabled(), legacy aliases
+├── dashboard.py                    # Built-in Lovelace strategy registration, static serving & WS entity context API
 ├── diagnostics.py                  # Redacted coordinator cache, poll stats, and entity diagnostics export
+├── frontend/                       # Single-source Lovelace strategy JS, per-controller JSON templates & i18n/{en,pl}.json
 ├── sensor.py                       # Consumes get_sensors() + opt-in get_derived_sensors() (SPRSUNDerivedSensor)
 ├── binary_sensor.py                # Consumes ControllerBase.get_binary_sensors() (bitfields, alarms, control bits)
 ├── number.py                       # Consumes get_numbers() + opt-in get_expert_numbers() (NumberMode.BOX)
@@ -46,7 +48,7 @@ custom_components/sprsun_modbus/
   - `ControllerBase` defines `get_expert_sensors()`, `get_expert_binary_sensors()`, `get_expert_numbers()`, `get_expert_selects()`, `get_expert_switches()`, and `get_derived_sensors()`, returning `()` by default so non-CHICO drivers need no boilerplate.
   - When `enable_expert_writes=False` (default), `sensor.py`, `binary_sensor.py`, `number.py`, `select.py`, and `switch.py` register only the `149` core entities — zero expert RO or RW entities clutter the entity registry.
   - When `enable_expert_writes=True`, `sensor.py` and `binary_sensor.py` add the `353` RO expert diagnostics (`336` sensors + `17` binary sensors, keeping `enabled_default=False` to avoid duplicating writable controls), while `number.py`, `select.py`, and `switch.py` add the `337` confirmed writable `Config` controls (`322` numbers in `NumberMode.BOX`, `2` selects, `13` switches). Dangerous registers/bits (e.g. `parameters_reset_flag` at `0x0033` bit 6) and unconfirmed PDF `Invalid` gaps (`writable=False`) remain non-writable.
-  - When `enable_derived_sensors=True`, `sensor.py` registers the `13` controller-calculated `SPRSUNDerivedSensor` entities (enabled by default once opted in).
+  - When `enable_derived_sensors=True`, `sensor.py` registers the `17` controller-calculated `SPRSUNDerivedSensor` entities (enabled by default once opted in), with rolling 24h interval state persisted across restarts via `Store`.
 - **Masked Read-Modify-Write & Offset Codecs:**
   - Registers sharing a word with adjacent fields or upper-byte flags — including primary setpoints `P01`/`P02`/`P04` (`0x00CA–0x00CC`) and Timeband temperature setpoints (`0x01A4–0x01AC`) using `bit_mask=0xFF` (`0x00FF`) — route through `async_write_masked_register()` -> `_sync_write_masked_register()`, reading the live 16-bit word, masking only target bits, writing back with `INTER_WRITE_DELAY`, and storing the scaled `cached_value`.
   - Signed (`INT16`) and offset-encoded (`raw_offset`, such as `F02`/`F03` with `+250` raw offset) single-register writes encode via `encode_registers()` and pass explicit `cached_value`.
@@ -72,6 +74,7 @@ custom_components/sprsun_modbus/
    - Return `ClimateCapabilities(enabled=False, supports_dhw=False)` if climate entities are not supported yet.
 5. Register the driver in `CONTROLLER_REGISTRY` in `controllers/__init__.py` (keep `chico` first or ensure `detect()` checks non-zero/unique signature registers so `[0, 0, 0]` cannot false-match).
 6. Add unit tests in `tests/` covering register decoding, batch reads, climate mapping, and detection.
+7. Optionally add a controller-specific dashboard template `frontend/sprsun_dashboard_<controller>.json` (plus any new keys in `frontend/i18n/{en,pl}.json`). Until a dedicated template exists, the built-in Lovelace strategy automatically renders a clean fallback view of the controller's resolved entities.
 
 ### Note on Archived CAREL Reference (`24c99a3`)
 

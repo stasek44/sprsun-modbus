@@ -9,6 +9,8 @@ from .models import DerivedSensorSpec, extract_cache_value
 
 DEFROST_AMBIENT_HOLD_SECONDS = 420.0
 DEFROST_AMBIENT_MAX_HOLD_SECONDS = 2700.0
+ROLLING_24H_SECONDS = 86400.0
+RESTART_RESUME_GRACE_SECONDS = 180.0
 
 OPERATING_STATE_OPTIONS: tuple[str, ...] = (
     "off",
@@ -236,6 +238,12 @@ class _ActiveDurationTracker:
     def __init__(self) -> None:
         self._active_since: float | None = None
         self._last_duration_min: float = 0.0
+        self._last_completed_duration_min: float | None = None
+
+    @property
+    def last_completed_duration_min(self) -> float | None:
+        """Return duration (minutes) of the most recently finished cycle, if any."""
+        return self._last_completed_duration_min
 
     def update(self, is_active: bool | None, now: float) -> float | None:
         """Update cycle state and return current or last completed duration in minutes."""
@@ -248,7 +256,9 @@ class _ActiveDurationTracker:
             self._last_duration_min = elapsed
             return elapsed
         if self._active_since is not None:
-            self._last_duration_min = round(max(0.0, (now - self._active_since) / 60.0), 1)
+            completed = round(max(0.0, (now - self._active_since) / 60.0), 1)
+            self._last_duration_min = completed
+            self._last_completed_duration_min = completed
             self._active_since = None
         return self._last_duration_min
 
@@ -283,6 +293,86 @@ class _DefrostIntervalTracker:
         return 0.0
 
 
+class _RollingWindowTracker:
+    """Track cycle count and active duration (minutes) across a rolling 24h window."""
+
+    def __init__(self) -> None:
+        self._intervals: list[tuple[float, float]] = []
+        self._active_start: float | None = None
+
+    def _prune(self, now: float) -> float:
+        cutoff = now - ROLLING_24H_SECONDS
+        self._intervals = [(s, e) for s, e in self._intervals if e > cutoff]
+        return cutoff
+
+    def update(self, is_active: bool | None, now: float) -> tuple[int, float] | None:
+        """Update rolling 24h interval state and return (count, total_minutes)."""
+        if is_active is None:
+            if not self._intervals and self._active_start is None:
+                return None
+            cutoff = self._prune(now)
+        else:
+            if is_active:
+                if self._active_start is None:
+                    self._active_start = now
+            elif self._active_start is not None:
+                if now >= self._active_start:
+                    self._intervals.append((self._active_start, now))
+                self._active_start = None
+            cutoff = self._prune(now)
+
+        count = len(self._intervals) + (1 if self._active_start is not None else 0)
+        total_seconds = sum(
+            max(0.0, end - max(start, cutoff)) for start, end in self._intervals
+        )
+        if self._active_start is not None:
+            total_seconds += max(0.0, now - max(self._active_start, cutoff))
+        return count, round(total_seconds / 60.0, 1)
+
+    def export_state(self, now: float) -> dict[str, Any]:
+        """Serialize rolling 24h window state for persistent storage."""
+        self._prune(now)
+        return {
+            "intervals": [[s, e] for s, e in self._intervals],
+            "active_start": self._active_start,
+            "last_seen": now,
+        }
+
+    def restore_state(self, state: Mapping[str, Any], now: float) -> None:
+        """Restore persisted rolling 24h window state, guarding against long outages."""
+        cutoff = now - ROLLING_24H_SECONDS
+        restored: list[tuple[float, float]] = []
+        raw_intervals = state.get("intervals", [])
+        if isinstance(raw_intervals, list):
+            for pair in raw_intervals:
+                if not isinstance(pair, (list, tuple)) or len(pair) != 2:
+                    continue
+                try:
+                    start = float(pair[0])
+                    end = float(pair[1])
+                except (TypeError, ValueError):
+                    continue
+                if end >= start and end > cutoff and start <= now:
+                    restored.append((start, min(end, now)))
+        self._intervals = restored
+
+        raw_active = state.get("active_start")
+        self._active_start = None
+        if raw_active is not None:
+            try:
+                active_start = float(raw_active)
+                last_seen = float(state.get("last_seen", now))
+            except (TypeError, ValueError):
+                return
+            if active_start <= now:
+                if (now - last_seen) <= RESTART_RESUME_GRACE_SECONDS:
+                    self._active_start = active_start
+                else:
+                    closed_end = min(max(active_start, last_seen), now)
+                    if closed_end > cutoff:
+                        self._intervals.append((active_start, closed_end))
+
+
 class ChicoDerivedTracker:
     """Stateful per-controller tracker for time-dependent CHICO derived sensors."""
 
@@ -297,6 +387,9 @@ class ChicoDerivedTracker:
         self._compressor_duration = _ActiveDurationTracker()
         self._defrost_duration = _ActiveDurationTracker()
         self._defrost_interval = _DefrostIntervalTracker()
+        self._defrost_24h = _RollingWindowTracker()
+        self._compressor_24h = _RollingWindowTracker()
+        self._heaters_24h = _RollingWindowTracker()
 
     def update_ambient_filtered(self, data: Mapping[str, Any], now: float) -> float | None:
         """Freeze ambient temp during defrost and hold post-defrost for 7m of fan runtime (45m cap)."""
@@ -362,6 +455,10 @@ class ChicoDerivedTracker:
         )
         if comp_dur is not None:
             results["compressor_last_run_duration"] = comp_dur
+        if self._compressor_duration.last_completed_duration_min is not None:
+            results["compressor_last_completed_duration"] = (
+                self._compressor_duration.last_completed_duration_min
+            )
 
         defr_dur = self._defrost_duration.update(
             _get_bit(data, "working_status_register", 7),
@@ -377,6 +474,25 @@ class ChicoDerivedTracker:
         if defr_int is not None:
             results["defrost_last_interval"] = defr_int
 
+        defrost_bit = _get_bit(data, "working_status_register", 7)
+        comp_bit = _get_bit(data, "output_symbol_1", 0)
+        heat_h = _get_bit(data, "output_symbol_2", 5)
+        hw_h = _get_bit(data, "output_symbol_2", 7)
+        heaters_on = None if (heat_h is None and hw_h is None) else bool(heat_h or hw_h)
+
+        defrost_stats = self._defrost_24h.update(defrost_bit, ts)
+        if defrost_stats is not None:
+            results["defrost_count_24h"] = defrost_stats[0]
+            results["defrost_time_24h"] = defrost_stats[1]
+
+        comp_stats = self._compressor_24h.update(comp_bit, ts)
+        if comp_stats is not None:
+            results["compressor_starts_24h"] = comp_stats[0]
+
+        heater_stats = self._heaters_24h.update(heaters_on, ts)
+        if heater_stats is not None:
+            results["heaters_time_24h"] = heater_stats[1]
+
         merged: dict[str, Any] = dict(data)
         if amb_filtered is not None:
             merged["ambient_temp_filtered"] = amb_filtered
@@ -389,6 +505,27 @@ class ChicoDerivedTracker:
                 results[spec.key] = val
 
         return results
+
+    def export_state(self, now: float | None = None) -> dict[str, Any]:
+        """Export rolling 24h counter intervals for persistent storage."""
+        ts = time.time() if now is None else float(now)
+        return {
+            "defrost_24h": self._defrost_24h.export_state(ts),
+            "compressor_24h": self._compressor_24h.export_state(ts),
+            "heaters_24h": self._heaters_24h.export_state(ts),
+        }
+
+    def restore_state(self, state: Mapping[str, Any], now: float | None = None) -> None:
+        """Restore persisted rolling 24h counter intervals."""
+        if not isinstance(state, Mapping):
+            return
+        ts = time.time() if now is None else float(now)
+        if isinstance(state.get("defrost_24h"), Mapping):
+            self._defrost_24h.restore_state(state["defrost_24h"], ts)
+        if isinstance(state.get("compressor_24h"), Mapping):
+            self._compressor_24h.restore_state(state["compressor_24h"], ts)
+        if isinstance(state.get("heaters_24h"), Mapping):
+            self._heaters_24h.restore_state(state["heaters_24h"], ts)
 
 
 CHICO_DERIVED_SENSORS: tuple[DerivedSensorSpec, ...] = (
@@ -505,6 +642,58 @@ CHICO_DERIVED_SENSORS: tuple[DerivedSensorSpec, ...] = (
             "consecutive defrosts while defrosting (tracked since HA startup)."
         ),
         formula="(now - last_defrost_end_ts) / 60",
+    ),
+    DerivedSensorSpec(
+        key="defrost_count_24h",
+        name="Defrost Count (24h)",
+        value_fn=lambda data: _get_int(data, "defrost_count_24h"),
+        unit=None,
+        device_class=None,
+        state_class="measurement",
+        diagnostic=False,
+        enabled_default=True,
+        suggested_display_precision=0,
+        description="Number of defrost cycles observed over the rolling 24-hour window.",
+        formula="count(defrost_active intervals overlapping [now - 24h, now])",
+    ),
+    DerivedSensorSpec(
+        key="defrost_time_24h",
+        name="Defrost Time (24h)",
+        value_fn=lambda data: _get_float(data, "defrost_time_24h"),
+        unit="min",
+        device_class="duration",
+        state_class="measurement",
+        diagnostic=False,
+        enabled_default=True,
+        suggested_display_precision=1,
+        description="Total defrost duration in minutes over the rolling 24-hour window.",
+        formula="sum(defrost_active duration overlapping [now - 24h, now]) / 60",
+    ),
+    DerivedSensorSpec(
+        key="compressor_starts_24h",
+        name="Compressor Starts (24h)",
+        value_fn=lambda data: _get_int(data, "compressor_starts_24h"),
+        unit=None,
+        device_class=None,
+        state_class="measurement",
+        diagnostic=False,
+        enabled_default=True,
+        suggested_display_precision=0,
+        description="Number of compressor run cycles observed over the rolling 24-hour window.",
+        formula="count(compressor intervals overlapping [now - 24h, now])",
+    ),
+    DerivedSensorSpec(
+        key="heaters_time_24h",
+        name="Electric Heaters Time (24h)",
+        value_fn=lambda data: _get_float(data, "heaters_time_24h"),
+        unit="min",
+        device_class="duration",
+        state_class="measurement",
+        diagnostic=False,
+        enabled_default=True,
+        suggested_display_precision=1,
+        description="Total electric backup heater runtime in minutes over the rolling 24-hour window.",
+        formula="sum((heating_heater or hotwater_heater) overlapping [now - 24h, now]) / 60",
     ),
     DerivedSensorSpec(
         key="coil_ambient_delta",
