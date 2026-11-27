@@ -264,5 +264,8 @@
   "return": "Retour",
   "dhw_tank": "Ballon ECS",
   "outdoor_2": "Extérieur",
-  "strategy_dashboard_title": "Pompe à chaleur SPRSUN"
+  "strategy_dashboard_title": "Pompe à chaleur SPRSUN",
+  "notice_derived_sensors_disabled": "ℹ️ **Les capteurs calculés optionnels sont désactivés.** Les tuiles telles que *État de marche*, *Delta T eau*, *Cible courbe ECO*, *Surchauffes*, *Givre*, *Durée cycle* et *Puissance estimée* sont masquées. Activez **Capteurs dérivés** dans **Paramètres → Appareils et services → SPRSUN Heat Pump (Modbus) → Configurer** puis actualisez le tableau de bord.",
+  "notice_expert_writes_disabled": "🔒 **Section [EXPERT] masquée :** Les paramètres usine (`H01–H18`, `F`, `R`, `Plage 1`) restent masqués tant que vous n’activez pas **Paramètres experts** dans **Configurer**.",
+  "notice_helpers_24h_missing": "ℹ️ **Compteurs 24h masqués :** Pour afficher le nombre de dégivrages, démarrages compresseur et temps d’appoints sur 24h, ajoutez le fichier optionnel `dashboards/sprsun_optimization_helpers.yaml` à Home Assistant."
 }

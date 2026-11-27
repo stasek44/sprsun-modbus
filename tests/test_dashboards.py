@@ -148,6 +148,9 @@ class TestDashboardTemplatesAndI18n(unittest.TestCase):
         self.assertIn("ll-strategy-section-sprsun-control", js_text)
         self.assertIn("window.customStrategies", js_text)
         self.assertIn("sprsun_modbus/get_dashboard_context", js_text)
+        self.assertIn("notice_derived_sensors_disabled", js_text)
+        self.assertIn("notice_expert_writes_disabled", js_text)
+        self.assertIn("notice_helpers_24h_missing", js_text)
 
 
 class TestDashboardBackend(unittest.IsolatedAsyncioTestCase):
@@ -207,6 +210,8 @@ class TestDashboardBackend(unittest.IsolatedAsyncioTestCase):
             ctx["entities"]["number:h01_defrost_freq"],
             "number.pompa_ciepla_h01_defrost_frequency",
         )
+        self.assertIn("sensor.custom_state_entity", ctx["derived_entity_ids"])
+        self.assertIn("number.pompa_ciepla_h01_defrost_frequency", ctx["expert_entity_ids"])
 
     def test_build_dashboard_context_without_entries(self):
         """Context returns clean defaults when no config entry is present."""

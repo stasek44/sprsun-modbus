@@ -76,16 +76,20 @@ async function fetchDashboardContext(hass, entryId) {
   }
 }
 
+function getTranslated(translations, key) {
+  if (key in translations.active) {
+    return translations.active[key];
+  }
+  if (key in translations.fallback) {
+    return translations.fallback[key];
+  }
+  return key;
+}
+
 function resolveString(str, translations, entityMap) {
-  const withText = str.replace(TRANSLATION_TOKEN_RE, (_match, key) => {
-    if (key in translations.active) {
-      return translations.active[key];
-    }
-    if (key in translations.fallback) {
-      return translations.fallback[key];
-    }
-    return key;
-  });
+  const withText = str.replace(TRANSLATION_TOKEN_RE, (_match, key) =>
+    getTranslated(translations, key)
+  );
 
   return withText.replace(ENTITY_TOKEN_RE, (_match, domain, key) => {
     const lookupKey = `${domain}:${key}`;
@@ -93,6 +97,166 @@ function resolveString(str, translations, entityMap) {
       return entityMap[lookupKey];
     }
     return `${domain}.sprsun_heat_pump_${key}`;
+  });
+}
+
+const HELPER_24H_IDS = [
+  "sensor.sprsun_defrost_count_24h",
+  "sensor.sprsun_defrost_time_24h",
+  "sensor.sprsun_compressor_starts_24h",
+  "sensor.sprsun_heaters_time_24h",
+];
+
+function makeNoticeCard(text) {
+  return {
+    type: "markdown",
+    text_only: true,
+    content: text,
+  };
+}
+
+function filterCardNode(card, hiddenSet) {
+  if (!card || typeof card !== "object") {
+    return card;
+  }
+  if (typeof card.entity === "string" && hiddenSet.has(card.entity)) {
+    return null;
+  }
+  if (card.type === "history-graph" && Array.isArray(card.entities)) {
+    const kept = card.entities.filter((item) => {
+      const eid = typeof item === "string" ? item : item?.entity;
+      return !eid || !hiddenSet.has(eid);
+    });
+    if (kept.length === 0) {
+      return null;
+    }
+    return { ...card, entities: kept };
+  }
+  if (Array.isArray(card.cards)) {
+    const kept = card.cards
+      .map((child) => filterCardNode(child, hiddenSet))
+      .filter(Boolean);
+    if (kept.length === 0) {
+      return null;
+    }
+    return { ...card, cards: kept };
+  }
+  if (card.type === "conditional" && card.card) {
+    const inner = filterCardNode(card.card, hiddenSet);
+    if (!inner) {
+      return null;
+    }
+    return { ...card, card: inner };
+  }
+  return card;
+}
+
+function sectionUsesHiddenEntity(section, hiddenSet) {
+  if (!Array.isArray(section?.visibility)) {
+    return false;
+  }
+  return section.visibility.some(
+    (cond) => typeof cond?.entity === "string" && hiddenSet.has(cond.entity)
+  );
+}
+
+function applyOptionalEntityNotices(views, context, translations, hass) {
+  const hasEntry = Boolean(context.entry_id);
+  const derivedOff = hasEntry && context.enable_derived_sensors === false;
+  const expertOff = hasEntry && context.enable_expert_writes === false;
+  const helpersMissing =
+    Boolean(hass?.states) &&
+    HELPER_24H_IDS.every((eid) => !(eid in hass.states));
+
+  const hiddenSet = new Set([
+    ...(derivedOff ? context.derived_entity_ids || [] : []),
+    ...(expertOff ? context.expert_entity_ids || [] : []),
+    ...(helpersMissing ? HELPER_24H_IDS : []),
+  ]);
+
+  const filteredAmb = context.entities?.["sensor:ambient_temp_filtered"];
+  const rawAmb = context.entities?.["sensor:ambient_temp"];
+
+  const derivedNotice = getTranslated(
+    translations,
+    "notice_derived_sensors_disabled"
+  );
+  const expertNotice = getTranslated(
+    translations,
+    "notice_expert_writes_disabled"
+  );
+  const helpersNotice = getTranslated(
+    translations,
+    "notice_helpers_24h_missing"
+  );
+
+  return views.map((view, viewIdx) => {
+    const nextView = { ...view };
+
+    if (Array.isArray(view.badges)) {
+      nextView.badges = view.badges
+        .map((badge) => {
+          if (derivedOff && filteredAmb && rawAmb && badge?.entity === filteredAmb) {
+            return { ...badge, entity: rawAmb };
+          }
+          if (badge?.entity && hiddenSet.has(badge.entity)) {
+            return null;
+          }
+          return badge;
+        })
+        .filter(Boolean);
+    }
+
+    if (!Array.isArray(view.sections)) {
+      return nextView;
+    }
+
+    const nextSections = view.sections
+      .filter((sec) => !sectionUsesHiddenEntity(sec, hiddenSet))
+      .map((sec, secIdx) => {
+        let cards = (sec.cards || [])
+          .map((c) => filterCardNode(c, hiddenSet))
+          .filter(Boolean);
+
+        if (derivedOff && secIdx === 0 && (viewIdx === 0 || viewIdx === 1 || viewIdx === 2)) {
+          const insertAt = Math.min(2, cards.length);
+          cards = [
+            ...cards.slice(0, insertAt),
+            makeNoticeCard(derivedNotice),
+            ...cards.slice(insertAt),
+          ];
+        }
+
+        if (derivedOff && viewIdx === 3 && secIdx === 0) {
+          const mdIdx = cards.findIndex((c) => c.type === "markdown");
+          if (mdIdx >= 0) {
+            cards = [
+              ...cards.slice(0, mdIdx),
+              makeNoticeCard(derivedNotice),
+              ...cards.slice(mdIdx + 1),
+            ];
+          } else {
+            cards.push(makeNoticeCard(derivedNotice));
+          }
+        }
+
+        if (helpersMissing && viewIdx === 3 && secIdx === 2) {
+          cards = [...cards, makeNoticeCard(helpersNotice)];
+        }
+
+        return { ...sec, cards };
+      });
+
+    if (expertOff && viewIdx === 3) {
+      nextSections.push({
+        type: "grid",
+        column_span: 2,
+        cards: [makeNoticeCard(expertNotice)],
+      });
+    }
+
+    nextView.sections = nextSections;
+    return nextView;
   });
 }
 
@@ -175,13 +339,19 @@ class SprsunDashboardStrategy extends HTMLElement {
       translations,
       context.entities || {}
     );
+    const views = applyOptionalEntityNotices(
+      rendered.views || [],
+      context,
+      translations,
+      hass
+    );
     return {
       title:
         opts.title ||
         context.title ||
         translations.active.strategy_dashboard_title ||
         "SPRSUN Heat Pump",
-      views: rendered.views || [],
+      views,
     };
   }
 
@@ -221,9 +391,23 @@ class SprsunControlSectionStrategy extends HTMLElement {
       translations,
       context.entities || {}
     );
-    return {
-      cards: [renderedCard],
-    };
+    const derivedOff =
+      Boolean(context.entry_id) && context.enable_derived_sensors === false;
+    if (!derivedOff) {
+      return {
+        cards: [renderedCard],
+      };
+    }
+
+    const hiddenSet = new Set(context.derived_entity_ids || []);
+    const filteredCard = filterCardNode(renderedCard, hiddenSet);
+    const cards = filteredCard ? [filteredCard] : [];
+    cards.push(
+      makeNoticeCard(
+        getTranslated(translations, "notice_derived_sensors_disabled")
+      )
+    );
+    return { cards };
   }
 
   static async getStubConfig() {

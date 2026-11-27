@@ -264,5 +264,8 @@
   "return": "Return",
   "dhw_tank": "DHW Tank",
   "outdoor_2": "Outdoor",
-  "strategy_dashboard_title": "SPRSUN Heat Pump"
+  "strategy_dashboard_title": "SPRSUN Heat Pump",
+  "notice_derived_sensors_disabled": "ℹ️ **Optional Calculated Sensors are disabled.** Tiles such as *Operating State*, *Water Delta T*, *ECO Curve Target*, *Superheats*, *Frost Buildup*, *Cycle Duration*, and *Estimated Power* are hidden. To enable them, go to **Settings → Devices & Services → SPRSUN Heat Pump (Modbus) → Configure → Enable Derived / Calculated Sensors** and refresh the dashboard.",
+  "notice_expert_writes_disabled": "🔒 **[EXPERT] settings hidden:** Factory parameters (`H01–H18`, `F`, `R`, `Timeband 1`) stay hidden until you enable **Enable Expert Settings** in **Configure**.",
+  "notice_helpers_24h_missing": "ℹ️ **24h counters hidden:** To display 24h defrost counts, compressor starts, and heater runtime, add the optional `dashboards/sprsun_optimization_helpers.yaml` package to Home Assistant."
 }

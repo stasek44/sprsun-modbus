@@ -264,5 +264,8 @@
   "return": "Grįžtamas",
   "dhw_tank": "KV boileris",
   "outdoor_2": "Lauke",
-  "strategy_dashboard_title": "SPRSUN Šilumos siurblys"
+  "strategy_dashboard_title": "SPRSUN Šilumos siurblys",
+  "notice_derived_sensors_disabled": "ℹ️ **Pasirinktiniai išvestiniai jutikliai išjungti.** Tokios kortelės kaip *Darbo būsena*, *Vandens Delta T*, *ECO kreivės tikslas*, *Perkaitimai*, *Šerkšnas*, *Ciklo trukmė* ir *Numatoma galia* yra paslėptos. Įjunkite juos **Nustatymai → Įrenginiai ir paslaugos → SPRSUN Heat Pump (Modbus) → Konfigūruoti** ir atnaujinkite skydelį.",
+  "notice_expert_writes_disabled": "🔒 **[EKSPERTAS] skiltis paslėpta:** Gamykliniai parametrai (`H01–H18`, `F`, `R`, `1 zona`) lieka paslėpti, kol neįjungsite **Eksperto nustatymų** integracijos konfigūracijoje.",
+  "notice_helpers_24h_missing": "ℹ️ **24 val. skaitikliai paslėpti:** Norėdami matyti 24 val. atitirpinimų skaičių, paleidimus ir tenų laiką, pridėkite pasirinktinį `dashboards/sprsun_optimization_helpers.yaml` paketą į Home Assistant."
 }

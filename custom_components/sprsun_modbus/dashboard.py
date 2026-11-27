@@ -147,6 +147,8 @@ def build_dashboard_context(
             "enable_derived_sensors": False,
             "enable_expert_writes": False,
             "entities": {},
+            "derived_entity_ids": [],
+            "expert_entity_ids": [],
             "entries": [],
         }
 
@@ -190,6 +192,24 @@ def build_dashboard_context(
             key = uid[len(unique_prefix) :]
             entities[f"{domain}:{key}"] = entity_id
 
+    derived_entity_ids = [
+        entities[f"sensor:{spec.key}"]
+        for spec in controller.get_derived_sensors()
+        if f"sensor:{spec.key}" in entities
+    ]
+    expert_pairs = (
+        [("sensor", s.key) for s in controller.get_expert_sensors()]
+        + [("binary_sensor", s.key) for s in controller.get_expert_binary_sensors()]
+        + [("number", s.key) for s in controller.get_expert_numbers()]
+        + [("select", s.key) for s in controller.get_expert_selects()]
+        + [("switch", s.key) for s in controller.get_expert_switches()]
+    )
+    expert_entity_ids = [
+        entities[f"{domain}:{key}"]
+        for domain, key in expert_pairs
+        if f"{domain}:{key}" in entities
+    ]
+
     return {
         "entry_id": target_entry.entry_id,
         "title": title,
@@ -197,6 +217,8 @@ def build_dashboard_context(
         "enable_derived_sensors": is_derived_sensors_enabled(target_entry),
         "enable_expert_writes": is_expert_writes_enabled(target_entry),
         "entities": entities,
+        "derived_entity_ids": derived_entity_ids,
+        "expert_entity_ids": expert_entity_ids,
         "entries": entries_summary,
     }
 

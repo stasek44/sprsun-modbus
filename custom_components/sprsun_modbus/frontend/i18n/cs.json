@@ -264,5 +264,8 @@
   "return": "Zpátečka",
   "dhw_tank": "Zásobník TUV",
   "outdoor_2": "Venku",
-  "strategy_dashboard_title": "Tepelné čerpadlo SPRSUN"
+  "strategy_dashboard_title": "Tepelné čerpadlo SPRSUN",
+  "notice_derived_sensors_disabled": "ℹ️ **Volitelné odvozené senzory jsou vypnuté.** Dlaždice jako *Provozní stav*, *Delta T vody*, *Cíl křivky ECO*, *Přehřátí*, *Námraza*, *Délka cyklu* a *Odhadovaný příkon* jsou skryté. Zapněte **Odvozené / výpočtové senzory** v **Nastavení → Zařízení a služby → SPRSUN Heat Pump (Modbus) → Konfigurovat** a obnovte dashboard.",
+  "notice_expert_writes_disabled": "🔒 **Sekce [EXPERT] je skrytá:** Tovární parametry (`H01–H18`, `F`, `R`, `Pásmo 1`) zůstanou skryté, dokud v **Konfiguraci** nezapnete **Expertní nastavení**.",
+  "notice_helpers_24h_missing": "ℹ️ **24h počítadla jsou skrytá:** Pro zobrazení počtu defrostů, startů kompresoru a doby patron za 24h přidejte volitelný balíček `dashboards/sprsun_optimization_helpers.yaml` do Home Assistanta."
 }

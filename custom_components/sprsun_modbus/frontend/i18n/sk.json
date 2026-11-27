@@ -264,5 +264,8 @@
   "return": "Spiatočka",
   "dhw_tank": "Zásobník TÚV",
   "outdoor_2": "Vonku",
-  "strategy_dashboard_title": "Tepelné čerpadlo SPRSUN"
+  "strategy_dashboard_title": "Tepelné čerpadlo SPRSUN",
+  "notice_derived_sensors_disabled": "ℹ️ **Voliteľné odvodené senzory sú vypnuté.** Dlaždice ako *Prevádzkový stav*, *Delta T vody*, *Cieľ krivky ECO*, *Prehriatia*, *Námraza*, *Dĺžka cyklu* a *Odhadovaný príkon* sú skryté. Zapnite **Odvodené / výpočtové senzory** v **Nastavenia → Zariadenia a služby → SPRSUN Heat Pump (Modbus) → Konfigurovať** a obnovte dashboard.",
+  "notice_expert_writes_disabled": "🔒 **Sekcia [EXPERT] je skrytá:** Továrenské parametre (`H01–H18`, `F`, `R`, `Pásmo 1`) zostanú skryté, kým v **Konfigurácii** nezapnete **Expertné nastavenia**.",
+  "notice_helpers_24h_missing": "ℹ️ **24h počítadlá sú skryté:** Na zobrazenie počtu defrostov, štartov kompresora a času špirál za 24h pridajte voliteľný balík `dashboards/sprsun_optimization_helpers.yaml` do Home Assistanta."
 }
