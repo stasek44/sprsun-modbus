@@ -150,7 +150,7 @@ class TestDashboardTemplatesAndI18n(unittest.TestCase):
         self.assertIn("sprsun_modbus/get_dashboard_context", js_text)
         self.assertIn("notice_derived_sensors_disabled", js_text)
         self.assertIn("notice_expert_writes_disabled", js_text)
-        self.assertIn("notice_helpers_24h_missing", js_text)
+        self.assertNotIn("sprsun_optimization_helpers", js_text)
 
 
 class TestDashboardBackend(unittest.IsolatedAsyncioTestCase):
@@ -211,6 +211,7 @@ class TestDashboardBackend(unittest.IsolatedAsyncioTestCase):
             "number.pompa_ciepla_h01_defrost_frequency",
         )
         self.assertIn("sensor.custom_state_entity", ctx["derived_entity_ids"])
+        self.assertIn("sensor.pompa_ciepla_defrost_count_24h", ctx["derived_entity_ids"])
         self.assertIn("number.pompa_ciepla_h01_defrost_frequency", ctx["expert_entity_ids"])
 
     def test_build_dashboard_context_without_entries(self):

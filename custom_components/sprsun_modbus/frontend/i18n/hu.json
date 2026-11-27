@@ -266,6 +266,5 @@
   "outdoor_2": "Külső",
   "strategy_dashboard_title": "SPRSUN Hőszivattyú",
   "notice_derived_sensors_disabled": "ℹ️ **Az opcionális számított szenzorok ki vannak kapcsolva.** Az olyan csempék, mint az *Üzemi állapot*, *Víz Delta T*, *ECO görbe cél*, *Túlhevülés*, *Jegesedés*, *Ciklusidő* és *Becsült teljesítmény* rejtve vannak. Engedélyezze őket a **Beállítások → Eszközök és szolgáltatások → SPRSUN Heat Pump (Modbus) → Konfigurálás** menüben, majd frissítse az irányítópultot.",
-  "notice_expert_writes_disabled": "🔒 **[SZAKÉRTŐ] szakasz rejtve:** A gyári paraméterek (`H01–H18`, `F`, `R`, `Idősáv 1`) rejtve maradnak, amíg a **Konfigurálás** alatt be nem kapcsolja a **Szakértői beállításokat**.",
-  "notice_helpers_24h_missing": "ℹ️ **24h számlálók rejtve:** A 24 órás leolvasztások, kompresszorindítások és fűtőbetét-idők megjelenítéséhez adja hozzá az opcionális `dashboards/sprsun_optimization_helpers.yaml` csomagot a Home Assistanthoz."
+  "notice_expert_writes_disabled": "🔒 **[SZAKÉRTŐ] szakasz rejtve:** A gyári paraméterek (`H01–H18`, `F`, `R`, `Idősáv 1`) rejtve maradnak, amíg a **Konfigurálás** alatt be nem kapcsolja a **Szakértői beállításokat**."
 }

@@ -70,7 +70,7 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
         added_derived = []
         await async_setup_entry(hass, self.config_entry, added_derived.extend)
         self.assertEqual(len(added_derived), len(CHICO_CORE_SENSORS) + len(CHICO_DERIVED_SENSORS))
-        self.assertEqual(len(added_derived), 62)
+        self.assertEqual(len(added_derived), 66)
         by_derived = {e._key: e for e in added_derived}
         for derived_spec in CHICO_DERIVED_SENSORS:
             self.assertIsInstance(by_derived[derived_spec.key], SPRSUNDerivedSensor)
@@ -89,7 +89,7 @@ class TestSPRSUNSensor(unittest.IsolatedAsyncioTestCase):
             len(added_all),
             len(CHICO_CORE_SENSORS) + len(CHICO_EXPERT_SENSORS) + len(CHICO_DERIVED_SENSORS),
         )
-        self.assertEqual(len(added_all), 398)
+        self.assertEqual(len(added_all), 402)
 
         by_key = {entity._key: entity for entity in added_all}
         self.assertEqual(by_key["h01_defrost_freq"].entity_category, EntityCategory.DIAGNOSTIC)

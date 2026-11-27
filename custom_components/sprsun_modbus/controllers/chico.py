@@ -105,6 +105,18 @@ class ChicoController(ControllerBase):
         """Compute CHICO derived sensor values from coordinator data."""
         return self._derived_tracker.compute(data, now=now)
 
+    def export_derived_state(self, now: float | None = None) -> dict[str, Any] | None:
+        """Export rolling 24h derived tracker state for persistence."""
+        return self._derived_tracker.export_state(now=now)
+
+    def restore_derived_state(
+        self,
+        state: Mapping[str, Any],
+        now: float | None = None,
+    ) -> None:
+        """Restore rolling 24h derived tracker state from persistent storage."""
+        self._derived_tracker.restore_state(state, now=now)
+
     def get_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
         """Return CHICO core binary sensor specifications."""
         return CHICO_CORE_BINARY_SENSORS

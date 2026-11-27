@@ -266,6 +266,5 @@
   "outdoor_2": "Außen",
   "strategy_dashboard_title": "SPRSUN Wärmepumpe",
   "notice_derived_sensors_disabled": "ℹ️ **Optionale abgeleitete Sensoren sind deaktiviert.** Kacheln wie *Betriebszustand*, *Wasser Delta T*, *ECO-Kurve Sollwert*, *Überhitzung*, *Reif*, *Zyklusdauer* und *Geschätzte Leistung* sind ausgeblendet. Aktivieren Sie **Abgeleitete Sensoren** unter **Einstellungen → Geräte & Dienste → SPRSUN Heat Pump (Modbus) → Konfigurieren** und laden Sie das Dashboard neu.",
-  "notice_expert_writes_disabled": "🔒 **[EXPERTE]-Bereich ausgeblendet:** Werksparameter (`H01–H18`, `F`, `R`, `Zeitfenster 1`) bleiben verborgen, bis Sie **Experteneinstellungen aktivieren** unter **Konfigurieren** einschalten.",
-  "notice_helpers_24h_missing": "ℹ️ **24h-Zähler ausgeblendet:** Für Abtauanzahl, Verdichterstarts und Heizstab-Laufzeit (24h) fügen Sie das optionale Paket `dashboards/sprsun_optimization_helpers.yaml` in Home Assistant hinzu."
+  "notice_expert_writes_disabled": "🔒 **[EXPERTE]-Bereich ausgeblendet:** Werksparameter (`H01–H18`, `F`, `R`, `Zeitfenster 1`) bleiben verborgen, bis Sie **Experteneinstellungen aktivieren** unter **Konfigurieren** einschalten."
 }

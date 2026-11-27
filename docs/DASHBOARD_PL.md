@@ -16,7 +16,7 @@ Integracja zawiera wbudowane, w **100% natywne strategie Lovelace** dla Home Ass
 | :--- | :--- |
 | **Wbudowany Dashboard (`custom:sprsun`)** | Pełny **4-zakładkowy Dashboard** (`Domyślny`, `Szczegółowy`, `Diagnostyczny`, `Optymalizacyjny`) dostępny bezpośrednio w **+ Dodaj pulpit** |
 | **Wbudowana Sekcja Sterowania (`custom:sprsun-control`)** | Kompaktowa sekcja sterowania dostępna z **+ Dodaj sekcję** na dowolnym pulpicie |
-| **[dashboards/sprsun_optimization_helpers.yaml](../dashboards/sprsun_optimization_helpers.yaml)** | Opcjonalny pakiet `history_stats` + `template` (liczba defrostów 24h, czas defrostu, starty sprężarki, czas grzałek) |
+| **Wbudowane liczniki 24h** | `Liczba defrostów (24h)`, `Czas defrostu (24h)`, `Starty sprężarki (24h)`, `Czas grzałek (24h)` wbudowane w **Sensory wyliczane** (z zapisem stanu między restartami HA) |
 
 ### Do czego służy każda z 4 zakładek?
 
@@ -50,8 +50,7 @@ Aby zakładki `Szczegółowy`, `Diagnostyczny` i `Optymalizacyjny` pokazywały w
 ### 3. Dodaj kompaktową sekcję sterowania na istniejący pulpit
 Na dowolnym pulpicie w układzie Sekcji kliknij **Edytuj → + Dodaj sekcję** i wybierz **SPRSUN — Sterowanie** (`strategy: type: custom:sprsun-control`).
 
-### 4. (Opcjonalnie) Statystyki 24h i zewnętrzny licznik energii
-- **Liczniki dobowe defrostu i taktowania:** Skopiuj zawartość [dashboards/sprsun_optimization_helpers.yaml](../dashboards/sprsun_optimization_helpers.yaml) do folderu `packages/` w HA (lub do `configuration.yaml`) i zrestartuj HA — kafelki 24h na zakładce **Optymalizacyjny** pojawią się same.
+### 4. (Opcjonalnie) Zewnętrzny licznik energii
 - **Zewnętrzny licznik prądu:** W części sterowników CHICO (bez fabrycznego przepływomierza/licznika na płycie, np. `Ctrl v590`) wewnętrzne `COP`, `Moc cieplna`, `Napięcie AC` i `Przepływ` pokazują `0`. Jeśli masz osobny licznik (Shelly 3EM, Tuya itp.), dodaj jego encje kW/kWh na zakładce Optymalizacyjny.
 
 ---

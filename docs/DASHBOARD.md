@@ -16,7 +16,7 @@ The integration ships with built-in **100% native Home Assistant Lovelace strate
 | :--- | :--- |
 | **Built-in Dashboard (`custom:sprsun`)** | Full **4-tab Dashboard** (`Default`, `Detailed`, `Diagnostics`, `Optimization`) selectable directly from **+ Add Dashboard** |
 | **Built-in Control Section (`custom:sprsun-control`)** | Compact single control section selectable from **+ Add Section** on any Sections dashboard |
-| **[dashboards/sprsun_optimization_helpers.yaml](../dashboards/sprsun_optimization_helpers.yaml)** | Optional `history_stats` + `template` YAML package for 24h defrost counts, compressor starts & heater runtime |
+| **Built-in 24h Counters** | `Defrost Count (24h)`, `Defrost Time (24h)`, `Compressor Starts (24h)`, `Electric Heaters Time (24h)` included directly under **Derived / Calculated Sensors** (persisted across HA restarts) |
 
 ### The 4 Views Explained
 
@@ -50,8 +50,7 @@ For the `Detailed`, `Diagnostics`, and `Optimization` views to show calculated m
 ### 3. Add the Compact Control Card to an Existing Dashboard
 In any Sections view, click **Edit → + Add Section** and choose **SPRSUN — Quick Control** (`strategy: type: custom:sprsun-control`).
 
-### 4. (Optional) Add 24h Counters & External Power Meter
-- **24h Defrost & Cycling Counters:** Copy [dashboards/sprsun_optimization_helpers.yaml](../dashboards/sprsun_optimization_helpers.yaml) into your HA `packages/` folder (or merge `sensor:` / `template:` into `configuration.yaml`) and restart HA. The 24h tiles on the **Optimization** tab appear automatically.
+### 4. (Optional) External Power Meter
 - **External Energy Meter:** Some CHICO firmware variants (e.g. without the factory flow/power board) report `0` for internal `COP`, `Heating/Cooling Capacity`, `AC Voltage`, and `Pump Flow`. If you have a smart meter (Shelly 3EM, Tuya, etc.), simply add its `kW` / `kWh` sensor to the Optimization tab.
 
 ---

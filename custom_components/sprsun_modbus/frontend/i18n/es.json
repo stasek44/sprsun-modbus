@@ -266,6 +266,5 @@
   "outdoor_2": "Exterior",
   "strategy_dashboard_title": "Bomba de calor SPRSUN",
   "notice_derived_sensors_disabled": "ℹ️ **Los sensores calculados opcionales están desactivados.** Tarjetas como *Estado operativo*, *Delta T agua*, *Objetivo curva ECO*, *Recalentamientos*, *Escarcha*, *Duración ciclo* y *Potencia estimada* están ocultas. Actívelos en **Ajustes → Dispositivos y servicios → SPRSUN Heat Pump (Modbus) → Configurar → Sensores derivados** y recargue el panel.",
-  "notice_expert_writes_disabled": "🔒 **Sección [EXPERTO] oculta:** Los parámetros de fábrica (`H01–H18`, `F`, `R`, `Franja 1`) permanecen ocultos hasta activar **Ajustes de experto** en **Configurar**.",
-  "notice_helpers_24h_missing": "ℹ️ **Contadores 24h ocultos:** Para ver el nº de desescarches, arranques del compresor y tiempo de resistencias (24h), añada el paquete opcional `dashboards/sprsun_optimization_helpers.yaml` a Home Assistant."
+  "notice_expert_writes_disabled": "🔒 **Sección [EXPERTO] oculta:** Los parámetros de fábrica (`H01–H18`, `F`, `R`, `Franja 1`) permanecen ocultos hasta activar **Ajustes de experto** en **Configurar**."
 }

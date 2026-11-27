@@ -266,6 +266,5 @@
   "outdoor_2": "Zewnętrzna",
   "strategy_dashboard_title": "Pompa Ciepła SPRSUN",
   "notice_derived_sensors_disabled": "ℹ️ **Opcjonalne sensory wyliczane są wyłączone.** Kafelki takie jak *Stan pracy*, *Delta T wody*, *Cel z krzywej ECO*, *Przegrzania (EEV)*, *Obciążenie szronem*, *Czas cyklu* oraz *Szacowana moc* są ukryte. Aby je odczytać, wejdź w **Ustawienia → Urządzenia i usługi → SPRSUN Heat Pump (Modbus) → Konfiguruj → Włącz sensory wyliczane (obliczeniowe)** i odśwież pulpit.",
-  "notice_expert_writes_disabled": "🔒 **Sekcja [EKSPERT] ukryta:** Parametry fabryczne (`H01–H18`, `F`, `R`, `Timeband 1`) pozostają ukryte, dopóki nie włączysz opcji **Włącz ustawienia eksperckie** w konfiguracji integracji.",
-  "notice_helpers_24h_missing": "ℹ️ **Liczniki dobowe 24h ukryte:** Aby zobaczyć liczbę defrostów, starty sprężarki i czas pracy grzałek z 24h, dodaj opcjonalny pakiet `dashboards/sprsun_optimization_helpers.yaml` do Home Assistanta."
+  "notice_expert_writes_disabled": "🔒 **Sekcja [EKSPERT] ukryta:** Parametry fabryczne (`H01–H18`, `F`, `R`, `Timeband 1`) pozostają ukryte, dopóki nie włączysz opcji **Włącz ustawienia eksperckie** w konfiguracji integracji."
 }

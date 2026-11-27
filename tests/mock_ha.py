@@ -362,6 +362,27 @@ def setup_mocks():
             sys.modules["homeassistant.helpers.update_coordinator"] = update_coord
             sys.modules["homeassistant.helpers.entity_platform"] = MagicMock()
 
+            class MockStore:
+                def __init__(self, hass, version, key):
+                    self.hass = hass
+                    self.version = version
+                    self.key = key
+                    self._data = None
+
+                async def async_load(self):
+                    return self._data
+
+                async def async_save(self, data):
+                    self._data = data
+
+                def async_delay_save(self, data_func, delay):
+                    self._data = data_func()
+
+            storage_mod = MagicMock()
+            storage_mod.Store = MockStore
+            helpers.storage = storage_mod
+            sys.modules["homeassistant.helpers.storage"] = storage_mod
+
             # Config validation
             cv = MagicMock()
             cv.port = lambda v: v

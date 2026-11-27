@@ -100,13 +100,6 @@ function resolveString(str, translations, entityMap) {
   });
 }
 
-const HELPER_24H_IDS = [
-  "sensor.sprsun_defrost_count_24h",
-  "sensor.sprsun_defrost_time_24h",
-  "sensor.sprsun_compressor_starts_24h",
-  "sensor.sprsun_heaters_time_24h",
-];
-
 function makeNoticeCard(text) {
   return {
     type: "markdown",
@@ -160,18 +153,14 @@ function sectionUsesHiddenEntity(section, hiddenSet) {
   );
 }
 
-function applyOptionalEntityNotices(views, context, translations, hass) {
+function applyOptionalEntityNotices(views, context, translations) {
   const hasEntry = Boolean(context.entry_id);
   const derivedOff = hasEntry && context.enable_derived_sensors === false;
   const expertOff = hasEntry && context.enable_expert_writes === false;
-  const helpersMissing =
-    Boolean(hass?.states) &&
-    HELPER_24H_IDS.every((eid) => !(eid in hass.states));
 
   const hiddenSet = new Set([
     ...(derivedOff ? context.derived_entity_ids || [] : []),
     ...(expertOff ? context.expert_entity_ids || [] : []),
-    ...(helpersMissing ? HELPER_24H_IDS : []),
   ]);
 
   const filteredAmb = context.entities?.["sensor:ambient_temp_filtered"];
@@ -184,10 +173,6 @@ function applyOptionalEntityNotices(views, context, translations, hass) {
   const expertNotice = getTranslated(
     translations,
     "notice_expert_writes_disabled"
-  );
-  const helpersNotice = getTranslated(
-    translations,
-    "notice_helpers_24h_missing"
   );
 
   return views.map((view, viewIdx) => {
@@ -238,10 +223,6 @@ function applyOptionalEntityNotices(views, context, translations, hass) {
           } else {
             cards.push(makeNoticeCard(derivedNotice));
           }
-        }
-
-        if (helpersMissing && viewIdx === 3 && secIdx === 2) {
-          cards = [...cards, makeNoticeCard(helpersNotice)];
         }
 
         return { ...sec, cards };
@@ -342,8 +323,7 @@ class SprsunDashboardStrategy extends HTMLElement {
     const views = applyOptionalEntityNotices(
       rendered.views || [],
       context,
-      translations,
-      hass
+      translations
     );
     return {
       title:

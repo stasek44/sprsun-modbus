@@ -1509,67 +1509,39 @@
             },
             {
               "type": "tile",
-              "entity": "sensor.sprsun_defrost_count_24h",
+              "entity": "[[ent:sensor:defrost_count_24h]]",
               "name": "[[t:defrost_count_24h]]",
               "icon": "mdi:counter",
               "grid_options": {
                 "columns": 6
-              },
-              "visibility": [
-                {
-                  "condition": "numeric_state",
-                  "entity": "sensor.sprsun_defrost_count_24h",
-                  "above": -1
-                }
-              ]
+              }
             },
             {
               "type": "tile",
-              "entity": "sensor.sprsun_defrost_time_24h",
+              "entity": "[[ent:sensor:defrost_time_24h]]",
               "name": "[[t:total_defrost_time_24h]]",
               "icon": "mdi:clock-alert-outline",
               "grid_options": {
                 "columns": 6
-              },
-              "visibility": [
-                {
-                  "condition": "numeric_state",
-                  "entity": "sensor.sprsun_defrost_time_24h",
-                  "above": -1
-                }
-              ]
+              }
             },
             {
               "type": "tile",
-              "entity": "sensor.sprsun_compressor_starts_24h",
+              "entity": "[[ent:sensor:compressor_starts_24h]]",
               "name": "[[t:compressor_starts_24h]]",
               "icon": "mdi:restart",
               "grid_options": {
                 "columns": 6
-              },
-              "visibility": [
-                {
-                  "condition": "numeric_state",
-                  "entity": "sensor.sprsun_compressor_starts_24h",
-                  "above": -1
-                }
-              ]
+              }
             },
             {
               "type": "tile",
-              "entity": "sensor.sprsun_heaters_time_24h",
+              "entity": "[[ent:sensor:heaters_time_24h]]",
               "name": "[[t:electric_heaters_time_24h]]",
               "icon": "mdi:radiator-disabled",
               "grid_options": {
                 "columns": 6
-              },
-              "visibility": [
-                {
-                  "condition": "numeric_state",
-                  "entity": "sensor.sprsun_heaters_time_24h",
-                  "above": -1
-                }
-              ]
+              }
             }
           ]
         },

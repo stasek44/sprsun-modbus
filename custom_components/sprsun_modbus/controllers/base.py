@@ -101,6 +101,17 @@ class ControllerBase(ABC):
         """Compute derived sensor values from current coordinator data."""
         return {}
 
+    def export_derived_state(self, now: float | None = None) -> dict[str, Any] | None:
+        """Return JSON-serializable stateful derived tracker snapshot for persistence."""
+        return None
+
+    def restore_derived_state(
+        self,
+        state: Mapping[str, Any],
+        now: float | None = None,
+    ) -> None:
+        """Restore stateful derived tracker snapshot from persisted storage."""
+
     def get_binary_sensors(self) -> tuple[BinarySensorSpec, ...]:
         """Return core read-only binary sensor specifications for this controller."""
         return ()
