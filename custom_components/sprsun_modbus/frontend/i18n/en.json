@@ -266,5 +266,20 @@
   "outdoor_2": "Outdoor",
   "strategy_dashboard_title": "SPRSUN Heat Pump",
   "notice_derived_sensors_disabled": "ℹ️ **Optional Calculated Sensors are disabled.** Tiles such as *Operating State*, *Water Delta T*, *ECO Curve Target*, *Superheats*, *Frost Buildup*, *Cycle Duration*, and *Estimated Power* are hidden. To enable them, go to **Settings → Devices & Services → SPRSUN Heat Pump (Modbus) → Configure → Enable Derived / Calculated Sensors** and refresh the dashboard.",
-  "notice_expert_writes_disabled": "🔒 **[EXPERT] settings hidden:** Factory parameters (`H01–H18`, `F`, `R`, `Timeband 1`) stay hidden until you enable **Enable Expert Settings** in **Configure**."
+  "notice_expert_writes_disabled": "🔒 **[EXPERT] settings hidden:** Factory parameters (`H01–H18`, `F`, `R`, `Timeband 1`) stay hidden until you enable **Enable Expert Settings** in **Configure**.",
+  "carel_unit_mode": "Unit Mode",
+  "carel_fan_mode": "Fan Mode",
+  "carel_pump_mode": "Pump Mode",
+  "carel_heating_target": "Heating Target",
+  "carel_cooling_target": "Cooling Target",
+  "carel_hot_water_target": "Hot Water Target",
+  "carel_heating_hysteresis": "Heating/Cooling Start Diff",
+  "carel_hot_water_hysteresis": "Hot Water Start Diff",
+  "carel_active_alarms": "Active Alarms",
+  "carel_bldc_power": "BLDC Motor Power",
+  "carel_bldc_voltage": "BLDC Motor Voltage",
+  "carel_bldc_current": "BLDC Motor Current",
+  "carel_eco_curves_heading": "ECO Weather Curves & Night Mode",
+  "carel_defrost_pid_heading": "[EXPERT] Defrost & PID Parameters",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Alarm active:** {{ alarms }}. Check the **Diagnostics** tab before pressing Reset.\n{% elif power == 'off' %}\n⚪ **Heat pump is OFF** ({{ st }}). Turn on Power below to resume operation.\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Compressor running** — Status: **{{ st }}**, Mode: **{{ run_mode }}**.\n{% else %}\n🟢 **Standby / Ready** — Status: **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Notice:** Backup electric heater is active.\n{% endif %}"
 }

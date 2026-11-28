@@ -17,6 +17,7 @@ from custom_components.sprsun_modbus.const import (  # noqa: E402
     CONF_ENABLE_EXPERT_WRITES,
     DOMAIN,
 )
+from custom_components.sprsun_modbus.controllers.carel import CarelController  # noqa: E402
 from custom_components.sprsun_modbus.controllers.chico import ChicoController  # noqa: E402
 from custom_components.sprsun_modbus.dashboard import (  # noqa: E402
     STATIC_URL_PATH,
@@ -80,66 +81,58 @@ class TestDashboardTemplatesAndI18n(unittest.TestCase):
                 self.assertTrue(val.strip(), f"{path.name}:{key} must not be empty")
 
     def test_templates_resolve_all_tokens_without_leftovers(self):
-        """Every [[t:...]] and [[ent:...]] token in templates must resolve cleanly."""
-        ctrl = ChicoController()
-        valid_entities = {
-            ("sensor", s.key) for s in ctrl.get_sensors()
-        } | {
-            ("sensor", s.key) for s in ctrl.get_expert_sensors()
-        } | {
-            ("sensor", s.key) for s in ctrl.get_derived_sensors()
-        } | {
-            ("binary_sensor", s.key) for s in ctrl.get_binary_sensors()
-        } | {
-            ("binary_sensor", s.key) for s in ctrl.get_expert_binary_sensors()
-        } | {
-            ("number", s.key) for s in ctrl.get_numbers()
-        } | {
-            ("number", s.key) for s in ctrl.get_expert_numbers()
-        } | {
-            ("select", s.key) for s in ctrl.get_selects()
-        } | {
-            ("select", s.key) for s in ctrl.get_expert_selects()
-        } | {
-            ("switch", s.key) for s in ctrl.get_switches()
-        } | {
-            ("switch", s.key) for s in ctrl.get_expert_switches()
-        } | {
-            ("button", s.key) for s in ctrl.get_buttons()
-        } | {
-            ("climate", "climate"),
-            ("climate", "dhw_climate"),
-        }
-
+        """Every [[t:...]] and [[ent:...]] token in CHICO and CAREL templates must resolve cleanly."""
         i18n_by_lang = {
             path.stem: json.loads(path.read_text(encoding="utf-8"))
             for path in I18N_DIR.glob("*.json")
         }
 
-        for tpl_name in ("sprsun_dashboard_chico.json", "sprsun_control_card_chico.json"):
-            tpl_path = FRONTEND_DIR / tpl_name
-            self.assertTrue(tpl_path.is_file(), f"Missing template {tpl_name}")
-            tpl_data = json.loads(tpl_path.read_text(encoding="utf-8"))
-            strings = _collect_strings(tpl_data)
+        controller_templates = (
+            (ChicoController(), ("sprsun_dashboard_chico.json", "sprsun_control_card_chico.json")),
+            (CarelController(), ("sprsun_dashboard_carel.json", "sprsun_control_card_carel.json")),
+        )
 
-            for lang, tr in i18n_by_lang.items():
-                for s in strings:
-                    resolved = TRANSLATION_TOKEN_RE.sub(lambda m: tr[m.group(1)], s)
-                    for m in ENTITY_TOKEN_RE.finditer(resolved):
-                        pair = (m.group(1), m.group(2))
-                        self.assertIn(
-                            pair,
-                            valid_entities,
-                            f"Unknown entity token {pair} in {tpl_name} ({lang})",
+        for ctrl, tpl_names in controller_templates:
+            valid_entities = (
+                {("sensor", s.key) for s in ctrl.get_sensors()}
+                | {("sensor", s.key) for s in ctrl.get_expert_sensors()}
+                | {("sensor", s.key) for s in ctrl.get_derived_sensors()}
+                | {("binary_sensor", s.key) for s in ctrl.get_binary_sensors()}
+                | {("binary_sensor", s.key) for s in ctrl.get_expert_binary_sensors()}
+                | {("number", s.key) for s in ctrl.get_numbers()}
+                | {("number", s.key) for s in ctrl.get_expert_numbers()}
+                | {("select", s.key) for s in ctrl.get_selects()}
+                | {("select", s.key) for s in ctrl.get_expert_selects()}
+                | {("switch", s.key) for s in ctrl.get_switches()}
+                | {("switch", s.key) for s in ctrl.get_expert_switches()}
+                | {("button", s.key) for s in ctrl.get_buttons()}
+                | {("climate", "climate"), ("climate", "dhw_climate")}
+            )
+
+            for tpl_name in tpl_names:
+                tpl_path = FRONTEND_DIR / tpl_name
+                self.assertTrue(tpl_path.is_file(), f"Missing template {tpl_name}")
+                tpl_data = json.loads(tpl_path.read_text(encoding="utf-8"))
+                strings = _collect_strings(tpl_data)
+
+                for lang, tr in i18n_by_lang.items():
+                    for s in strings:
+                        resolved = TRANSLATION_TOKEN_RE.sub(lambda m: tr[m.group(1)], s)
+                        for m in ENTITY_TOKEN_RE.finditer(resolved):
+                            pair = (m.group(1), m.group(2))
+                            self.assertIn(
+                                pair,
+                                valid_entities,
+                                f"Unknown entity token {pair} in {tpl_name} ({lang})",
+                            )
+                        resolved = ENTITY_TOKEN_RE.sub(
+                            lambda m: f"{m.group(1)}.sprsun_heat_pump_{m.group(2)}",
+                            resolved,
                         )
-                    resolved = ENTITY_TOKEN_RE.sub(
-                        lambda m: f"{m.group(1)}.sprsun_heat_pump_{m.group(2)}",
-                        resolved,
-                    )
-                    self.assertIsNone(
-                        ANY_UNRESOLVED_RE.search(resolved),
-                        f"Unresolved placeholder in {tpl_name} ({lang}): {resolved}",
-                    )
+                        self.assertIsNone(
+                            ANY_UNRESOLVED_RE.search(resolved),
+                            f"Unresolved placeholder in {tpl_name} ({lang}): {resolved}",
+                        )
 
     def test_strategy_js_defines_custom_elements_and_registrations(self):
         """Strategy JS must register dashboard & section custom elements."""

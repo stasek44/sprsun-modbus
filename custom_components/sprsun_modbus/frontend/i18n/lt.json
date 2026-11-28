@@ -266,5 +266,20 @@
   "outdoor_2": "Lauke",
   "strategy_dashboard_title": "SPRSUN Šilumos siurblys",
   "notice_derived_sensors_disabled": "ℹ️ **Pasirinktiniai išvestiniai jutikliai išjungti.** Tokios kortelės kaip *Darbo būsena*, *Vandens Delta T*, *ECO kreivės tikslas*, *Perkaitimai*, *Šerkšnas*, *Ciklo trukmė* ir *Numatoma galia* yra paslėptos. Įjunkite juos **Nustatymai → Įrenginiai ir paslaugos → SPRSUN Heat Pump (Modbus) → Konfigūruoti** ir atnaujinkite skydelį.",
-  "notice_expert_writes_disabled": "🔒 **[EKSPERTAS] skiltis paslėpta:** Gamykliniai parametrai (`H01–H18`, `F`, `R`, `1 zona`) lieka paslėpti, kol neįjungsite **Eksperto nustatymų** integracijos konfigūracijoje."
+  "notice_expert_writes_disabled": "🔒 **[EKSPERTAS] skiltis paslėpta:** Gamykliniai parametrai (`H01–H18`, `F`, `R`, `1 zona`) lieka paslėpti, kol neįjungsite **Eksperto nustatymų** integracijos konfigūracijoje.",
+  "carel_unit_mode": "Veikimo režimas",
+  "carel_fan_mode": "Ventiliatoriaus režimas",
+  "carel_pump_mode": "Siurblio režimas",
+  "carel_heating_target": "Šildymo tikslinė temp.",
+  "carel_cooling_target": "Vėsinimo tikslinė temp.",
+  "carel_hot_water_target": "Karšto vandens tikslinė temp.",
+  "carel_heating_hysteresis": "Šildymo/vėsinimo histerezė",
+  "carel_hot_water_hysteresis": "Karšto vandens histerezė",
+  "carel_active_alarms": "Aktyvūs aliarmai",
+  "carel_bldc_power": "BLDC variklio galia",
+  "carel_bldc_voltage": "BLDC variklio įtampa",
+  "carel_bldc_current": "BLDC variklio srovė",
+  "carel_eco_curves_heading": "ECO kreivės ir naktinis režimas",
+  "carel_defrost_pid_heading": "[EKSPERTAS] Atitirpinimo ir PID parametrai",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Aktyvus aliarmas:** {{ alarms }}. Prieš atstatant patikrinkite **Diagnostika** skirtuką.\n{% elif power == 'off' %}\n⚪ **Šilumos siurblys IŠJUNGTAS** ({{ st }}).\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Kompresorius veikia** — Būsena: **{{ st }}**, Režimas: **{{ run_mode }}**.\n{% else %}\n🟢 **Budėjimo režimas** — Būsena: **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Pastaba:** Veikia papildomas elektrinis šildytuvas.\n{% endif %}"
 }

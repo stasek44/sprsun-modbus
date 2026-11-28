@@ -266,5 +266,20 @@
   "outdoor_2": "Külső",
   "strategy_dashboard_title": "SPRSUN Hőszivattyú",
   "notice_derived_sensors_disabled": "ℹ️ **Az opcionális számított szenzorok ki vannak kapcsolva.** Az olyan csempék, mint az *Üzemi állapot*, *Víz Delta T*, *ECO görbe cél*, *Túlhevülés*, *Jegesedés*, *Ciklusidő* és *Becsült teljesítmény* rejtve vannak. Engedélyezze őket a **Beállítások → Eszközök és szolgáltatások → SPRSUN Heat Pump (Modbus) → Konfigurálás** menüben, majd frissítse az irányítópultot.",
-  "notice_expert_writes_disabled": "🔒 **[SZAKÉRTŐ] szakasz rejtve:** A gyári paraméterek (`H01–H18`, `F`, `R`, `Idősáv 1`) rejtve maradnak, amíg a **Konfigurálás** alatt be nem kapcsolja a **Szakértői beállításokat**."
+  "notice_expert_writes_disabled": "🔒 **[SZAKÉRTŐ] szakasz rejtve:** A gyári paraméterek (`H01–H18`, `F`, `R`, `Idősáv 1`) rejtve maradnak, amíg a **Konfigurálás** alatt be nem kapcsolja a **Szakértői beállításokat**.",
+  "carel_unit_mode": "Üzemmód",
+  "carel_fan_mode": "Ventilátor mód",
+  "carel_pump_mode": "Szivattyú mód",
+  "carel_heating_target": "Fűtés célhőmérséklet",
+  "carel_cooling_target": "Hűtés célhőmérséklet",
+  "carel_hot_water_target": "HMV célhőmérséklet",
+  "carel_heating_hysteresis": "Fűtés/hűtés hiszterézis",
+  "carel_hot_water_hysteresis": "HMV hiszterézis",
+  "carel_active_alarms": "Aktív riasztások",
+  "carel_bldc_power": "BLDC motor teljesítmény",
+  "carel_bldc_voltage": "BLDC motor feszültség",
+  "carel_bldc_current": "BLDC motor áram",
+  "carel_eco_curves_heading": "ECO időjárás-görbék és éjszakai mód",
+  "carel_defrost_pid_heading": "[SZAKÉRTŐ] Leolvasztás és PID paraméterek",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Aktív riasztás:** {{ alarms }}. Ellenőrizd a **Diagnosztika** fület törlés előtt.\n{% elif power == 'off' %}\n⚪ **A hőszivattyú KI van kapcsolva** ({{ st }}).\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Kompresszor működik** — Állapot: **{{ st }}**, Mód: **{{ run_mode }}**.\n{% else %}\n🟢 **Készenlét** — Állapot: **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Figyelem:** Elektromos kiegészítő fűtés aktív.\n{% endif %}"
 }

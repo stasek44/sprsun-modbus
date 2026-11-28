@@ -266,5 +266,20 @@
   "outdoor_2": "Zewnętrzna",
   "strategy_dashboard_title": "Pompa Ciepła SPRSUN",
   "notice_derived_sensors_disabled": "ℹ️ **Opcjonalne sensory wyliczane są wyłączone.** Kafelki takie jak *Stan pracy*, *Delta T wody*, *Cel z krzywej ECO*, *Przegrzania (EEV)*, *Obciążenie szronem*, *Czas cyklu* oraz *Szacowana moc* są ukryte. Aby je odczytać, wejdź w **Ustawienia → Urządzenia i usługi → SPRSUN Heat Pump (Modbus) → Konfiguruj → Włącz sensory wyliczane (obliczeniowe)** i odśwież pulpit.",
-  "notice_expert_writes_disabled": "🔒 **Sekcja [EKSPERT] ukryta:** Parametry fabryczne (`H01–H18`, `F`, `R`, `Timeband 1`) pozostają ukryte, dopóki nie włączysz opcji **Włącz ustawienia eksperckie** w konfiguracji integracji."
+  "notice_expert_writes_disabled": "🔒 **Sekcja [EKSPERT] ukryta:** Parametry fabryczne (`H01–H18`, `F`, `R`, `Timeband 1`) pozostają ukryte, dopóki nie włączysz opcji **Włącz ustawienia eksperckie** w konfiguracji integracji.",
+  "carel_unit_mode": "Tryb pracy",
+  "carel_fan_mode": "Tryb wentylatora",
+  "carel_pump_mode": "Tryb pompy obiegowej",
+  "carel_heating_target": "Nastawa ogrzewania",
+  "carel_cooling_target": "Nastawa chłodzenia",
+  "carel_hot_water_target": "Nastawa CWU",
+  "carel_heating_hysteresis": "Histereza startu CO/chłodzenia",
+  "carel_hot_water_hysteresis": "Histereza startu CWU",
+  "carel_active_alarms": "Aktywne alarmy",
+  "carel_bldc_power": "Moc falownika BLDC",
+  "carel_bldc_voltage": "Napięcie falownika BLDC",
+  "carel_bldc_current": "Prąd falownika BLDC",
+  "carel_eco_curves_heading": "Krzywe pogodowe ECO i tryb nocny",
+  "carel_defrost_pid_heading": "[EKSPERT] Parametry defrostu i PID",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Aktywny alarm:** {{ alarms }}. Sprawdź zakładkę **Diagnostyka** przed resetem.\n{% elif power == 'off' %}\n⚪ **Pompa ciepła jest wyłączona** ({{ st }}). Włącz zasilanie poniżej, aby wznowić pracę.\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Sprężarka pracuje** — Status: **{{ st }}**, Tryb: **{{ run_mode }}**.\n{% else %}\n🟢 **Czuwanie / Gotowość** — Status: **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Uwaga:** Aktywna jest elektryczna grzałka wspomagająca.\n{% endif %}"
 }
