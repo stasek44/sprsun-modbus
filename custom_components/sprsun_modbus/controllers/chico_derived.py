@@ -9,6 +9,7 @@ from .models import DerivedSensorSpec, extract_cache_value
 
 DEFROST_AMBIENT_HOLD_SECONDS = 420.0
 DEFROST_AMBIENT_MAX_HOLD_SECONDS = 2700.0
+IDLE_AMBIENT_MAX_HOLD_SECONDS = 14400.0
 ROLLING_24H_SECONDS = 86400.0
 RESTART_RESUME_GRACE_SECONDS = 180.0
 
@@ -384,6 +385,13 @@ class ChicoDerivedTracker:
         self._post_defrost_start_ts: float | None = None
         self._last_ambient_poll_ts: float | None = None
         self._fan_run_after_defrost_s: float = 0.0
+        self._enh_last_valid_ambient: float | None = None
+        self._enh_held_ambient: float | None = None
+        self._enh_was_defrost: bool = False
+        self._enh_was_fan_running: bool = True
+        self._enh_idle_start_ts: float | None = None
+        self._enh_last_poll_ts: float | None = None
+        self._enh_fan_run_s: float = 0.0
         self._compressor_duration = _ActiveDurationTracker()
         self._defrost_duration = _ActiveDurationTracker()
         self._defrost_interval = _DefrostIntervalTracker()
@@ -439,6 +447,86 @@ class ChicoDerivedTracker:
         self._last_non_defrost_ambient = raw_amb
         return raw_amb
 
+    def update_ambient_filtered_enhanced(self, data: Mapping[str, Any], now: float) -> float | None:
+        """Filter upward ambient spikes during defrost and idle/standby (fan OFF) with 7m fan cooldown."""
+        raw_amb = _get_float(data, "ambient_temp")
+        if raw_amb is None:
+            return None
+
+        defrost = bool(_get_bit(data, "working_status_register", 7))
+        fan_bit = _get_bit(data, "output_symbol_1", 5)
+        # Treat missing output_symbol_1 as running to preserve compatibility on minimal payloads
+        fan_running = True if fan_bit is None else bool(fan_bit)
+
+        if defrost:
+            if not self._enh_was_defrost and self._enh_held_ambient is None:
+                self._enh_held_ambient = (
+                    self._enh_last_valid_ambient
+                    if self._enh_last_valid_ambient is not None
+                    else raw_amb
+                )
+            elif self._enh_held_ambient is None:
+                self._enh_held_ambient = raw_amb
+            self._enh_was_defrost = True
+            self._enh_was_fan_running = False
+            self._enh_idle_start_ts = None
+            self._enh_last_poll_ts = now
+            self._enh_fan_run_s = 0.0
+            return self._enh_held_ambient
+
+        self._enh_was_defrost = False
+
+        if not fan_running:
+            if self._enh_held_ambient is None:
+                self._enh_held_ambient = (
+                    self._enh_last_valid_ambient
+                    if self._enh_last_valid_ambient is not None
+                    else raw_amb
+                )
+            if self._enh_idle_start_ts is None:
+                self._enh_idle_start_ts = now
+            self._enh_was_fan_running = False
+            self._enh_last_poll_ts = now
+            self._enh_fan_run_s = 0.0
+
+            # Allow real outdoor cooling during idle while blocking upward heat-soak spikes
+            if raw_amb <= self._enh_held_ambient:
+                self._enh_held_ambient = raw_amb
+                self._enh_last_valid_ambient = raw_amb
+                return raw_amb
+
+            if (now - self._enh_idle_start_ts) < IDLE_AMBIENT_MAX_HOLD_SECONDS:
+                return self._enh_held_ambient
+
+            # Cap expired after long idle/off: refresh baseline and release
+            self._enh_held_ambient = None
+            self._enh_idle_start_ts = None
+            self._enh_last_valid_ambient = raw_amb
+            return raw_amb
+
+        self._enh_idle_start_ts = None
+
+        if self._enh_held_ambient is not None:
+            dt = (
+                max(0.0, now - self._enh_last_poll_ts)
+                if self._enh_was_fan_running and self._enh_last_poll_ts is not None
+                else 0.0
+            )
+            self._enh_was_fan_running = True
+            self._enh_last_poll_ts = now
+            self._enh_fan_run_s += dt
+
+            if self._enh_fan_run_s < DEFROST_AMBIENT_HOLD_SECONDS and raw_amb > self._enh_held_ambient:
+                return self._enh_held_ambient
+
+            self._enh_held_ambient = None
+            self._enh_fan_run_s = 0.0
+            self._enh_last_poll_ts = None
+
+        self._enh_was_fan_running = True
+        self._enh_last_valid_ambient = raw_amb
+        return raw_amb
+
     def compute(self, data: Mapping[str, Any], now: float | None = None) -> dict[str, Any]:
         """Compute all derived sensor values from the current coordinator snapshot."""
         ts = time.time() if now is None else float(now)
@@ -448,6 +536,9 @@ class ChicoDerivedTracker:
         amb_filtered = self.update_ambient_filtered(data, ts)
         if amb_filtered is not None:
             results["ambient_temp_filtered"] = amb_filtered
+        amb_filtered_enhanced = self.update_ambient_filtered_enhanced(data, ts)
+        if amb_filtered_enhanced is not None:
+            results["ambient_temp_filtered_enhanced"] = amb_filtered_enhanced
 
         comp_dur = self._compressor_duration.update(
             _get_bit(data, "output_symbol_1", 0),
@@ -496,6 +587,8 @@ class ChicoDerivedTracker:
         merged: dict[str, Any] = dict(data)
         if amb_filtered is not None:
             merged["ambient_temp_filtered"] = amb_filtered
+        if amb_filtered_enhanced is not None:
+            merged["ambient_temp_filtered_enhanced"] = amb_filtered_enhanced
 
         for spec in CHICO_DERIVED_SENSORS:
             if spec.key in results:
@@ -546,6 +639,29 @@ CHICO_DERIVED_SENSORS: tuple[DerivedSensorSpec, ...] = (
             "ambient reading during defrost and for up to 7 minutes afterward until the sensor cools down."
         ),
         formula="ambient_temp held while defrost_active or within 7 min cooldown",
+    ),
+    DerivedSensorSpec(
+        key="ambient_temp_filtered_enhanced",
+        name="Filtered Ambient Temperature (Enhanced)",
+        value_fn=lambda data: _get_float(data, "ambient_temp_filtered_enhanced")
+        if _get_float(data, "ambient_temp_filtered_enhanced") is not None
+        else _get_float(data, "ambient_temp"),
+        unit="°C",
+        device_class="temperature",
+        state_class="measurement",
+        diagnostic=False,
+        enabled_default=True,
+        suggested_display_precision=1,
+        description=(
+            "Outdoor temperature with both defrost and idle/standby heat-soak spikes filtered out: "
+            "freezes upward spikes whenever the outdoor fan is off (defrost or idle, up to 4h idle cap) "
+            "while still tracking real downward cooling, then holds for up to 7 minutes of fan runtime "
+            "after restart until the sensor cools down."
+        ),
+        formula=(
+            "ambient_temp held on upward spikes while defrost_active or fan_off "
+            "(4h idle cap) and during 7 min fan-runtime cooldown"
+        ),
     ),
     DerivedSensorSpec(
         key="operating_state",

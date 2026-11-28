@@ -43,7 +43,7 @@
         },
         "data_description": {
           "temp_step": "Default 1.0°C. Some heat pump models allow finer 0.5°C control, but it is not guaranteed to work on all firmware versions.",
-          "enable_derived_sensors": "Exposes 13 optional calculated sensors (filtered ambient temperature without defrost spikes, operating state, ECO curve setpoint and delta, cycle durations, defrost interval, coil-ambient delta, water delta T, condenser approach, superheats, and experimental estimated power).",
+          "enable_derived_sensors": "Exposes 18 optional calculated sensors (filtered ambient temperature without defrost and idle spikes, operating state, ECO curve setpoint and delta, cycle durations, 24h rolling counters, defrost interval, coil-ambient delta, water delta T, condenser approach, superheats, and experimental estimated power).",
           "enable_expert_writes": "WARNING: Exposes CHICO engineering/factory parameters (H/A/B/D/F/R, Timebands, and control bits) as both read-only Diagnostic sensors and writable Config controls. Incorrect values can damage the compressor or disrupt operation. Keep disabled unless you know what each parameter does."
         }
       }

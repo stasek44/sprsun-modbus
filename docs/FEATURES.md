@@ -33,8 +33,9 @@ All controls, telemetry sensors, diagnostics, and optional expert configuration 
 
 Enable in **Configure** to expose virtual calculated sensors (each includes `description` and `formula` attributes):
 
-#### CHICO (`17` derived sensors)
+#### CHICO (`18` derived sensors)
 - **Filtered Ambient Temperature (`ambient_temp_filtered`):** Freezes outdoor temperature during defrost and holds post-defrost for up to 7 minutes of outdoor fan runtime (capped at 45 minutes if idle) or until the air cools back down.
+- **Filtered Ambient Temperature (Enhanced) (`ambient_temp_filtered_enhanced`):** Extends `ambient_temp_filtered` by also filtering upward heat-soak spikes during idle/standby when the outdoor fan is off (4-hour idle cap), while still tracking real outdoor cooling and holding for up to 7 minutes of fan runtime after restart.
 - **Operating State (`operating_state`):** Human-readable summary (`off`, `idle`, `heating`, `cooling`, `hot_water`, `heating_hot_water`, `cooling_hot_water`, `defrost`, `antilegionella`, `alarm`).
 - **ECO Curve Target & Delta (`eco_active_setpoint`, `eco_setpoint_delta`):** Interpolated target temperature from `E01–E24` using the filtered ambient temperature and active mode, plus `outlet_temp - eco_active_setpoint`.
 - **Cycle Durations, 24h Rolling Counters & Defrost Tracking (`compressor_last_run_duration`, `defrost_last_duration`, `defrost_last_interval`, `coil_ambient_delta`, `defrost_count_24h`, `defrost_time_24h`, `compressor_starts_24h`, `heaters_time_24h`):** Live and last-completed cycle durations (with `last_completed_minutes`), defrost interval, non-negative `max(0, ambient_temp_filtered - coil_temp)` frost buildup tracking (`0.0 °C` during defrost), and rolling 24h counters persisted across Home Assistant restarts.

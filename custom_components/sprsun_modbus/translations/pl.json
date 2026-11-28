@@ -43,7 +43,7 @@
         },
         "data_description": {
           "temp_step": "Domyślnie 1.0°C. Niektóre pompy pozwalają na bardziej precyzyjne sterowanie co 0.5°C, ale nie ma gwarancji, że będzie to działać na każdym oprogramowaniu.",
-          "enable_derived_sensors": "Udostępnia 13 opcjonalnych sensorów wyliczanych (odfiltrowana temperatura zewnętrzna bez skoków w defroście, stan pracy, nastawa i odchyłka od krzywej ECO, czasy cykli, interwał defrostu, delta lamel do otoczenia, delta T wody, approach skraplacza, przegrzania oraz eksperymentalna szacowana moc).",
+          "enable_derived_sensors": "Udostępnia 18 opcjonalnych sensorów wyliczanych (odfiltrowana temperatura zewnętrzna bez skoków w defroście i na postoju, stan pracy, nastawa i odchyłka od krzywej ECO, czasy cykli, liczniki 24h, interwał defrostu, delta lamel do otoczenia, delta T wody, approach skraplacza, przegrzania oraz eksperymentalna szacowana moc).",
           "enable_expert_writes": "OSTRZEŻENIE: Udostępnia parametry inżynierskie/fabryczne CHICO (H/A/B/D/F/R, harmonogramy i bity sterujące) jako sensory diagnostyczne oraz zapisywalne encje w sekcji Konfiguracja. Błędne wartości mogą uszkodzić sprężarkę lub zakłócić pracę pompy. Zostaw wyłączone, jeśli nie masz pewności."
         }
       }

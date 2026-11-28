@@ -13,6 +13,7 @@ from custom_components.sprsun_modbus.controllers.chico_derived import (
     CHICO_DERIVED_SENSORS,
     DEFROST_AMBIENT_HOLD_SECONDS,
     DEFROST_AMBIENT_MAX_HOLD_SECONDS,
+    IDLE_AMBIENT_MAX_HOLD_SECONDS,
     ChicoDerivedTracker,
     compute_eco_curve_setpoint,
     compute_estimated_power,
@@ -32,7 +33,7 @@ class TestChicoDerivedSensors(unittest.TestCase):
         """Ensure derived sensor keys never collide with physical CHICO keys."""
         controller = ChicoController()
         derived_keys = [s.key for s in controller.get_derived_sensors()]
-        self.assertEqual(len(derived_keys), 17)
+        self.assertEqual(len(derived_keys), 18)
         self.assertEqual(len(derived_keys), len(set(derived_keys)))
 
         hardware_keys = (
@@ -165,6 +166,95 @@ class TestChicoDerivedSensors(unittest.TestCase):
                 now=300.0 + DEFROST_AMBIENT_MAX_HOLD_SECONDS + 1.0,
             )["ambient_temp_filtered"],
             3.8,
+        )
+
+    def test_ambient_temp_filtered_enhanced_idle_defrost_and_cooling(self):
+        """Filter upward spikes during idle/standby and defrost, track cooling, and enforce 4h cap."""
+        tracker = ChicoDerivedTracker()
+
+        # Running with fan ON
+        res0 = tracker.compute(
+            {"ambient_temp": -1.5, "working_status_register": 0, "output_symbol_1": 1 << 5},
+            now=1000.0,
+        )
+        self.assertEqual(res0["ambient_temp_filtered_enhanced"], -1.5)
+
+        # Enters idle (fan OFF) and sensor heat-soaks up to +4.0°C -> frozen at -1.5°C
+        res1 = tracker.compute(
+            {"ambient_temp": 1.0, "working_status_register": 0, "output_symbol_1": 0},
+            now=1300.0,
+        )
+        self.assertEqual(res1["ambient_temp_filtered_enhanced"], -1.5)
+        res2 = tracker.compute(
+            {"ambient_temp": 4.0, "working_status_register": 0, "output_symbol_1": 0},
+            now=2000.0,
+        )
+        self.assertEqual(res2["ambient_temp_filtered_enhanced"], -1.5)
+
+        # Fan restarts at t=3000 -> holds -1.5°C for 7m of fan runtime despite long idle jump
+        res3 = tracker.compute(
+            {"ambient_temp": 3.0, "working_status_register": 0, "output_symbol_1": 1 << 5},
+            now=3000.0,
+        )
+        self.assertEqual(res3["ambient_temp_filtered_enhanced"], -1.5)
+        res4 = tracker.compute(
+            {"ambient_temp": 2.0, "working_status_register": 0, "output_symbol_1": 1 << 5},
+            now=3000.0 + 300.0,
+        )
+        self.assertEqual(res4["ambient_temp_filtered_enhanced"], -1.5)
+
+        # Releases after 7m of fan runtime
+        res5 = tracker.compute(
+            {"ambient_temp": -2.0, "working_status_register": 0, "output_symbol_1": 1 << 5},
+            now=3000.0 + DEFROST_AMBIENT_HOLD_SECONDS + 10.0,
+        )
+        self.assertEqual(res5["ambient_temp_filtered_enhanced"], -2.0)
+
+        # Downward cooling during idle is tracked, then subsequent upward spike is blocked
+        res6 = tracker.compute(
+            {"ambient_temp": -3.0, "working_status_register": 0, "output_symbol_1": 0},
+            now=4000.0,
+        )
+        self.assertEqual(res6["ambient_temp_filtered_enhanced"], -3.0)
+        res7 = tracker.compute(
+            {"ambient_temp": 1.5, "working_status_register": 0, "output_symbol_1": 0},
+            now=4300.0,
+        )
+        self.assertEqual(res7["ambient_temp_filtered_enhanced"], -3.0)
+
+        # 4h idle cap releases hold after IDLE_AMBIENT_MAX_HOLD_SECONDS
+        res8 = tracker.compute(
+            {"ambient_temp": 5.5, "working_status_register": 0, "output_symbol_1": 0},
+            now=4000.0 + IDLE_AMBIENT_MAX_HOLD_SECONDS + 1.0,
+        )
+        self.assertEqual(res8["ambient_temp_filtered_enhanced"], 5.5)
+
+        # Defrost -> idle -> heating transition preserves pre-defrost ambient
+        tracker_defrost = ChicoDerivedTracker()
+        tracker_defrost.compute(
+            {"ambient_temp": -2.5, "working_status_register": 0, "output_symbol_1": 1 << 5},
+            now=100.0,
+        )
+        self.assertEqual(
+            tracker_defrost.compute(
+                {"ambient_temp": 6.0, "working_status_register": 1 << 7, "output_symbol_1": 0},
+                now=200.0,
+            )["ambient_temp_filtered_enhanced"],
+            -2.5,
+        )
+        self.assertEqual(
+            tracker_defrost.compute(
+                {"ambient_temp": 4.5, "working_status_register": 0, "output_symbol_1": 0},
+                now=3200.0,  # 50 min idle after defrost (< 4h cap)
+            )["ambient_temp_filtered_enhanced"],
+            -2.5,
+        )
+        self.assertEqual(
+            tracker_defrost.compute(
+                {"ambient_temp": 3.0, "working_status_register": 0, "output_symbol_1": 1 << 5},
+                now=3300.0,
+            )["ambient_temp_filtered_enhanced"],
+            -2.5,
         )
 
     def test_coil_ambient_delta_non_negative_and_defrost_clamped(self):
