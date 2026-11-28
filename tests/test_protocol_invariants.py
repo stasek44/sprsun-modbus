@@ -41,6 +41,13 @@ _WRITE_METHOD_PREFIXES = (
 # Registers/bits that must NEVER be exposed as writable entities.
 _FORBIDDEN_WRITE_KEYS: dict[str, set[str]] = {
     "chico": {"parameters_reset_flag"},
+    "carel": {"factory_reset", "parameters_reset", "insert_bldc_default"},
+}
+_FORBIDDEN_WRITE_ADDRESSES: dict[str, set[tuple[RegisterSpace, int]]] = {
+    "carel": {
+        (RegisterSpace.COIL, 57),              # Reset parametrów (00058)
+        (RegisterSpace.HOLDING_REGISTER, 332), # Insert BLDC default (40333)
+    },
 }
 _FORBIDDEN_WRITE_BITS: dict[str, set[tuple[RegisterSpace, int, int]]] = {
     "chico": {
@@ -250,6 +257,7 @@ class TestProtocolInvariants(unittest.IsolatedAsyncioTestCase):
         for ctrl_key, ctrl_cls in CONTROLLER_REGISTRY.items():
             ctrl = ctrl_cls()
             forbidden_keys = _FORBIDDEN_WRITE_KEYS.get(ctrl_key, set())
+            forbidden_addrs = _FORBIDDEN_WRITE_ADDRESSES.get(ctrl_key, set())
             forbidden_bits = _FORBIDDEN_WRITE_BITS.get(ctrl_key, set())
 
             writable_specs = (
@@ -266,6 +274,11 @@ class TestProtocolInvariants(unittest.IsolatedAsyncioTestCase):
                     spec.key,
                     forbidden_keys,
                     f"{ctrl_key}: forbidden key '{spec.key}' must never be exposed as writable!",
+                )
+                self.assertNotIn(
+                    (spec.space, spec.address),
+                    forbidden_addrs,
+                    f"{ctrl_key}.{spec.key}: forbidden address ({spec.space}, {spec.address}) exposed!",
                 )
                 bit = getattr(spec, "bit", None)
                 if bit is not None:

@@ -148,6 +148,21 @@ class ControllerBase(ABC):
         """Return opt-in engineering/expert read-write switch specifications."""
         return ()
 
+    async def async_write_select(
+        self,
+        coordinator: Any,
+        address: int,
+        value: int,
+        key: str,
+    ) -> None:
+        """Write a select option value (override if controller requires a safety sequence)."""
+        await coordinator.async_write_register(
+            address=address,
+            value=float(value),
+            key=key,
+            scale=1,
+        )
+
     # ------------------------------------------------------------------
     # Climate abstraction (override if controller supports climate)
     # ------------------------------------------------------------------

@@ -111,11 +111,12 @@ class SPRSUNSelect(CoordinatorEntity, SelectEntity):
             _LOGGER.error("Invalid option: %s", option)
             return
 
-        await self.coordinator.async_write_register(
+        controller = resolve_controller(self.coordinator)
+        await controller.async_write_select(
+            self.coordinator,
             address=self._address,
-            value=float(value),
+            value=value,
             key=self._key,
-            scale=1,
         )
 
         self.async_write_ha_state()

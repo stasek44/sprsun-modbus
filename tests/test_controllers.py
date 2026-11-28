@@ -10,6 +10,7 @@ from custom_components.sprsun_modbus.controllers import (
     detect_controller_type,
     ControllerBase,
 )
+from custom_components.sprsun_modbus.controllers.carel import CarelController
 from custom_components.sprsun_modbus.controllers.chico import ChicoController
 
 
@@ -23,10 +24,12 @@ class TestControllers(unittest.TestCase):
         self.assertEqual(controller.name, "CHICO")
         self.assertIn("SPRSUN", controller.manufacturer)
 
-    def test_get_controller_carel_unsupported(self):
-        """Test getting Carel controller raises ValueError as it is not supported."""
-        with self.assertRaises(ValueError):
-            get_controller("carel")
+    def test_get_controller_carel(self):
+        """Test getting Carel controller instance."""
+        controller = get_controller("carel")
+        self.assertIsInstance(controller, CarelController)
+        self.assertEqual(controller.name, "CAREL")
+        self.assertIn("CAREL", controller.manufacturer)
 
     def test_get_controller_unknown(self):
         """Test getting unknown controller raises ValueError."""

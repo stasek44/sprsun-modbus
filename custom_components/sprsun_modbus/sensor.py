@@ -168,6 +168,14 @@ class SPRSUNSensor(CoordinatorEntity, SensorEntity):
         return value
 
     @property
+    def extra_state_attributes(self) -> dict[str, object] | None:
+        """Return optional list attributes (e.g. active_alarms_list) if present in cache."""
+        items = extract_cache_value(self.coordinator.data, f"{self._key}_list")
+        if isinstance(items, (list, tuple)):
+            return {"alarms": list(items), "count": len(items)}
+        return None
+
+    @property
     def available(self) -> bool:
         """Return if entity is available."""
         return bool(

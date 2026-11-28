@@ -27,7 +27,9 @@ custom_components/sprsun_modbus/
     ├── modbus_helpers.py           # Shared batch reader (FC 0x01/0x02/0x03/0x04) and spec decoder
     ├── chico_derived.py            # CHICO derived sensor specs & ChicoDerivedTracker (defrost filter, durations)
     ├── chico_registers.py          # Declarative CHICO register map (core + 336 expert sensors + opt-in writes)
-    └── chico.py                    # ChicoController driver & batched RW polling (`CHICO_RW_BATCHES`)
+    ├── chico.py                    # ChicoController driver & batched RW polling (`CHICO_RW_BATCHES`)
+    ├── carel_registers.py          # Declarative CAREL register/DI/coil/alarm map (core + opt-in expert)
+    └── carel.py                    # CarelController driver, Coil 40 mode-switch safety & ECO derived sensors
 ```
 
 ## Supported Modbus Spaces & Types
@@ -76,10 +78,10 @@ custom_components/sprsun_modbus/
 6. Add unit tests in `tests/` covering register decoding, batch reads, climate mapping, and detection.
 7. Optionally add a controller-specific dashboard template `frontend/sprsun_dashboard_<controller>.json` (plus any new keys in `frontend/i18n/{en,pl}.json`). Until a dedicated template exists, the built-in Lovelace strategy automatically renders a clean fallback view of the controller's resolved entities.
 
-### Note on Archived CAREL Reference (`24c99a3`)
+### CAREL Controller Driver (`CarelController`)
 
-Before enabling a CAREL driver in production, the following items from the archived `docs/CAREL_MODBUS_REFERENCE.md` (commit `24c99a3`) must be verified against a live CAREL heat pump or official OEM Modbus spec:
+Implemented in `controllers/carel.py` and `controllers/carel_registers.py` (registered in `CONTROLLER_REGISTRY` after `"chico"`). See [CAREL_MODBUS_REFERENCE.md](CAREL_MODBUS_REFERENCE.md) for the complete OEM-verified register map:
 
-- **Power ON/OFF write address:** `10001` (`Unit On/OFF`) in the archived table is a read-only Discrete Input; the writable Coil or Holding Register for turning the unit ON/OFF (and error reset) was missing.
-- **Scaling & word order:** Several `REAL` entries have `byte = 1` (likely scaled `INT16` / `UINT16`, but pressure/current/COP multipliers are missing), while others have `byte = 2` (32-bit `FLOAT32` or `UDINT`, requiring endianness verification).
-- **Binary output polarity:** Discrete inputs `10006`–`10013` list `0:NO 1:OFF` in notes and must be checked for active-low (`inverted=True`) vs active-high behavior.
+- **Detection & Manual Selection:** `CarelController.detect()` checks `Holding 0..3` (mode `0..4` + at least one realistic setpoint `50..700` to reject all-zero frames), `Holding 215..217` (valid run mode & status `0..10`), and `Discrete Input 0` (FC `0x02`). Users can also explicitly pick `chico` or `carel` in the Config Flow.
+- **Power & Mode Switching Safety:** Power ON/OFF uses `Coil 40` (`async_read_coil()` / `async_write_coil()`). Mode changes on `Holding 0` (via either `climate` or `select` through `ControllerBase.async_write_select()`) perform the safe CAREL sequence `Coil 40 = False` → `Holding 0` → `Coil 40 = True` when the unit is running.
+- **Alarms & Safety Locks:** `DI 13..177` (165 bits) is read in a single FC `0x02` batch and aggregated into `alarm_active` (`binary_sensor`) + `active_alarms` (`sensor` with `alarms` list attribute). `Coil 41` (`00042`) is exposed as a diagnostic `reset_alarm` button. Factory reset registers (`Coil 57`, `Holding 332`) are permanently locked in `tests/test_protocol_invariants.py`.

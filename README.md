@@ -8,8 +8,8 @@
 Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using an RS485-to-WiFi/Ethernet bridge such as Elfin EW11). The integration allows reading parameters in real-time and fully managing heat pump operations.
 
 > ⚠️ **Controller Compatibility:**
-> - Currently tested on model **CGK-025V3L-B** with the **CHICO** controller.
-> - **Carel Controllers:** Support for Carel controllers can be added if anyone is willing to test and provide Modbus registers/logs.
+> - **CHICO Controller:** Production-tested on **CGK-025V3L-B** and compatible V3L-B touch-panel models.
+> - **CAREL Controller (Experimental / Beta):** Added in `v5.6.0-beta.1` for **CGK0x0V2** and **CGK025–060V3L** units (auto-detected or selectable during setup). See [CAREL Modbus Reference](docs/CAREL_MODBUS_REFERENCE.md); live feedback and diagnostic exports are welcome via GitHub Issues.
 
 ---
 

@@ -4,6 +4,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, Any
 
 from .base import ControllerBase
+from .carel import CarelController
 from .chico import ChicoController
 from .models import (
     BinarySensorSpec,
@@ -31,6 +32,7 @@ if TYPE_CHECKING:
 __all__ = [
     "BinarySensorSpec",
     "ButtonSpec",
+    "CarelController",
     "ChicoController",
     "ClimateCapabilities",
     "CONTROLLER_REGISTRY",
@@ -58,6 +60,7 @@ __all__ = [
 # Registry of supported controller drivers (detection runs in insertion order)
 CONTROLLER_REGISTRY: dict[str, type[ControllerBase]] = {
     "chico": ChicoController,
+    "carel": CarelController,
 }
 
 
