@@ -64,10 +64,10 @@ async def async_setup_entry(
 
 
 def _round_to_step(value: float, step: float) -> float:
-    """Round value to the nearest step (e.g. 0.5 or 1.0)."""
+    """Round value to the nearest step (e.g. 0.1, 0.5, or 1.0)."""
     if step <= 0:
         return value
-    return float(round(value / step + 1e-9) * step)
+    return round(float(round(value / step + 1e-9) * step), 4)
 
 
 class SPRSUNNumber(CoordinatorEntity, NumberEntity):

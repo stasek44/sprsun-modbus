@@ -266,5 +266,20 @@
   "outdoor_2": "Venku",
   "strategy_dashboard_title": "Tepelné čerpadlo SPRSUN",
   "notice_derived_sensors_disabled": "ℹ️ **Volitelné odvozené senzory jsou vypnuté.** Dlaždice jako *Provozní stav*, *Delta T vody*, *Cíl křivky ECO*, *Přehřátí*, *Námraza*, *Délka cyklu* a *Odhadovaný příkon* jsou skryté. Zapněte **Odvozené / výpočtové senzory** v **Nastavení → Zařízení a služby → SPRSUN Heat Pump (Modbus) → Konfigurovat** a obnovte dashboard.",
-  "notice_expert_writes_disabled": "🔒 **Sekce [EXPERT] je skrytá:** Tovární parametry (`H01–H18`, `F`, `R`, `Pásmo 1`) zůstanou skryté, dokud v **Konfiguraci** nezapnete **Expertní nastavení**."
+  "notice_expert_writes_disabled": "🔒 **Sekce [EXPERT] je skrytá:** Tovární parametry (`H01–H18`, `F`, `R`, `Pásmo 1`) zůstanou skryté, dokud v **Konfiguraci** nezapnete **Expertní nastavení**.",
+  "carel_unit_mode": "Provozní režim",
+  "carel_fan_mode": "Režim ventilátoru",
+  "carel_pump_mode": "Režim oběhového čerpadla",
+  "carel_heating_target": "Cílová teplota topení",
+  "carel_cooling_target": "Cílová teplota chlazení",
+  "carel_hot_water_target": "Cílová teplota TUV",
+  "carel_heating_hysteresis": "Hystereze topení/chlazení",
+  "carel_hot_water_hysteresis": "Hystereze TUV",
+  "carel_active_alarms": "Aktivní alarmy",
+  "carel_bldc_power": "Výkon motoru BLDC",
+  "carel_bldc_voltage": "Napětí motoru BLDC",
+  "carel_bldc_current": "Proud motoru BLDC",
+  "carel_eco_curves_heading": "Ekvitermní křivky ECO a noční režim",
+  "carel_defrost_pid_heading": "[EXPERT] Parametry odmrazování a PID",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Aktivní alarm:** {{ alarms }}. Před resetem zkontrolujte záložku **Diagnostika**.\n{% elif power == 'off' %}\n⚪ **Tepelné čerpadlo je VYPNUTO** ({{ st }}).\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Kompresor běží** — Stav: **{{ st }}**, Režim: **{{ run_mode }}**.\n{% else %}\n🟢 **Pohotovostní režim** — Stav: **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Upozornění:** Záložní elektrický ohřívač je aktivní.\n{% endif %}"
 }

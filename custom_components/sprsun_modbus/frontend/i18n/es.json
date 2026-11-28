@@ -266,5 +266,20 @@
   "outdoor_2": "Exterior",
   "strategy_dashboard_title": "Bomba de calor SPRSUN",
   "notice_derived_sensors_disabled": "ℹ️ **Los sensores calculados opcionales están desactivados.** Tarjetas como *Estado operativo*, *Delta T agua*, *Objetivo curva ECO*, *Recalentamientos*, *Escarcha*, *Duración ciclo* y *Potencia estimada* están ocultas. Actívelos en **Ajustes → Dispositivos y servicios → SPRSUN Heat Pump (Modbus) → Configurar → Sensores derivados** y recargue el panel.",
-  "notice_expert_writes_disabled": "🔒 **Sección [EXPERTO] oculta:** Los parámetros de fábrica (`H01–H18`, `F`, `R`, `Franja 1`) permanecen ocultos hasta activar **Ajustes de experto** en **Configurar**."
+  "notice_expert_writes_disabled": "🔒 **Sección [EXPERTO] oculta:** Los parámetros de fábrica (`H01–H18`, `F`, `R`, `Franja 1`) permanecen ocultos hasta activar **Ajustes de experto** en **Configurar**.",
+  "carel_unit_mode": "Modo de funcionamiento",
+  "carel_fan_mode": "Modo ventilador",
+  "carel_pump_mode": "Modo bomba",
+  "carel_heating_target": "Consigna calefacción",
+  "carel_cooling_target": "Consigna refrigeración",
+  "carel_hot_water_target": "Consigna ACS",
+  "carel_heating_hysteresis": "Histéresis calefacción/frío",
+  "carel_hot_water_hysteresis": "Histéresis ACS",
+  "carel_active_alarms": "Alarmas activas",
+  "carel_bldc_power": "Potencia motor BLDC",
+  "carel_bldc_voltage": "Voltaje motor BLDC",
+  "carel_bldc_current": "Corriente motor BLDC",
+  "carel_eco_curves_heading": "Curvas ECO y modo nocturno",
+  "carel_defrost_pid_heading": "[EXPERTO] Parámetros desescarche y PID",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Alarma activa:** {{ alarms }}. Revisa la pestaña **Diagnóstico** antes de reiniciar.\n{% elif power == 'off' %}\n⚪ **Bomba de calor APAGADA** ({{ st }}).\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Compresor en marcha** — Estado: **{{ st }}**, Modo: **{{ run_mode }}**.\n{% else %}\n🟢 **En espera** — Estado: **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Aviso:** Resistencia eléctrica de apoyo activa.\n{% endif %}"
 }

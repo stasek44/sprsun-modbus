@@ -120,6 +120,21 @@ def _temp_step_selector() -> selector.SelectSelector:
             options=[
                 selector.SelectOptionDict(value="1.0", label="1.0°C"),
                 selector.SelectOptionDict(value="0.5", label="0.5°C"),
+                selector.SelectOptionDict(value="0.1", label="0.1°C"),
+            ],
+            mode=selector.SelectSelectorMode.DROPDOWN,
+        )
+    )
+
+
+def _controller_type_selector() -> selector.SelectSelector:
+    """Return SelectSelector for controller type (auto-detect or explicit override)."""
+    return selector.SelectSelector(
+        selector.SelectSelectorConfig(
+            options=[
+                selector.SelectOptionDict(value="auto", label="Auto-detect (Recommended)"),
+                selector.SelectOptionDict(value="chico", label="CHICO (CGK-V3L-B / Touch)"),
+                selector.SelectOptionDict(value="carel", label="CAREL (CGK-V2 / V3L — Experimental)"),
             ],
             mode=selector.SelectSelectorMode.DROPDOWN,
         )
@@ -202,6 +217,9 @@ class SPRSUNConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_DEVICE_ADDRESS, default=DEFAULT_DEVICE_ADDRESS
                 ): _device_address_selector(),
+                vol.Optional(
+                    CONF_CONTROLLER_TYPE, default="auto"
+                ): _controller_type_selector(),
                 vol.Optional(
                     CONF_SCAN_INTERVAL, default=DEFAULT_SCAN_INTERVAL
                 ): _scan_interval_selector(),

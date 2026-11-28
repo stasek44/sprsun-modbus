@@ -5,11 +5,29 @@
 [![License](https://img.shields.io/github/license/stasek44/sprsun-modbus.svg)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-Donate-yellow.svg?logo=buy-me-a-coffee)](https://buymeacoffee.com/stasek44)
 
-Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using an RS485-to-WiFi/Ethernet bridge such as Elfin EW11). The integration allows reading parameters in real-time and fully managing heat pump operations.
+Local Home Assistant integration for SPRSUN heat pumps over Modbus TCP (via an RS485-to-WiFi/Ethernet gateway such as Elfin EW11). Provides real-time telemetry, full climate/DHW control, built-in native dashboards, and optional optimization diagnostics — with zero cloud dependency.
 
-> ⚠️ **Controller Compatibility:**
-> - Currently tested on model **CGK-025V3L-B** with the **CHICO** controller.
-> - **Carel Controllers:** Support for Carel controllers can be added if anyone is willing to test and provide Modbus registers/logs.
+**Controller Compatibility:**
+- **CHICO Controller:** Tested on my own **CGK-025V3L-B** unit (and compatible V3L-B touch-panel models).
+- **CAREL Controller (Experimental / Beta):** Added for **CGK0x0V2** and **CGK025–060V3L** units (auto-detected or selectable during setup). I do not own a CAREL pump myself, so live feedback, logs, and diagnostic exports via GitHub Issues are greatly appreciated!
+
+---
+
+## Installation
+
+### Via HACS (Recommended)
+1. In Home Assistant, open **HACS** (or **Settings** → **Marketplace**).
+2. Search for **SPRSUN Heat Pump (Modbus)**, click **Download**, and restart Home Assistant.
+
+[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=stasek44&repository=sprsun-modbus&category=integration)
+
+<details>
+<summary>Alternative: Custom Repository in HACS (beta / pre-release) or Manual Install</summary>
+
+1. **HACS Custom Repository:** Open HACS menu → **Custom repositories** → add `https://github.com/stasek44/sprsun-modbus` (**Integration**), download, and restart Home Assistant.
+2. **Manual Installation:** Copy `custom_components/sprsun_modbus` into `<config>/custom_components/` and restart Home Assistant.
+
+</details>
 
 ---
 
@@ -44,85 +62,50 @@ Home Assistant integration for SPRSUN heat pumps via Modbus TCP (using an RS485-
 
 ---
 
-## Installation
-
-### Via HACS (Recommended)
-1. In Home Assistant, open **HACS** (or **Settings** → **Marketplace**).
-2. Search for **SPRSUN Heat Pump (Modbus)**, click **Download**, and restart Home Assistant.
-
-Or open directly via My Home Assistant:
-
-[![Open your Home Assistant instance and open a repository inside the Home Assistant Community Store.](https://my.home-assistant.io/badges/hacs_repository.svg)](https://my.home-assistant.io/redirect/hacs_repository/?owner=stasek44&repository=sprsun-modbus&category=integration)
-
-<details>
-<summary>Alternative: Custom Repository in HACS (beta / pre-release or manual catalog)</summary>
-
-1. In HACS, open the menu (top right) → **Custom repositories**.
-2. Add repository URL: `https://github.com/stasek44/sprsun-modbus` with category **Integration**.
-3. Search for **SPRSUN Heat Pump (Modbus)**, click **Download**, and restart Home Assistant.
-
-</details>
-
-### Manual Installation
-Copy `custom_components/sprsun_modbus` into your Home Assistant directory under `<config>/custom_components/` and restart Home Assistant.
-
----
-
 ## Configuration
 
-In Home Assistant, go to **Settings** → **Devices & Services** → **Add Integration** and search for **SPRSUN Heat Pump (Modbus)**.
+Go to **Settings** → **Devices & Services** → **Add Integration** → **SPRSUN Heat Pump (Modbus)**.
 
-### Connection & Options Parameters
+| Parameter | Default | Description |
+| :--- | :---: | :--- |
+| **Host / Port / Device Address** | `—` / `502` / `1` | Modbus TCP gateway IP, port, and slave ID |
+| **Controller Type** | `Auto-detect` | Automatically detects `CHICO` first, then `CAREL` (or choose manually) |
+| **Scan Interval** | `10s` | Fast telemetry polling interval (`10–30s` recommended) |
+| **Temperature Step** | `1.0°C` | Target setpoint step (`1.0°C`, `0.5°C`, or `0.1°C` for CAREL) |
+| **Enable Derived Sensors** | `False` | Opt-in virtual sensors (filtered ambient, Delta T, ECO targets, defrost/24h counters) |
+| **Enable Expert Settings** | `False` | Opt-in factory/engineering parameters (`box` mode; dangerous reset bits locked) |
 
-| Parameter | Type | Default | Description |
-| :--- | :--- | :--- | :--- |
-| **Host** | `string` | *Required* | IP address or hostname of the Modbus bridge (e.g. `192.168.1.200`) |
-| **Port** | `integer` | `502` | Modbus TCP port |
-| **Device Address** | `integer` | `1` | Modbus slave ID |
-| **Scan Interval** | `integer` | `10` | Polling interval in seconds (recommended: `10`–`30`) |
-| **Temperature Step** | `float` | `1.0` | Step size for target temperatures (`1.0°C` or `0.5°C`). `1.0°C` is default and recommended; `0.5°C` can be set if supported by your firmware |
-| **Enable Derived / Calculated Sensors** | `boolean` | `False` | **Opt-in (Configure):** Adds `13` virtual calculated sensors (filtered ambient temp, operating state, ECO curve target & delta, cycle durations, defrost interval, coil-ambient delta, water delta T, condenser approach, superheats, experimental power estimate) |
-| **Enable Expert Settings** | `boolean` | `False` | **Advanced / Risky (Opt-in):** Exposes CHICO engineering/factory parameters (`H`/`A`/`B`/`D`/`F`/`R`, Timebands, control bits) as both read-only **Diagnostic** sensors (`353`) and writable **Configuration** controls (`337`, `box` input mode). Keep disabled unless you understand each parameter |
-
-> Settings such as **Scan Interval**, **Temperature Step**, **Enable Derived / Calculated Sensors**, and **Enable Expert Settings** can also be adjusted at any time via **Configure** on the integration card (changes trigger an automatic integration reload).
+> Options can be changed anytime via **Configure** on the integration card (reloads automatically).
 
 ---
 
-## Features & Entity Organization
+## Key Features
 
-- **Single Home Assistant Device (`SPRSUN Heat Pump`):** All controls, telemetry sensors, diagnostics, and optional expert configuration entities are grouped under one device.
-- **Polling Architecture:**
-  - **Fast Telemetry (`0x0000–0x0031`):** 1 contiguous read every `scan_interval` (49 sensors + 49 binary status/alarm sensors), with automatic exponential backoff up to `300s` when the gateway/unit is offline and instant recovery on the first successful poll.
-  - **RW & Expert Batches (`0x0032–0x01BB`):** Read at startup and refreshed every 20 poll cycles using batched reads that skip unmapped `Invalid` gaps.
-- **Clean Default Device (`149` Core Entities):** Fresh setups expose only the `149` core entities (`49` sensors, `49` binary sensors, `42` numbers, `3` selects, `3` switches, `1` button, `2` climate entities). Integration diagnostics download (`diagnostics.py`) still captures all polled parameters regardless of UI entity toggles.
-- **Opt-In Expert Settings (`enable_expert_writes`, default `False`):** When enabled in **Configure**, adds both the `353` read-only **Diagnostic** entities (`336` sensors + `17` binary sensors for `H`, `A`, `B`, `D`, `F`, `R`, Timebands, hidden by default in the registry to avoid duplicating writable controls) and `337` writable **Configuration** entities (`322` numeric parameters in `box` mode, `2` selects, `13` switches with read-modify-write masking). Previously existing `CORE` controls (`P01–P07`, `E01–E24`, `G01–G11`, Antilegionella, `Power Switch`, `Failure Reset`, `2x Climate`) remain enabled and untouched. Dangerous factory reset bits (`parameters_reset_flag`, `0x0033` bit 6) and unconfirmed registers stay read-only.
-- **Opt-In Derived / Calculated Sensors (`enable_derived_sensors`, default `False`):** When enabled in **Configure**, adds `17` virtual calculated sensors (each carrying `description` and `formula` attributes in HA):
-  - **Filtered Ambient Temperature (`ambient_temp_filtered`):** Freezes outdoor temperature during defrost and holds post-defrost for up to 7 minutes of outdoor fan runtime (capped at 45 minutes if idle) or until the air cools back down, preventing stagnant warm casing air from distorting outdoor readings.
-  - **Operating State (`operating_state`):** Human-readable summary (`off`, `idle`, `heating`, `cooling`, `hot_water`, `heating_hot_water`, `cooling_hot_water`, `defrost`, `antilegionella`, `alarm`).
-  - **ECO Curve Target & Delta (`eco_active_setpoint`, `eco_setpoint_delta`):** Interpolated target temperature from `E01–E24` using the filtered ambient temperature and active mode, plus live `outlet_temp - eco_active_setpoint` offset.
-  - **Cycle Durations, 24h Rolling Counters & Defrost Tracking (`compressor_last_run_duration`, `defrost_last_duration`, `defrost_last_interval`, `coil_ambient_delta`, `defrost_count_24h`, `defrost_time_24h`, `compressor_starts_24h`, `heaters_time_24h`):** Live and last-completed cycle durations (with `last_completed_minutes` attribute), defrost interval in minutes, non-negative `max(0, ambient_temp_filtered - coil_temp)` frost buildup tracking (`0.0 °C` during defrost), and rolling 24h defrost/compressor/backup-heater counters persisted across HA restarts.
-  - **Heat Exchanger & Refrigerant Diagnostics:** `water_delta_t` (`outlet - inlet`, naturally negative during reverse-cycle defrost/cooling), `condenser_approach_temp` (`cond - outlet`), `suction_superheat` (`suction - evap`), and `discharge_superheat` (`exhaust - cond`).
-  - **Estimated Electrical Power (`estimated_power`, Experimental):** Empirical 2-state approximation from compressor frequency, condensation-to-ambient temperature lift, and chassis heater state. Marked `experimental: true` with a disclaimer — calibrated on a 3-phase unit without backup immersion heaters and **not** a substitute for a dedicated power meter.
-- **Pre-release Debug Logging:** Beta/test versions (`alpha`/`beta`/`rc`/`dev`) automatically default the integration logger level to `DEBUG` for diagnostics.
+- **Full Local Control & Telemetry:** Heating/Cooling + DHW thermostats, setpoints, operating/fan/pump modes, temperatures, pressures, inverter telemetry, relays, and fault diagnostics under a single Home Assistant device.
+- **Multi-Controller Support:** Dedicated drivers for **CHICO** and **CAREL** (Holding Registers, Discrete Inputs, Coils, safe mode-switching, masked bitfield writes, exponential reconnect backoff).
+- **Built-in Native Dashboards:** Zero-YAML Lovelace strategies (`custom:sprsun` and `custom:sprsun-control`) with automatic entity mapping and 10-language UI support (`EN`/`PL`/`FR`/`DE`/`ES`/`CS`/`SK`/`HU`/`LT`/`UK`) for both CHICO and CAREL.
+- **Opt-In Diagnostics & Tuning:** Optional derived/calculated sensors (24h persistent counters, ECO curve tracking, frost/defrost analysis) and opt-in expert parameters with safety locks.
+
+👉 See **[Features & Entity Organization](docs/FEATURES.md)** for full entity counts, polling tiers, derived sensor formulas, and expert settings details.
 
 ---
 
 ## Documentation
 
-- 🎛️ **[Built-in Native HA Dashboards (EN)](docs/DASHBOARD.md)** / **[Polski przewodnik (PL)](docs/DASHBOARD_PL.md)**: Built-in 100% native Home Assistant Lovelace strategies (`Default`, `Detailed`, `Diagnostics`, `Optimization` + compact quick-control section) with automatic UI language (`EN`/`PL`/`FR`/`DE`/`ES`/`CS`/`SK`/`HU`/`LT`/`UK`) and automatic entity detection — no YAML copy-paste or HACS custom cards required.
-- 📖 **[CHICO Parameters & Settings Guide](docs/CHICO_PARAMETERS_GUIDE.md)**: Detailed explanations of all parameters (`P`, `E`, `G`, and `H`/`A`/`B`/`D`/`F`/`R`/Timeband expert series), weather curves, safety limits, and practical tips.
-- 📚 **[CHICO Modbus Protocol Reference](docs/CHICO_MODBUS_REFERENCE.md)**: Complete `0x0000–0x01BB` register map with live hardware observations, data types, scales, batching layout, and bitfield definitions.
-- 🧩 **[Multi-Controller Architecture Guide](docs/CONTROLLER_ARCHITECTURE.md)**: Package layout, `ControllerBase` driver interface, polling/batching model, masked writes, and safety architecture.
+| Guide | Description |
+| :--- | :--- |
+| **[Features & Entity Organization](docs/FEATURES.md)** | Polling tiers, default vs opt-in entities, derived sensors, and expert settings |
+| **[Built-in Native HA Dashboards](docs/DASHBOARD.md)** | Setup guide for built-in Lovelace dashboards and quick-control section (10 languages) |
+| **[CHICO Parameters Guide](docs/CHICO_PARAMETERS_GUIDE.md)** | Explanations of CHICO `P`, `E`, `G`, and expert `H`/`A`/`B`/`D`/`F`/`R` parameters |
+| **[CHICO Modbus Reference](docs/CHICO_MODBUS_REFERENCE.md)** | Complete `0x0000–0x01BB` register map, data types, scales, and bitfields |
+| **[CAREL Modbus Reference](docs/CAREL_MODBUS_REFERENCE.md)** | OEM-verified CAREL registers, discrete inputs, coils, alarms, and safety locks |
+| **[Multi-Controller Architecture](docs/CONTROLLER_ARCHITECTURE.md)** | Developer guide: `ControllerBase` driver interface, batching, and safety invariants |
 
 ---
 
 ## Development & Testing
 
 ```bash
-# Run unit tests locally
-python3 -m unittest discover tests
-
-# Or run with pytest and ruff
 pytest tests/ -v
 ruff check custom_components/
 ```

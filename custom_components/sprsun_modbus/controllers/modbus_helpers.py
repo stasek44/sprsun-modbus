@@ -114,8 +114,8 @@ def decode_batch_into_data(
                 continue
             if start_address <= spec.address < end_address:
                 idx = spec.address - start_address
-                val = bool(raw_values[idx])
-                data[spec.key] = (not val) if spec.inverted else val
+                # Store raw hardware state; SPRSUNBinarySensor.is_on applies spec.inverted once.
+                data[spec.key] = bool(raw_values[idx])
                 decoded += 1
             continue
 
@@ -130,8 +130,8 @@ def decode_batch_into_data(
                         decoded += 1
             elif start_address <= spec.address < end_address:
                 idx = spec.address - start_address
-                val = bool(raw_values[idx])
-                data[spec.key] = (not val) if spec.inverted else val
+                # Store raw hardware state; SPRSUNSwitch.is_on/_async_set_state applies spec.inverted once.
+                data[spec.key] = bool(raw_values[idx])
                 decoded += 1
             continue
 

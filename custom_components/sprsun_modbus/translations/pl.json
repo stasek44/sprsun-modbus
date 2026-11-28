@@ -9,11 +9,13 @@
           "host": "Adres IP",
           "port": "Port",
           "device_address": "Adres Modbus (1-247)",
+          "controller_type": "Typ sterownika",
           "scan_interval": "Interwał skanowania (5-300 sekund)",
           "temp_step": "Krok temperatury (°C)"
         },
         "data_description": {
-          "temp_step": "Domyślnie 1.0°C. Niektóre pompy pozwalają na bardziej precyzyjne sterowanie co 0.5°C, ale nie ma gwarancji, że będzie to działać na każdym oprogramowaniu."
+          "controller_type": "Automatyczne wykrywanie sprawdza najpierw CHICO, a następnie CAREL. Wybierz sterownik ręcznie tylko jeśli wykrywanie zawiedzie.",
+          "temp_step": "Domyślnie 1.0°C. Niektóre pompy pozwalają na bardziej precyzyjne sterowanie co 0.5°C lub 0.1°C (CAREL), ale nie ma gwarancji, że będzie to działać na każdym oprogramowaniu."
         }
       }
     },

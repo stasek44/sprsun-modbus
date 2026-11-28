@@ -354,8 +354,8 @@ class TestModbusBatchHelpers(unittest.TestCase):
         # Simulate discrete inputs 5 and 149 individually
         decode_batch_into_data(controller.get_binary_sensors(), RegisterSpace.DISCRETE_INPUT, 5, [True], data)
         decode_batch_into_data(controller.get_binary_sensors(), RegisterSpace.DISCRETE_INPUT, 149, [True], data)
-        # alt_output_inv is inverted=True, raw=True -> False
-        self.assertFalse(data["alt_output_inv"])
+        # decode_batch_into_data stores raw hardware bit; SPRSUNBinarySensor.is_on applies inverted=True once
+        self.assertTrue(data["alt_output_inv"])
         self.assertTrue(data["alt_alarm"])
 
         # Simulate coil 105

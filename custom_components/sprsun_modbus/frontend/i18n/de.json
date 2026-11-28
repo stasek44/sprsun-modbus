@@ -266,5 +266,20 @@
   "outdoor_2": "Außen",
   "strategy_dashboard_title": "SPRSUN Wärmepumpe",
   "notice_derived_sensors_disabled": "ℹ️ **Optionale abgeleitete Sensoren sind deaktiviert.** Kacheln wie *Betriebszustand*, *Wasser Delta T*, *ECO-Kurve Sollwert*, *Überhitzung*, *Reif*, *Zyklusdauer* und *Geschätzte Leistung* sind ausgeblendet. Aktivieren Sie **Abgeleitete Sensoren** unter **Einstellungen → Geräte & Dienste → SPRSUN Heat Pump (Modbus) → Konfigurieren** und laden Sie das Dashboard neu.",
-  "notice_expert_writes_disabled": "🔒 **[EXPERTE]-Bereich ausgeblendet:** Werksparameter (`H01–H18`, `F`, `R`, `Zeitfenster 1`) bleiben verborgen, bis Sie **Experteneinstellungen aktivieren** unter **Konfigurieren** einschalten."
+  "notice_expert_writes_disabled": "🔒 **[EXPERTE]-Bereich ausgeblendet:** Werksparameter (`H01–H18`, `F`, `R`, `Zeitfenster 1`) bleiben verborgen, bis Sie **Experteneinstellungen aktivieren** unter **Konfigurieren** einschalten.",
+  "carel_unit_mode": "Betriebsmodus",
+  "carel_fan_mode": "Lüftermodus",
+  "carel_pump_mode": "Pumpenmodus",
+  "carel_heating_target": "Heizung Zieltemp.",
+  "carel_cooling_target": "Kühlung Zieltemp.",
+  "carel_hot_water_target": "Warmwasser Zieltemp.",
+  "carel_heating_hysteresis": "Heizen/Kühlen Hysterese",
+  "carel_hot_water_hysteresis": "Warmwasser Hysterese",
+  "carel_active_alarms": "Aktive Alarme",
+  "carel_bldc_power": "BLDC-Motorleistung",
+  "carel_bldc_voltage": "BLDC-Motorspannung",
+  "carel_bldc_current": "BLDC-Motorstrom",
+  "carel_eco_curves_heading": "ECO-Heizkurven & Nachtmodus",
+  "carel_defrost_pid_heading": "[EXPERTE] Abtau- & PID-Parameter",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Alarm aktiv:** {{ alarms }}. Prüfe den Tab **Diagnose** vor dem Zurücksetzen.\n{% elif power == 'off' %}\n⚪ **Wärmepumpe ist AUS** ({{ st }}). Schalte unten ein, um den Betrieb fortzusetzen.\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Kompressor läuft** — Status: **{{ st }}**, Modus: **{{ run_mode }}**.\n{% else %}\n🟢 **Bereitschaft** — Status: **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Hinweis:** Elektrischer Heizstab ist aktiv.\n{% endif %}"
 }

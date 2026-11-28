@@ -662,6 +662,28 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
         )
         return True
 
+    def _sync_read_coil(self, address: int, key: str | None = None) -> bool:
+        """Read a single Modbus coil (FC 0x01) synchronously with auto-reconnect."""
+        result = self._execute_with_reconnect(
+            lambda: self.client.read_coils(
+                address=address,
+                count=1,
+                device_id=self.device_address,
+            ),
+            f"read coil 0x{address:04X}",
+        )
+        bits = getattr(result, "bits", None)
+        if not bits:
+            raise ValueError(f"Empty response reading coil 0x{address:04X}")
+
+        bool_val = bool(bits[0])
+        if key is not None:
+            if not isinstance(self.data, dict):
+                self.data = {}
+            self.data[key] = {"value": bool_val, "updated_at": time.time()}
+        _LOGGER.debug("Read live coil 0x%04X = %s (key=%s)", address, bool_val, key)
+        return bool_val
+
     def _sync_write_coil(self, address: int, value: bool, key: str | None = None) -> bool:
         """Write a single Modbus coil (FC 0x05) synchronously with auto-reconnect."""
         bool_val = bool(value)
@@ -680,6 +702,19 @@ class SPRSUNDataUpdateCoordinator(DataUpdateCoordinator):
             self.data[key] = {"value": bool_val, "updated_at": time.time()}
         _LOGGER.info("Wrote coil 0x%04X = %s (key=%s)", address, bool_val, key)
         return True
+
+    async def async_read_coil(
+        self,
+        address: int,
+        key: str | None = None,
+    ) -> bool:
+        """Async thread-safe wrapper for single Modbus coil read."""
+        async with self._lock:
+            return await self.hass.async_add_executor_job(
+                self._sync_read_coil,
+                address,
+                key,
+            )
 
     async def async_read_register(
         self,

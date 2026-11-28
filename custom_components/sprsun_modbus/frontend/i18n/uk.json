@@ -266,5 +266,20 @@
   "outdoor_2": "Зовні",
   "strategy_dashboard_title": "Тепловий насос SPRSUN",
   "notice_derived_sensors_disabled": "ℹ️ **Опціональні розрахункові сенсори вимкнено.** Плитки *Робочий стан*, *Delta T води*, *Ціль кривої ECO*, *Перегрів*, *Іній*, *Тривалість циклу* та *Орієнтовна потужність* приховані. Увімкніть їх у **Налаштування → Пристрої та служби → SPRSUN Heat Pump (Modbus) → Налаштувати → Розрахункові сенсори** й оновіть панель.",
-  "notice_expert_writes_disabled": "🔒 **Розділ [ЕКСПЕРТ] приховано:** Заводські параметри (`H01–H18`, `F`, `R`, `Розклад 1`) залишаються прихованими, доки не увімкнете **Експертні налаштування** в конфігурації інтеграції."
+  "notice_expert_writes_disabled": "🔒 **Розділ [ЕКСПЕРТ] приховано:** Заводські параметри (`H01–H18`, `F`, `R`, `Розклад 1`) залишаються прихованими, доки не увімкнете **Експертні налаштування** в конфігурації інтеграції.",
+  "carel_unit_mode": "Режим роботи",
+  "carel_fan_mode": "Режим вентилятора",
+  "carel_pump_mode": "Режим циркуляційного насоса",
+  "carel_heating_target": "Цільова темп. опалення",
+  "carel_cooling_target": "Цільова темп. охолодження",
+  "carel_hot_water_target": "Цільова темп. ГВП",
+  "carel_heating_hysteresis": "Гістерезис опалення/охолодження",
+  "carel_hot_water_hysteresis": "Гістерезис ГВП",
+  "carel_active_alarms": "Активні аварії",
+  "carel_bldc_power": "Потужність двигуна BLDC",
+  "carel_bldc_voltage": "Напруга двигуна BLDC",
+  "carel_bldc_current": "Струм двигуна BLDC",
+  "carel_eco_curves_heading": "Погодні криві ECO та нічний режим",
+  "carel_defrost_pid_heading": "[ЕКСПЕРТ] Параметри розморожування та PID",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Активна аварія:** {{ alarms }}. Перевірте вкладку **Діагностика** перед скиданням.\n{% elif power == 'off' %}\n⚪ **Тепловий насос ВИМКНЕНО** ({{ st }}).\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Компресор працює** — Статус: **{{ st }}**, Режим: **{{ run_mode }}**.\n{% else %}\n🟢 **Очікування** — Статус: **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Увага:** Активний додатковий електронагрівач.\n{% endif %}"
 }

@@ -266,5 +266,20 @@
   "outdoor_2": "Extérieur",
   "strategy_dashboard_title": "Pompe à chaleur SPRSUN",
   "notice_derived_sensors_disabled": "ℹ️ **Les capteurs calculés optionnels sont désactivés.** Les tuiles telles que *État de marche*, *Delta T eau*, *Cible courbe ECO*, *Surchauffes*, *Givre*, *Durée cycle* et *Puissance estimée* sont masquées. Activez **Capteurs dérivés** dans **Paramètres → Appareils et services → SPRSUN Heat Pump (Modbus) → Configurer** puis actualisez le tableau de bord.",
-  "notice_expert_writes_disabled": "🔒 **Section [EXPERT] masquée :** Les paramètres usine (`H01–H18`, `F`, `R`, `Plage 1`) restent masqués tant que vous n’activez pas **Paramètres experts** dans **Configurer**."
+  "notice_expert_writes_disabled": "🔒 **Section [EXPERT] masquée :** Les paramètres usine (`H01–H18`, `F`, `R`, `Plage 1`) restent masqués tant que vous n’activez pas **Paramètres experts** dans **Configurer**.",
+  "carel_unit_mode": "Mode de fonctionnement",
+  "carel_fan_mode": "Mode ventilateur",
+  "carel_pump_mode": "Mode pompe",
+  "carel_heating_target": "Consigne chauffage",
+  "carel_cooling_target": "Consigne refroidissement",
+  "carel_hot_water_target": "Consigne ECS",
+  "carel_heating_hysteresis": "Hystérésis chauffage/froid",
+  "carel_hot_water_hysteresis": "Hystérésis ECS",
+  "carel_active_alarms": "Alarmes actives",
+  "carel_bldc_power": "Puissance moteur BLDC",
+  "carel_bldc_voltage": "Tension moteur BLDC",
+  "carel_bldc_current": "Courant moteur BLDC",
+  "carel_eco_curves_heading": "Courbes ECO & Mode nuit",
+  "carel_defrost_pid_heading": "[EXPERT] Paramètres dégivrage & PID",
+  "carel_status_summary": "{% set power = states('[[ent:switch:power]]') %}\n{% set st = states('[[ent:sensor:unit_status]]') %}\n{% set run_mode = states('[[ent:sensor:unit_run_mode]]') %}\n{% set alarm = is_state('[[ent:binary_sensor:alarm_active]]', 'on') %}\n{% set alarms = states('[[ent:sensor:active_alarms]]') %}\n{% set heater = is_state('[[ent:binary_sensor:electric_heater]]', 'on') %}\n{% if alarm %}\n🔴 **Alarme active :** {{ alarms }}. Vérifiez l'onglet **Diagnostics** avant de réinitialiser.\n{% elif power == 'off' %}\n⚪ **Pompe à chaleur arrêtée** ({{ st }}).\n{% elif is_state('[[ent:binary_sensor:compressor_running]]', 'on') %}\n🔥 **Compresseur actif** — Statut : **{{ st }}**, Mode : **{{ run_mode }}**.\n{% else %}\n🟢 **Veille / Prête** — Statut : **{{ st }}**.\n{% endif %}\n{% if heater %}\n⚠️ **Attention :** Résistance électrique d'appoint active.\n{% endif %}"
 }

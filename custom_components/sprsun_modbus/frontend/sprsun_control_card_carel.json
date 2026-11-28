@@ -1,0 +1,151 @@
+{
+  "type": "vertical-stack",
+  "title": "[[t:sprsun_heat_pump]]",
+  "cards": [
+    {
+      "type": "conditional",
+      "conditions": [
+        {
+          "condition": "state",
+          "entity": "[[ent:binary_sensor:alarm_active]]",
+          "state": "on"
+        }
+      ],
+      "card": {
+        "type": "tile",
+        "entity": "[[ent:button:reset_alarm]]",
+        "name": "[[t:heat_pump_alarm_tap_to_reset_fault]]",
+        "icon": "mdi:alert-octagon",
+        "color": "red"
+      }
+    },
+    {
+      "type": "horizontal-stack",
+      "cards": [
+        {
+          "type": "tile",
+          "entity": "[[ent:switch:power]]",
+          "name": "[[t:power]]",
+          "icon": "mdi:power",
+          "color": "green"
+        },
+        {
+          "type": "tile",
+          "entity": "[[ent:select:unit_mode]]",
+          "name": "[[t:carel_unit_mode]]",
+          "icon": "mdi:heat-pump"
+        }
+      ]
+    },
+    {
+      "type": "horizontal-stack",
+      "cards": [
+        {
+          "type": "tile",
+          "entity": "[[ent:select:fan_mode]]",
+          "name": "[[t:carel_fan_mode]]",
+          "icon": "mdi:fan",
+          "color": "teal"
+        },
+        {
+          "type": "tile",
+          "entity": "[[ent:sensor:unit_status]]",
+          "name": "[[t:state]]",
+          "icon": "mdi:state-machine"
+        }
+      ]
+    },
+    {
+      "type": "grid",
+      "columns": 2,
+      "square": false,
+      "cards": [
+        {
+          "type": "tile",
+          "entity": "[[ent:number:heating_setpoint]]",
+          "name": "[[t:carel_heating_target]]",
+          "icon": "mdi:radiator",
+          "color": "orange",
+          "features": [
+            {
+              "type": "numeric-input",
+              "style": "buttons"
+            }
+          ]
+        },
+        {
+          "type": "tile",
+          "entity": "[[ent:number:temp_diff_start]]",
+          "name": "[[t:carel_heating_hysteresis]]",
+          "icon": "mdi:arrow-expand-vertical",
+          "color": "deep-orange",
+          "features": [
+            {
+              "type": "numeric-input",
+              "style": "buttons"
+            }
+          ]
+        },
+        {
+          "type": "tile",
+          "entity": "[[ent:number:hotwater_setpoint]]",
+          "name": "[[t:carel_hot_water_target]]",
+          "icon": "mdi:water-boiler",
+          "color": "red",
+          "features": [
+            {
+              "type": "numeric-input",
+              "style": "buttons"
+            }
+          ]
+        },
+        {
+          "type": "tile",
+          "entity": "[[ent:number:hotwater_start_diff]]",
+          "name": "[[t:carel_hot_water_hysteresis]]",
+          "icon": "mdi:arrow-expand-vertical",
+          "color": "deep-orange",
+          "features": [
+            {
+              "type": "numeric-input",
+              "style": "buttons"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "type": "glance",
+      "title": "[[t:live_temperatures_compressor]]",
+      "show_name": true,
+      "show_state": true,
+      "entities": [
+        {
+          "entity": "[[ent:sensor:outlet_temp]]",
+          "name": "[[t:supply]]",
+          "icon": "mdi:water-arrow-right"
+        },
+        {
+          "entity": "[[ent:sensor:inlet_temp]]",
+          "name": "[[t:return]]",
+          "icon": "mdi:water-arrow-left"
+        },
+        {
+          "entity": "[[ent:sensor:hotwater_temp]]",
+          "name": "[[t:dhw_tank]]",
+          "icon": "mdi:water-boiler"
+        },
+        {
+          "entity": "[[ent:sensor:ambient_temp]]",
+          "name": "[[t:outdoor_2]]",
+          "icon": "mdi:thermometer"
+        },
+        {
+          "entity": "[[ent:sensor:compressor_speed]]",
+          "name": "[[t:compressor]]",
+          "icon": "mdi:sine-wave"
+        }
+      ]
+    }
+  ]
+}
